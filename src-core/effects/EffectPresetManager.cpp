@@ -665,6 +665,7 @@ EffectPreset* EffectPresetManager::GenerateAutomatedPreset(EffectPresetGroup* pa
         effNode.append_attribute("layer").set_value(spec.layerIndex);
         effNode.append_attribute("start").set_value(spec.startTimeMS);
         effNode.append_attribute("end").set_value(spec.endTimeMS);
+        effNode.append_attribute("blend").set_value(spec.blendMode.c_str());
 
         for (const auto& kv : spec.parameters) {
             effNode.append_attribute(kv.first.c_str()).set_value(kv.second.c_str());

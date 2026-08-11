@@ -168,9 +168,36 @@ public:
     struct AutomatedPresetLayerSpec {
         std::string effectName;
         std::map<std::string, std::string> parameters;
-        int layerIndex = 0;
+        int layerIndex = 0;                     // 0-indexed track layer position
         int startTimeMS = 0;
         int endTimeMS = 5000;
+        std::string blendMode = "Normal";       // e.g. "Normal", "Additive", "Layered"
+    };
+
+    struct MultiLayerPresetSpec {
+        std::string presetName;
+        std::string description;
+        std::vector<AutomatedPresetLayerSpec> layers;
+        int totalDurationMS = 5000;
+
+        nlohmann::json ToJson() const {
+            nlohmann::json j;
+            j["presetName"] = presetName;
+            j["description"] = description;
+            j["totalDurationMS"] = totalDurationMS;
+            j["layers"] = nlohmann::json::array();
+            for (const auto& layer : layers) {
+                nlohmann::json lj;
+                lj["effectName"] = layer.effectName;
+                lj["layerIndex"] = layer.layerIndex;
+                lj["startTimeMS"] = layer.startTimeMS;
+                lj["endTimeMS"] = layer.endTimeMS;
+                lj["blendMode"] = layer.blendMode;
+                lj["parameters"] = layer.parameters;
+                j["layers"].push_back(lj);
+            }
+            return j;
+        }
     };
 
     EffectPreset* GenerateAutomatedPreset(EffectPresetGroup* parent, const std::string& name,
