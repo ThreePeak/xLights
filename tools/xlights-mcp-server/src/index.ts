@@ -140,6 +140,22 @@ const MCP_TOOLS = [
         inputSchema: { type: "object", properties: {} }
     },
     {
+        name: "insert_effect",
+        description: "Pushes effect parameters (target model, effect name, start/end timing, color palette) to active timeline tracks",
+        inputSchema: {
+            type: "object",
+            properties: {
+                model_name: { type: "string", description: "Target display model name e.g. MegaTree, House Outline" },
+                effect_name: { type: "string", description: "Effect type e.g. SingleStrand, ColorWash, Twinkle, Bars, Fire, Butterfly" },
+                start_ms: { type: "integer", description: "Start time in milliseconds" },
+                end_ms: { type: "integer", description: "End time in milliseconds" },
+                palette: { type: "array", items: { type: "string" }, description: "Color hex strings array e.g. ['#FF0000', '#00FF00']" },
+                settings: { type: "object", description: "Optional effect settings key-value object" }
+            },
+            required: ["model_name", "effect_name", "start_ms", "end_ms"]
+        }
+    },
+    {
         name: "xlights_set_effect",
         description: "Place an effect onto a target model in the active sequence",
         inputSchema: {
@@ -186,6 +202,8 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "xlights_render_sequence": return await httpPost("/api/render", args);
         case "xlights_play_sequence": return await httpPost("/api/play", {});
         case "xlights_stop_sequence": return await httpPost("/api/stop", {});
+        case "insert_effect":
+        case "xlights_insert_effect":
         case "xlights_set_effect": return await httpPost("/api/effect", args);
         case "xlights_generate_value_curve": return await httpPost("/api/ai/value_curve", args);
         default: return { error: `Unknown tool: ${name}` };

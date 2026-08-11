@@ -85,6 +85,22 @@ MCP_TOOLS = [
         "inputSchema": {"type": "object", "properties": {}}
     },
     {
+        "name": "insert_effect",
+        "description": "Pushes effect parameters (target model, effect name, start/end timing, color palette) to active timeline tracks",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model_name": {"type": "string", "description": "Target display model name e.g. MegaTree, House Outline"},
+                "effect_name": {"type": "string", "description": "Effect type e.g. SingleStrand, ColorWash, Twinkle, Bars, Fire, Butterfly"},
+                "start_ms": {"type": "integer", "description": "Start time in milliseconds"},
+                "end_ms": {"type": "integer", "description": "End time in milliseconds"},
+                "palette": {"type": "array", "items": {"type": "string"}, "description": "Color hex strings array e.g. ['#FF0000', '#00FF00']"},
+                "settings": {"type": "object", "description": "Optional effect settings key-value object"}
+            },
+            "required": ["model_name", "effect_name", "start_ms", "end_ms"]
+        }
+    },
+    {
         "name": "xlights_set_effect",
         "description": "Place an effect onto a target model in the active sequence",
         "inputSchema": {
@@ -127,7 +143,7 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/play", {})
     elif name == "xlights_stop_sequence":
         return http_post("/api/stop", {})
-    elif name == "xlights_set_effect":
+    elif name in ["insert_effect", "xlights_insert_effect", "xlights_set_effect"]:
         return http_post("/api/effect", arguments)
     elif name == "xlights_generate_value_curve":
         return http_post("/api/ai/value_curve", arguments)
