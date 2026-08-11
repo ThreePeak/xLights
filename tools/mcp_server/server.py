@@ -78,6 +78,19 @@ MCP_TOOLS = [
             },
             "required": ["model_name", "effect_name", "start_ms", "end_ms"]
         }
+    },
+    {
+        "name": "xlights_generate_value_curve",
+        "description": "Synthesize a natural language prompt into a normalized Bezier value curve JSON array and xLights pipe string",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "Natural language curve descriptor e.g. 'Exponential ramp up peaking at 90'"},
+                "min": {"type": "number", "description": "Minimum curve bound"},
+                "max": {"type": "number", "description": "Maximum curve bound"}
+            },
+            "required": ["prompt"]
+        }
     }
 ]
 
@@ -96,6 +109,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/stop", {})
     elif name == "xlights_set_effect":
         return http_post("/api/effect", arguments)
+    elif name == "xlights_generate_value_curve":
+        return http_post("/api/ai/value_curve", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 

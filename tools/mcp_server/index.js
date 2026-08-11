@@ -113,6 +113,19 @@ const MCP_TOOLS = [
             },
             required: ["model_name", "effect_name", "start_ms", "end_ms"]
         }
+    },
+    {
+        name: "xlights_generate_value_curve",
+        description: "Synthesize a natural language prompt into a normalized Bezier value curve JSON array and xLights pipe string",
+        inputSchema: {
+            type: "object",
+            properties: {
+                prompt: { type: "string", description: "Natural language curve descriptor" },
+                min: { type: "number" },
+                max: { type: "number" }
+            },
+            required: ["prompt"]
+        }
     }
 ];
 
@@ -125,6 +138,7 @@ async function handleToolCall(name, args) {
         case "xlights_play_sequence": return await httpPost("/api/play", {});
         case "xlights_stop_sequence": return await httpPost("/api/stop", {});
         case "xlights_set_effect": return await httpPost("/api/effect", args);
+        case "xlights_generate_value_curve": return await httpPost("/api/ai/value_curve", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }
