@@ -50,6 +50,11 @@ MCP_TOOLS = [
         "inputSchema": {"type": "object", "properties": {}}
     },
     {
+        "name": "get_sequence_state",
+        "description": "Fetches active sequence media file path, total duration in milliseconds, frame rate, and track structures",
+        "inputSchema": {"type": "object", "properties": {}}
+    },
+    {
         "name": "xlights_get_sequence_info",
         "description": "Get active sequence details including duration, frame rate, and media file",
         "inputSchema": {"type": "object", "properties": {}}
@@ -104,7 +109,7 @@ def handle_tool_call(name: str, arguments: dict):
         return http_get("/api/version")
     elif name in ["get_show_layout", "xlights_get_show_layout", "xlights_get_models"]:
         return http_get("/api/layout")
-    elif name == "xlights_get_sequence_info":
+    elif name in ["get_sequence_state", "xlights_get_sequence_state", "xlights_get_sequence_info"]:
         return http_get("/api/sequence")
     elif name == "xlights_render_sequence":
         return http_post("/api/render", {})

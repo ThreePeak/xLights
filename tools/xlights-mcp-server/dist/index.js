@@ -88,6 +88,11 @@ const MCP_TOOLS = [
         inputSchema: { type: "object", properties: {} }
     },
     {
+        name: "get_sequence_state",
+        description: "Fetches active sequence media file path, total duration in milliseconds, frame rate, and track structures",
+        inputSchema: { type: "object", properties: {} }
+    },
+    {
         name: "xlights_get_sequence_info",
         description: "Get active sequence details including duration, frame rate, and media file",
         inputSchema: { type: "object", properties: {} }
@@ -157,6 +162,8 @@ async function handleToolCall(name, args) {
         case "get_show_layout":
         case "xlights_get_show_layout":
         case "xlights_get_models": return await httpGet("/api/layout");
+        case "get_sequence_state":
+        case "xlights_get_sequence_state":
         case "xlights_get_sequence_info": return await httpGet("/api/sequence");
         case "xlights_get_show_folder": return await httpGet("/api/showfolder");
         case "xlights_get_controllers": return await httpGet("/api/controllers");
