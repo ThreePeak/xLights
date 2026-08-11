@@ -1760,7 +1760,8 @@ void ValueCurveDialog::OnButton_AIGenerateClick(wxCommandEvent& event)
     std::string jsonPayload = generator.GenerateCurveJsonFromPrompt(prompt.ToStdString(), _vc->GetMin(), _vc->GetMax());
     std::string serializedString = xLights::AI::ValueCurveAIGenerator::JsonToSerializedValueCurve(jsonPayload);
 
-    if (!serializedString.empty()) {
+    // Validate that serialized payload is non-empty and contains valid point pairs
+    if (!serializedString.empty() && serializedString.find("Values=") != std::string::npos && serializedString.find(':') != std::string::npos) {
         _vc->Deserialise(serializedString);
         Choice1->SetStringSelection(wxString(_vc->GetType().c_str()));
         _vcp->SetType(_vc->GetType());
