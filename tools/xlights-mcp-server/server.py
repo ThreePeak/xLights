@@ -60,6 +60,16 @@ MCP_TOOLS = [
         "inputSchema": {"type": "object", "properties": {}}
     },
     {
+        "name": "trigger_render",
+        "description": "Sends a render command payload to xLights REST API port 49913 to trigger sequence rendering",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model_name": {"type": "string", "description": "Optional specific model name to render, or empty for full sequence render"}
+            }
+        }
+    },
+    {
         "name": "xlights_render_sequence",
         "description": "Trigger full sequence re-rendering across all models",
         "inputSchema": {"type": "object", "properties": {}}
@@ -111,8 +121,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_get("/api/layout")
     elif name in ["get_sequence_state", "xlights_get_sequence_state", "xlights_get_sequence_info"]:
         return http_get("/api/sequence")
-    elif name == "xlights_render_sequence":
-        return http_post("/api/render", {})
+    elif name in ["trigger_render", "xlights_trigger_render", "xlights_render_sequence"]:
+        return http_post("/api/render", arguments)
     elif name == "xlights_play_sequence":
         return http_post("/api/play", {})
     elif name == "xlights_stop_sequence":

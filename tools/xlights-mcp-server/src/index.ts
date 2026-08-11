@@ -115,6 +115,16 @@ const MCP_TOOLS = [
         inputSchema: { type: "object", properties: {} }
     },
     {
+        name: "trigger_render",
+        description: "Sends a render command payload to xLights REST API port 49913 to trigger sequence rendering",
+        inputSchema: {
+            type: "object",
+            properties: {
+                model_name: { type: "string", description: "Optional specific model name to render, or empty for full sequence render" }
+            }
+        }
+    },
+    {
         name: "xlights_render_sequence",
         description: "Trigger full sequence re-rendering across all models",
         inputSchema: { type: "object", properties: {} }
@@ -171,7 +181,9 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "xlights_get_show_folder": return await httpGet("/api/showfolder");
         case "xlights_get_controllers": return await httpGet("/api/controllers");
         case "xlights_get_effect_presets": return await httpGet("/api/presets");
-        case "xlights_render_sequence": return await httpPost("/api/render", {});
+        case "trigger_render":
+        case "xlights_trigger_render":
+        case "xlights_render_sequence": return await httpPost("/api/render", args);
         case "xlights_play_sequence": return await httpPost("/api/play", {});
         case "xlights_stop_sequence": return await httpPost("/api/stop", {});
         case "xlights_set_effect": return await httpPost("/api/effect", args);
