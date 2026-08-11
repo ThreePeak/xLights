@@ -1,0 +1,15 @@
+{
+  "name": "xlights-mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) Server for xLights REST API on port 49913",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
