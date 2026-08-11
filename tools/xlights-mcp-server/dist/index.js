@@ -78,6 +78,11 @@ const MCP_TOOLS = [
         inputSchema: { type: "object", properties: {} }
     },
     {
+        name: "get_show_layout",
+        description: "Queries active models, submodels, pixel counts, and channel bounds from xLights REST API",
+        inputSchema: { type: "object", properties: {} }
+    },
+    {
         name: "xlights_get_models",
         description: "List all physical display models in the active xLights layout",
         inputSchema: { type: "object", properties: {} }
@@ -149,7 +154,9 @@ const MCP_TOOLS = [
 async function handleToolCall(name, args) {
     switch (name) {
         case "xlights_get_version": return await httpGet("/api/version");
-        case "xlights_get_models": return await httpGet("/api/models");
+        case "get_show_layout":
+        case "xlights_get_show_layout":
+        case "xlights_get_models": return await httpGet("/api/layout");
         case "xlights_get_sequence_info": return await httpGet("/api/sequence");
         case "xlights_get_show_folder": return await httpGet("/api/showfolder");
         case "xlights_get_controllers": return await httpGet("/api/controllers");

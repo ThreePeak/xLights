@@ -40,6 +40,11 @@ MCP_TOOLS = [
         "inputSchema": {"type": "object", "properties": {}}
     },
     {
+        "name": "get_show_layout",
+        "description": "Queries active models, submodels, pixel counts, and channel bounds from xLights REST API",
+        "inputSchema": {"type": "object", "properties": {}}
+    },
+    {
         "name": "xlights_get_models",
         "description": "List all physical models in the active xLights show layout",
         "inputSchema": {"type": "object", "properties": {}}
@@ -97,8 +102,8 @@ MCP_TOOLS = [
 def handle_tool_call(name: str, arguments: dict):
     if name == "xlights_get_version":
         return http_get("/api/version")
-    elif name == "xlights_get_models":
-        return http_get("/api/models")
+    elif name in ["get_show_layout", "xlights_get_show_layout", "xlights_get_models"]:
+        return http_get("/api/layout")
     elif name == "xlights_get_sequence_info":
         return http_get("/api/sequence")
     elif name == "xlights_render_sequence":
