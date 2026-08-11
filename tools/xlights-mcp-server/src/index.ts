@@ -81,12 +81,27 @@ const MCP_TOOLS = [
     },
     {
         name: "xlights_get_models",
-        description: "List all physical models in the active xLights show layout",
+        description: "List all physical display models in the active xLights layout",
         inputSchema: { type: "object", properties: {} }
     },
     {
         name: "xlights_get_sequence_info",
         description: "Get active sequence details including duration, frame rate, and media file",
+        inputSchema: { type: "object", properties: {} }
+    },
+    {
+        name: "xlights_get_show_folder",
+        description: "Get current active xLights show directory path",
+        inputSchema: { type: "object", properties: {} }
+    },
+    {
+        name: "xlights_get_controllers",
+        description: "List configured pixel controllers (FPP, Falcon, Kulp) and IP addresses",
+        inputSchema: { type: "object", properties: {} }
+    },
+    {
+        name: "xlights_get_effect_presets",
+        description: "List custom multi-layer effect presets saved in the show directory",
         inputSchema: { type: "object", properties: {} }
     },
     {
@@ -113,7 +128,8 @@ const MCP_TOOLS = [
                 model_name: { type: "string" },
                 effect_name: { type: "string" },
                 start_ms: { type: "integer" },
-                end_ms: { type: "integer" }
+                end_ms: { type: "integer" },
+                palette: { type: "array", items: { type: "string" } }
             },
             required: ["model_name", "effect_name", "start_ms", "end_ms"]
         }
@@ -138,6 +154,9 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "xlights_get_version": return await httpGet("/api/version");
         case "xlights_get_models": return await httpGet("/api/models");
         case "xlights_get_sequence_info": return await httpGet("/api/sequence");
+        case "xlights_get_show_folder": return await httpGet("/api/showfolder");
+        case "xlights_get_controllers": return await httpGet("/api/controllers");
+        case "xlights_get_effect_presets": return await httpGet("/api/presets");
         case "xlights_render_sequence": return await httpPost("/api/render", {});
         case "xlights_play_sequence": return await httpPost("/api/play", {});
         case "xlights_stop_sequence": return await httpPost("/api/stop", {});
