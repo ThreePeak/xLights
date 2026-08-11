@@ -1,5 +1,7 @@
 build
 .clangd
+node_modules/
+tools/xlights-mcp-server/dist/
 bin/xCapture
 bin/xFade
 bin/xLights
