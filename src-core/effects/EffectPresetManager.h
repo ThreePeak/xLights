@@ -164,8 +164,20 @@ public:
     void UpdatePresetSettings(EffectPreset* preset, const std::string& settings,
                               const std::string& xLightsVersion);
 
-    // Import from XML (for .xpreset files or another show's effects node)
-    void ImportFromXml(pugi::xml_node node, EffectPresetGroup* parent);
+    // Automated Multi-Layer Effect Preset Generation
+    struct AutomatedPresetLayerSpec {
+        std::string effectName;
+        std::map<std::string, std::string> parameters;
+        int layerIndex = 0;
+        int startTimeMS = 0;
+        int endTimeMS = 5000;
+    };
+
+    EffectPreset* GenerateAutomatedPreset(EffectPresetGroup* parent, const std::string& name,
+                                         const std::vector<AutomatedPresetLayerSpec>& layerSpecs);
+
+    EffectPreset* SynthesizePresetFromPrompt(EffectPresetGroup* parent, const std::string& name,
+                                             const std::string& userPrompt, const std::string& metadataDir = "");
 
     // Name fixup (migrated from EffectTreeDialog::FixRgbEffects)
     bool FixRgbEffects();

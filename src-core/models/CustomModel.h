@@ -102,7 +102,38 @@ class CustomModel : public ModelWithScreenLocation<BoxedScreenLocation>
         [[nodiscard]] const std::string StartNodeAttrName(int idx) const override
         {
             return std::string("NodeStart") + std::to_string(idx + 1);
-        }
+        // Spatial AI & Computer Vision Mesh Generation
+        struct SpatialAIMeshOptions {
+            int targetWidth = 50;
+            int targetHeight = 50;
+            bool autoWiringOrder = true;
+            float threshold = 0.5f;
+        };
+
+        bool GenerateSpatialMeshFromImage(const std::string& imagePath, const SpatialAIMeshOptions& options = SpatialAIMeshOptions{});
+        static std::vector<std::vector<std::vector<int>>> SynthesizeCustomModelMatrix(int width, int height, const std::string& shapeType);
+
+        // Camera-Based Auto Prop Mapper (Gray Code Detector)
+        struct GrayCodeFramePattern {
+            int frameIndex = 0;
+            int bitIndex = 0;
+            bool isInverted = false;
+            std::vector<bool> nodeStates;
+        };
+
+        struct DetectedCameraNode {
+            int nodeIndex = 0;
+            int cameraX = 0;
+            int cameraY = 0;
+            float confidence = 1.0f;
+        };
+
+        static std::vector<GrayCodeFramePattern> GenerateGrayCodePatterns(int totalNodes);
+        static std::vector<DetectedCameraNode> DecodeGrayCodeCameraFrames(int width, int height,
+                                                                         const std::vector<std::vector<uint8_t>>& cameraFrames,
+                                                                         int bitCount);
+        bool BuildCustomModelFromGrayCode(int gridWidth, int gridHeight,
+                                           const std::vector<DetectedCameraNode>& detectedNodes);
 
     protected:
         virtual void InitModel() override;

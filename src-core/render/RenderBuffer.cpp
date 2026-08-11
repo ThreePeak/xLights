@@ -109,6 +109,91 @@ void RenderBuffer::AlphaBlend(const RenderBuffer& src)
     }, 2000);
 }
 
+RenderBuffer::LayerBlendAdvisorResult RenderBuffer::AnalyzeBlendMode(const RenderBuffer& overlay) const
+{
+    LayerBlendAdvisorResult result;
+    if (overlay.BufferWi != BufferWi || overlay.BufferHt != BufferHt || GetPixelCount() == 0) {
+        result.recommendedBlendMode = "Normal";
+        result.reasoning = "Buffer sizes mismatch or empty buffer.";
+        return result;
+    }
+
+    size_t count = GetPixelCount();
+    uint64_t totalAlpha = 0;
+    uint64_t overlayLum = 0;
+    uint64_t baseLum = 0;
+    size_t activeOverlayPixels = 0;
+    size_t activeBasePixels = 0;
+
+    for (size_t i = 0; i < count; ++i) {
+        const auto &pOver = overlay.pixels[i];
+        const auto &pBase = pixels[i];
+
+        totalAlpha += pOver.alpha;
+        if (pOver.alpha > 0 && pOver != xlBLACK) {
+            activeOverlayPixels++;
+            overlayLum += (uint32_t)pOver.red + pOver.green + pOver.blue;
+        }
+        if (pBase.alpha > 0 && pBase != xlBLACK) {
+            activeBasePixels++;
+            baseLum += (uint32_t)pBase.red + pBase.green + pBase.blue;
+        }
+    }
+
+    result.opacityScore = count > 0 ? (float)totalAlpha / (count * 255.0f) : 0.0f;
+    float avgOverLum = activeOverlayPixels > 0 ? (float)overlayLum / (activeOverlayPixels * 3.0f) : 0.0f;
+    float avgBaseLum = activeBasePixels > 0 ? (float)baseLum / (activeBasePixels * 3.0f) : 0.0f;
+
+    result.contrastScore = std::abs(avgOverLum - avgBaseLum) / 255.0f;
+
+    if (activeOverlayPixels == 0) {
+        result.recommendedBlendMode = "Normal";
+        result.reasoning = "Overlay is completely transparent or black.";
+    } else if (avgOverLum > 180.0f && avgBaseLum < 80.0f) {
+        result.recommendedBlendMode = "Additive";
+        result.reasoning = "Bright overlay over dark base detected; Additive mode optimizes glow and highlights.";
+    } else if (avgOverLum < 70.0f && avgBaseLum > 150.0f) {
+        result.recommendedBlendMode = "Multiply";
+        result.reasoning = "Dark overlay over bright base detected; Multiply mode preserves shadow details.";
+    } else if (result.contrastScore > 0.4f) {
+        result.recommendedBlendMode = "Overlay";
+        result.reasoning = "High contrast difference between layers; Overlay mode enhances color depth.";
+    } else {
+        result.recommendedBlendMode = "Normal";
+        result.reasoning = "Standard alpha composition recommended for uniform layer mixing.";
+    }
+
+    return result;
+}
+
+void RenderBuffer::OptimizedBlend(const RenderBuffer& src, const std::string& blendMode)
+{
+    if (src.BufferWi != BufferWi || src.BufferHt != BufferHt) return;
+
+    if (blendMode == "Additive" || blendMode == "Add") {
+        parallel_for(0, GetPixelCount(), [&src, this](int idx) {
+            const auto &pnew = src.pixels[idx];
+            auto &pold = pixels[idx];
+            if (pnew.alpha == 0 || pnew == xlBLACK) return;
+            pold.red = std::min(255, (int)pold.red + pnew.red);
+            pold.green = std::min(255, (int)pold.green + pnew.green);
+            pold.blue = std::min(255, (int)pold.blue + pnew.blue);
+            pold.alpha = std::max(pold.alpha, pnew.alpha);
+        }, 2000);
+    } else if (blendMode == "Multiply") {
+        parallel_for(0, GetPixelCount(), [&src, this](int idx) {
+            const auto &pnew = src.pixels[idx];
+            auto &pold = pixels[idx];
+            if (pnew.alpha == 0) return;
+            pold.red = (uint8_t)(((uint32_t)pold.red * pnew.red) / 255);
+            pold.green = (uint8_t)(((uint32_t)pold.green * pnew.green) / 255);
+            pold.blue = (uint8_t)(((uint32_t)pold.blue * pnew.blue) / 255);
+        }, 2000);
+    } else {
+        AlphaBlend(src);
+    }
+}
+
 
 static inline uint64_t rngFnv1a(const std::string& s) {
     uint64_t h = 0xCBF29CE484222325ULL;

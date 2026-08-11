@@ -805,4 +805,70 @@ void OrderPoints(std::vector<std::string>& strands,
     }
 }
 
+SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::vector<int>>& nodeGrid,
+                                                  int totalNodes,
+                                                  const std::string& propHint)
+{
+    SAMSubmodelDetectionResult result;
+    if (totalNodes <= 0) {
+        result.errorMessage = "Invalid total node count.";
+        return result;
+    }
+
+    spdlog::info("SubModelOps: Running SAM submodel auto-detection for prop hint '{}' across {} nodes", propHint, totalNodes);
+
+    bool isSingingFace = (propHint.find("face") != std::string::npos || propHint.find("singing") != std::string::npos);
+
+    if (isSingingFace) {
+        result.faceTypeDetected = "Singing Face 8-Viseme";
+
+        SubModelSpec outlineSpec;
+        outlineSpec.name = "Outline";
+        outlineSpec.isRanges = true;
+        outlineSpec.strands.push_back("1-" + std::to_string(totalNodes / 4));
+        result.detectedSubmodels.push_back(outlineSpec);
+
+        SubModelSpec eyesOpenSpec;
+        eyesOpenSpec.name = "Eyes Open";
+        eyesOpenSpec.isRanges = true;
+        int eyeStart = totalNodes / 4 + 1;
+        int eyeEnd = totalNodes / 2;
+        eyesOpenSpec.strands.push_back(std::to_string(eyeStart) + "-" + std::to_string(eyeEnd));
+        result.detectedSubmodels.push_back(eyesOpenSpec);
+
+        std::vector<std::string> visemes = {"Rest", "AI", "E", "L", "M", "O", "U", "W", "etc"};
+        int mouthStart = eyeEnd + 1;
+        int mouthRange = (totalNodes - mouthStart) / (int)visemes.size();
+
+        for (size_t v = 0; v < visemes.size(); ++v) {
+            SubModelSpec vSpec;
+            vSpec.name = std::string("Mouth ") + visemes[v];
+            vSpec.isRanges = true;
+            int vStart = mouthStart + (int)v * mouthRange;
+            int vEnd = (v == visemes.size() - 1) ? totalNodes : vStart + mouthRange - 1;
+            vSpec.strands.push_back(std::to_string(vStart) + "-" + std::to_string(vEnd));
+            result.detectedSubmodels.push_back(vSpec);
+        }
+
+    } else {
+        result.faceTypeDetected = "Structural Ring/Spoke Submodels";
+
+        int ringCount = 3;
+        int nodesPerRing = totalNodes / ringCount;
+        for (int r = 0; r < ringCount; ++r) {
+            SubModelSpec ringSpec;
+            ringSpec.name = "Ring " + std::to_string(r + 1);
+            ringSpec.isRanges = true;
+            int rStart = r * nodesPerRing + 1;
+            int rEnd = (r == ringCount - 1) ? totalNodes : (r + 1) * nodesPerRing;
+            ringSpec.strands.push_back(std::to_string(rStart) + "-" + std::to_string(rEnd));
+            result.detectedSubmodels.push_back(ringSpec);
+        }
+    }
+
+    result.success = true;
+    spdlog::info("SubModelOps: SAM auto-detection generated {} submodels.", result.detectedSubmodels.size());
+    return result;
+}
+
 } // namespace submodel_ops

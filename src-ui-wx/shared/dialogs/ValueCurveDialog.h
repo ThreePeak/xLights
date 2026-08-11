@@ -180,6 +180,11 @@ class ValueCurveDialog: public wxDialog
 
         // Audio track ID (outside wxSmith guard)
         static const long ID_CHOICE_AudioTrack;
+        static const long ID_BUTTON_AI_GENERATE;
+
+        wxStaticText* StaticText_AIPrompt = nullptr;
+        wxTextCtrl* TextCtrl_AIPrompt = nullptr;
+        wxButton* Button_AIGenerate = nullptr;
 
 	private:
 
@@ -208,6 +213,7 @@ class ValueCurveDialog: public wxDialog
 		void OnChoice_TimingTrackSelect(wxCommandEvent& event);
 		void OnTextCtrl_FilterLabelText(wxCommandEvent& event);
 		void OnCheckBox_FilterLabelRegexClick(wxCommandEvent& event);
+		void OnButton_AIGenerateClick(wxCommandEvent& event);
 		//*)
 
 		DECLARE_EVENT_TABLE()

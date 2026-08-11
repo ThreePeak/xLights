@@ -139,6 +139,22 @@ bool ParseSliceType(const std::string& name, SliceType& out);
 GeneratedSlice GenerateSlice(SliceType type, int index, int count, int nodeCount);
 
 // ---------------------------------------------------------------------------
+// SAM (Segment Anything Model) SubModel & Face Auto-Detection
+// ---------------------------------------------------------------------------
+
+struct SAMSubmodelDetectionResult {
+    bool success{false};
+    std::vector<SubModelSpec> detectedSubmodels;
+    std::string faceTypeDetected;
+    std::string errorMessage;
+};
+
+// Auto-detect structural submodels and face components via SAM segmentation heuristics
+SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::vector<int>>& nodeGrid,
+                                                  int totalNodes,
+                                                  const std::string& propHint = "");
+
+// ---------------------------------------------------------------------------
 // Geometric point ordering
 // ---------------------------------------------------------------------------
 

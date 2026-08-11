@@ -26,11 +26,13 @@
 #include "UtilFunctions.h"
 #include "shared/utils/wxUtilities.h"
 #include "render/ValueCurve.h"
+#include "ai/ValueCurveAIGenerator.h"
 #include "ValueCurveDialog.h"
 #include "shared/utils/ValueCurveRendering.h"
 #include "xLightsApp.h"
 #include "xLightsMain.h"
 #include "xLightsVersion.h"
+#include "ai/aiBase.h"
 #include "sequencer/MainSequencer.h"
 #include "render/SequenceElements.h"
 
@@ -130,6 +132,7 @@ const long ValueCurveDialog::ID_BUTTON2 = wxNewId();
 
 // Audio track ID (outside wxSmith guard)
 const long ValueCurveDialog::ID_CHOICE_AudioTrack = wxNewId();
+const long ValueCurveDialog::ID_BUTTON_AI_GENERATE = wxNewId();
 
 BEGIN_EVENT_TABLE(ValueCurveDialog, wxDialog)
 //(*EventTable(ValueCurveDialog)
@@ -325,6 +328,17 @@ ValueCurveDialog::ValueCurveDialog(wxWindow* parent, ValueCurve* vc, bool slider
             int sel = Choice_AudioTrack->GetSelection();
             _vc->SetAudioTrack(sel > 0 ? Choice_AudioTrack->GetStringSelection().ToStdString() : "");
         }, ID_CHOICE_AudioTrack);
+    }
+
+    // AI Natural Language Value Curve Prompt Generator row
+    {
+        StaticText_AIPrompt = new wxStaticText(this, wxID_ANY, _("AI Curve Prompt:"), wxDefaultPosition, wxDefaultSize, 0);
+        FlexGridSizer2->Add(StaticText_AIPrompt, 1, wxALL | wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 5);
+        TextCtrl_AIPrompt = new wxTextCtrl(this, wxID_ANY, _("Fast exponential ramp up peaking at 90"), wxDefaultPosition, wxDefaultSize);
+        FlexGridSizer2->Add(TextCtrl_AIPrompt, 1, wxALL | wxEXPAND, 5);
+        Button_AIGenerate = new wxButton(this, ID_BUTTON_AI_GENERATE, _("AI Curve"), wxDefaultPosition, wxDefaultSize);
+        FlexGridSizer2->Add(Button_AIGenerate, 1, wxALL | wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, 5);
+        Connect(ID_BUTTON_AI_GENERATE, wxEVT_COMMAND_BUTTON_CLICKED, (wxObjectEventFunction)&ValueCurveDialog::OnButton_AIGenerateClick);
     }
 
     TextCtrl_FilterLabel->SetToolTip("Only trigger on timing events which contain this token in their text. Blank matches all. Multiple tokens can be ; separated in non-regex mode.");
@@ -1733,4 +1747,75 @@ void ValueCurveDialog::OnTextCtrl_FilterLabelText(wxCommandEvent& event)
 void ValueCurveDialog::OnCheckBox_FilterLabelRegexClick(wxCommandEvent& event)
 {
     _vc->SetFilterLabelRegex(CheckBox_FilterLabelRegex->IsChecked());
+}
+
+void ValueCurveDialog::OnButton_AIGenerateClick(wxCommandEvent& event)
+{
+    if (TextCtrl_AIPrompt == nullptr) return;
+
+    wxString prompt = TextCtrl_AIPrompt->GetValue().Trim();
+    if (prompt.IsEmpty()) return;
+
+    xLights::AI::ValueCurveAIGenerator generator;
+    std::string jsonPayload = generator.GenerateCurveJsonFromPrompt(prompt.ToStdString(), _vc->GetMin(), _vc->GetMax());
+    std::string serializedString = xLights::AI::ValueCurveAIGenerator::JsonToSerializedValueCurve(jsonPayload);
+
+    if (!serializedString.empty()) {
+        _vc->Deserialise(serializedString);
+        Choice1->SetStringSelection(wxString(_vc->GetType().c_str()));
+        _vcp->SetType(_vc->GetType());
+        SetSlidersFromTextCtrls();
+        _vcp->Refresh();
+        Refresh();
+        return;
+    }
+
+    auto aiServices = xLightsApp::GetFrame()->GetAIServices(aiType::PROMPT);
+    if (aiServices.empty()) {
+        wxMessageBox(_("No AI service available. Please configure an AI provider in Preferences -> Services."), _("AI Curve Generator"), wxOK | wxICON_INFORMATION, this);
+        return;
+    }
+
+    std::string sysPrompt = "You are an xLights LED Value Curve parameter generator.\n"
+        "User curve description: \"" + prompt.ToStdString() + "\".\n"
+        "Supported curve types: Flat, Ramp, Ramp Up/Down, Ramp Up/Down Hold, Saw Tooth, Parabolic Down, Parabolic Up, "
+        "Logarithmic Up, Logarithmic Down, Exponential Up, Exponential Down, Sine, Abs Sine, Decaying Sine, Square, Random, Custom.\n"
+        "Respond ONLY in raw JSON with format:\n"
+        "{\n"
+        "  \"type\": \"Exponential Up\",\n"
+        "  \"parameter1\": 50,\n"
+        "  \"parameter2\": 0,\n"
+        "  \"parameter3\": 0,\n"
+        "  \"parameter4\": 0\n"
+        "}\n";
+
+    auto res = aiServices[0]->CallLLM(sysPrompt);
+    if (!res.second || res.first.empty()) {
+        wxMessageBox(_("Failed to receive curve parameters from AI service."), _("AI Curve Generator Error"), wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    std::string responseStr = res.first;
+    std::string curveType = "Ramp";
+    if (responseStr.find("Exponential Up") != std::string::npos) curveType = "Exponential Up";
+    else if (responseStr.find("Exponential Down") != std::string::npos) curveType = "Exponential Down";
+    else if (responseStr.find("Logarithmic Up") != std::string::npos) curveType = "Logarithmic Up";
+    else if (responseStr.find("Logarithmic Down") != std::string::npos) curveType = "Logarithmic Down";
+    else if (responseStr.find("Parabolic Up") != std::string::npos) curveType = "Parabolic Up";
+    else if (responseStr.find("Parabolic Down") != std::string::npos) curveType = "Parabolic Down";
+    else if (responseStr.find("Saw Tooth") != std::string::npos) curveType = "Saw Tooth";
+    else if (responseStr.find("Sine") != std::string::npos) curveType = "Sine";
+    else if (responseStr.find("Abs Sine") != std::string::npos) curveType = "Abs Sine";
+    else if (responseStr.find("Decaying Sine") != std::string::npos) curveType = "Decaying Sine";
+    else if (responseStr.find("Square") != std::string::npos) curveType = "Square";
+    else if (responseStr.find("Random") != std::string::npos) curveType = "Random";
+    else if (responseStr.find("Flat") != std::string::npos) curveType = "Flat";
+
+    Choice1->SetStringSelection(wxString(curveType.c_str()));
+    _vcp->SetType(curveType);
+    _vc->SetType(curveType);
+
+    SetSlidersFromTextCtrls();
+    _vcp->Refresh();
+    Refresh();
 }

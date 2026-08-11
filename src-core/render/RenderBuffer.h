@@ -356,6 +356,18 @@ public:
     SequenceMedia* GetSequenceMedia() const;
 
     void AlphaBlend(const RenderBuffer& src);
+
+    struct LayerBlendAdvisorResult {
+        std::string recommendedBlendMode;
+        float opacityScore = 0.0f;
+        float contrastScore = 0.0f;
+        float saturationScore = 0.0f;
+        std::string reasoning;
+    };
+
+    LayerBlendAdvisorResult AnalyzeBlendMode(const RenderBuffer& overlay) const;
+    void OptimizedBlend(const RenderBuffer& src, const std::string& blendMode = "Normal");
+
     bool IsNodeBuffer() const { return _nodeBuffer; }
     void Clear();
     void SetPalette(xlColorVector& newcolors, xlColorCurveVector& newcc);

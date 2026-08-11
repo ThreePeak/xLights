@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <sstream>
 #include <list>
 
 namespace {
@@ -644,4 +645,89 @@ bool EffectPresetManager::FixGroupNames(EffectPresetGroup& group)
     }
 
     return anyFixed;
+}
+
+EffectPreset* EffectPresetManager::GenerateAutomatedPreset(EffectPresetGroup* parent,
+                                                           const std::string& name,
+                                                           const std::vector<AutomatedPresetLayerSpec>& layerSpecs)
+{
+    if (parent == nullptr) parent = &_root;
+
+    pugi::xml_document doc;
+    pugi::xml_node root = doc.append_child("effectDB");
+    root.append_attribute("version").set_value("1");
+    pugi::xml_node presetNode = root.append_child("effect");
+    presetNode.append_attribute("name").set_value(name.c_str());
+
+    for (const auto& spec : layerSpecs) {
+        pugi::xml_node effNode = presetNode.append_child("effect");
+        effNode.append_attribute("name").set_value(spec.effectName.c_str());
+        effNode.append_attribute("layer").set_value(spec.layerIndex);
+        effNode.append_attribute("start").set_value(spec.startTimeMS);
+        effNode.append_attribute("end").set_value(spec.endTimeMS);
+
+        for (const auto& kv : spec.parameters) {
+            effNode.append_attribute(kv.first.c_str()).set_value(kv.second.c_str());
+        }
+    }
+
+    std::ostringstream ss;
+    doc.save(ss, "  ");
+    std::string settingsXml = ss.str();
+
+    return AddPreset(parent, name, settingsXml, "1", "2026.08");
+}
+
+EffectPreset* EffectPresetManager::SynthesizePresetFromPrompt(EffectPresetGroup* parent,
+                                                               const std::string& name,
+                                                               const std::string& userPrompt,
+                                                               const std::string& metadataDir)
+{
+    std::string lowerPrompt = userPrompt;
+    std::transform(lowerPrompt.begin(), lowerPrompt.end(), lowerPrompt.begin(), ::tolower);
+
+    std::vector<AutomatedPresetLayerSpec> specs;
+
+    // Base layer (Layer 0)
+    AutomatedPresetLayerSpec baseLayer;
+    baseLayer.layerIndex = 0;
+    baseLayer.startTimeMS = 0;
+    baseLayer.endTimeMS = 5000;
+
+    if (lowerPrompt.find("fire") != std::string::npos || lowerPrompt.find("flame") != std::string::npos) {
+        baseLayer.effectName = "Fire";
+        baseLayer.parameters["E_CHOICE_Fire_Location"] = "Bottom";
+        baseLayer.parameters["E_SLIDER_Fire_Height"] = "50";
+    } else if (lowerPrompt.find("wave") != std::string::npos || lowerPrompt.find("ocean") != std::string::npos) {
+        baseLayer.effectName = "Wave";
+        baseLayer.parameters["E_CHOICE_Wave_Direction"] = "Left to Right";
+    } else if (lowerPrompt.find("bars") != std::string::npos || lowerPrompt.find("stripe") != std::string::npos) {
+        baseLayer.effectName = "Bars";
+        baseLayer.parameters["E_CHOICE_Bars_Direction"] = "Up";
+    } else {
+        baseLayer.effectName = "ColorWash";
+    }
+    specs.push_back(baseLayer);
+
+    // Overlay layer (Layer 1)
+    if (lowerPrompt.find("storm") != std::string::npos || lowerPrompt.find("meteor") != std::string::npos || lowerPrompt.find("rain") != std::string::npos) {
+        AutomatedPresetLayerSpec topLayer;
+        topLayer.layerIndex = 1;
+        topLayer.startTimeMS = 0;
+        topLayer.endTimeMS = 5000;
+        topLayer.effectName = "Meteors";
+        topLayer.parameters["E_SLIDER_Meteors_Count"] = "25";
+        topLayer.parameters["E_SLIDER_Meteors_Length"] = "15";
+        specs.push_back(topLayer);
+    } else if (lowerPrompt.find("shimmer") != std::string::npos || lowerPrompt.find("sparkle") != std::string::npos || lowerPrompt.find("twinkle") != std::string::npos) {
+        AutomatedPresetLayerSpec topLayer;
+        topLayer.layerIndex = 1;
+        topLayer.startTimeMS = 0;
+        topLayer.endTimeMS = 5000;
+        topLayer.effectName = "Twinkle";
+        topLayer.parameters["E_SLIDER_Twinkle_Count"] = "30";
+        specs.push_back(topLayer);
+    }
+
+    return GenerateAutomatedPreset(parent, name, specs);
 }

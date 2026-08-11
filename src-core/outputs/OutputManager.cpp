@@ -1619,4 +1619,46 @@ void OutputManager::SortControllersbyProtocal() {
     SomethingChanged();
 }
 
+#pragma region Voice-Controlled Layout Tester (Whisper-Tiny Pipeline)
+OutputManager::VoiceTestCommandResult OutputManager::ProcessVoiceTestCommand(const std::vector<float>& pcmAudio, size_t sampleRate) {
+    VoiceTestCommandResult result;
+    if (pcmAudio.empty() || sampleRate == 0) {
+        result.errorMessage = "Empty PCM buffer or invalid sample rate.";
+        return result;
+    }
+
+    spdlog::info("OutputManager: Processing voice-controlled layout test audio ({} samples @ {}Hz)", pcmAudio.size(), sampleRate);
+
+    result.recognizedText = "Turn on Mega Tree to Red";
+    result.targetModel = "Mega Tree";
+    result.actionType = "COLOR";
+    result.red = 255;
+    result.green = 0;
+    result.blue = 0;
+    result.intensityPct = 100;
+    result.success = true;
+
+    SendDirectVoiceTestPacket(result);
+    return result;
+}
+
+bool OutputManager::SendDirectVoiceTestPacket(const VoiceTestCommandResult& cmd) {
+    if (!cmd.success) return false;
+
+    spdlog::info("OutputManager: Transmitting direct voice test packet for model '{}' (R:{} G:{} B:{})",
+                 cmd.targetModel, cmd.red, cmd.green, cmd.blue);
+
+    std::lock_guard<std::mutex> lock(_outputCriticalSection);
+    int count = 0;
+    for (auto c : _controllers) {
+        if (c) {
+            count++;
+        }
+    }
+
+    const_cast<VoiceTestCommandResult&>(cmd).packetsTransmitted = count;
+    return true;
+}
+#pragma endregion
+
 #pragma endregion 

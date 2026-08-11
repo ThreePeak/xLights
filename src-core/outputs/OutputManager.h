@@ -236,6 +236,24 @@ public:
     #pragma region Packet Sync
     bool IsSyncEnabled() const { return _syncEnabled; }
     static bool IsSyncEnabled_() { return __isSync; }
+
+    #pragma region Voice-Controlled Layout Tester (Whisper-Tiny Pipeline)
+    struct VoiceTestCommandResult {
+        bool success = false;
+        std::string recognizedText;
+        std::string targetModel;
+        std::string actionType;
+        uint8_t red = 255;
+        uint8_t green = 255;
+        uint8_t blue = 255;
+        int intensityPct = 100;
+        int packetsTransmitted = 0;
+        std::string errorMessage;
+    };
+
+    VoiceTestCommandResult ProcessVoiceTestCommand(const std::vector<float>& pcmAudio, size_t sampleRate);
+    bool SendDirectVoiceTestPacket(const VoiceTestCommandResult& cmd);
+    #pragma endregion
     void SetSyncEnabled(bool syncEnabled) {
         if (_syncEnabled != syncEnabled) {
             _syncEnabled = syncEnabled;

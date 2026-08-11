@@ -256,6 +256,7 @@ set(LUA_INCLUDE_DIR ${XL_DEPS}/lua/src)
 
 # Core (wx-free)
 file(GLOB_RECURSE SRC_CORE
+    AI/*.cpp
     src-core/XmlSerializer/*.cpp
     src-core/ai/*.cpp
     src-core/cad/*.cpp
@@ -294,6 +295,7 @@ file(GLOB_RECURSE SRC_CORE
     src-core/models/DMX/MovingHeads/*.cpp
     src-core/outputs/*.cpp
     src-core/render/*.cpp
+    src-core/scripting/*.cpp
     src-core/settings/*.cpp
     src-core/utils/*.cpp
 )

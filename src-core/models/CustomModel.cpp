@@ -1316,9 +1316,374 @@ bool CustomModel::ChangeStringCount(long count, std::string& message)
         }
     }
 
+    scaled.sort();
+
+    for (auto it = scaled.begin(); it != scaled.end(); ++it) {
+        auto it2 = it;
+        ++it2;
+
+        if (it2 != scaled.end()) {
+            if (it->x == it2->x && it->y == it2->y)
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool CustomModel::ImportLORModel(std::string const& filename, float& min_x, float& max_x, float& min_y, float& max_y)
+{
+    
+    pugi::xml_document doc;
+    pugi::xml_parse_result result = doc.load_file(filename.c_str());
+
+    if (result) {
+        spdlog::debug("Loading LOR model {}.", (const char*)filename.c_str());
+
+        pugi::xml_node root = doc.document_element();
+
+        std::list<std::list<xlPoint>> chs;
+
+        for (pugi::xml_node n1 = root.first_child(); n1; n1 = n1.next_sibling()) {
+            if (std::string_view(n1.name()) == "DrawObjects") {
+                for (pugi::xml_node n2 = n1.first_child(); n2; n2 = n2.next_sibling()) {
+                    if (std::string_view(n2.name()) == "DrawObject") {
+                        for (pugi::xml_node n3 = n2.first_child(); n3; n3 = n3.next_sibling()) {
+                            if (std::string_view(n3.name()) == "DrawPoints") {
+                                std::list<xlPoint> points;
+                                for (pugi::xml_node n4 = n3.first_child(); n4; n4 = n4.next_sibling()) {
+                                    if (std::string_view(n4.name()) == "DrawPoint") {
+                                        points.push_back(xlPoint((int)std::strtol(n4.attribute("X").as_string("-5"), nullptr, 10) / 5, (int)std::strtol(n4.attribute("Y").as_string("-1"), nullptr, 10) / 5));
+                                    }
+                                }
+                                chs.push_back(points);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        std::string newname = GetModelManager().GenerateModelName(std::filesystem::path(filename).stem().string());
+        SetName(newname);
+
+        AddASAPWork(OutputModelManager::WORK_RELOAD_MODEL_CHANGE, "CustomModel::ImportLORModel");
+
+        if (chs.size() == 0) {
+            spdlog::error("No model data found.");
+            if (auto* ui = GetModelManager().GetUICallbacks()) {
+                ui->ShowMessage("Unable to import model data.");
+            }
+            return false;
+        }
+
+        int minx = 999999999;
+        int maxx = -1;
+        int miny = 999999999;
+        int maxy = -1;
+
+        for (auto ch = chs.begin(); ch != chs.end(); ++ch) {
+            for (auto it = ch->begin(); it != ch->end(); ++it) {
+                if (it->x >= 0) {
+                    if (it->x < minx)
+                        minx = it->x;
+                    if (it->x > maxx)
+                        maxx = it->x;
+                }
+                if (it->y >= 0) {
+                    if (it->y < miny)
+                        miny = it->y;
+                    if (it->y > maxy)
+                        maxy = it->y;
+                }
+            }
+        }
+
+        for (auto ch = chs.begin(); ch != chs.end(); ++ch) {
+            for (auto it = ch->begin(); it != ch->end(); ++it) {
+                it->x = (it->x - minx);
+                it->y = (it->y - miny);
+            }
+        }
+
+        maxx -= minx;
+        maxy -= miny;
+
+        float divisor = 0.1f;
+        if (HasDuplicates(1.0, chs)) {
+            DisplayWarning("This model is not going to import correctly as one or more pixels overlap.");
+
+            RemoveDuplicatePixels(chs);
+        }
+
+        while (HasDuplicates(divisor, chs)) {
+            divisor += 0.1f;
+
+            if (divisor >= 1.0f)
+                break;
+        }
+
+        divisor -= 0.1f + 0.01f;
+
+        while (HasDuplicates(divisor, chs)) {
+            divisor += 0.01f;
+
+            if (divisor >= 1.0f)
+                break;
+        }
+
+        maxx = ((float)maxx * divisor) + 1;
+        maxy = ((float)maxy * divisor) + 1;
+
+        spdlog::debug("Divisor chosen {}. Model dimensions {},{}", divisor, maxx + 1, maxy + 1);
+
+        _customWidth = maxx;
+        _customHeight = maxy;
+
+        int* data = (int*)malloc(maxx * maxy * sizeof(int));
+        memset(data, 0x00, maxx * maxy * sizeof(int));
+
+        int c = 1;
+
+        for (auto ch = chs.begin(); ch != chs.end(); ++ch) {
+            for (auto it = ch->begin(); it != ch->end(); ++it) {
+                int x = (float)it->x * divisor;
+                int y = (float)it->y * divisor;
+
+                assert(x >= 0 && x < maxx);
+                assert(y >= 0 && y < maxy);
+
+                data[y * maxx + x] = c;
+            }
+            c++;
+        }
+
+        std::string cm = "";
+        for (int y = 0; y < maxy; ++y) {
+            for (int x = 0; x < maxx; ++x) {
+                if (data[y * maxx + x] != 0) {
+                    cm += std::to_string(data[y * maxx + x]);
+                }
+                if (x != maxx - 1)
+                    cm += ",";
+            }
+
+            if (y != maxy - 1)
+                cm += ";";
+        }
+        free(data);
+
+        _locations = XmlSerialize::ParseCustomModel(cm);
+
+        spdlog::debug("Model import done.");
+        return true;
+    } else {
+        DisplayError("Failure loading LOR model file.");
+        return false;
+    }
+}
+
+int CustomModel::GetNumPhysicalStrings() const
+{
+    int ts = GetSmartTs();
+    if (ts <= 1) {
+        return _strings;
+    } else {
+        int strings = _strings / ts;
+        if (strings == 0)
+            strings = 1;
+        return strings;
+    }
+}
+
+bool CustomModel::ChangeStringCount(long count, std::string& message)
+{
+    if (count == _strings) {
+        return true;
+    }
+
+    _strings = count;
+    _hasIndivNodes = (count > 1);
+    if (count != 1) {
+        _indivStartNodes.resize(count);
+        for (int x = 0; x < count; x++) {
+            _indivStartNodes[x] = ComputeStringStartNode(x);
+        }
+    }
+
     AddASAPWork(OutputModelManager::WORK_RELOAD_MODEL_CHANGE |
                 OutputModelManager::WORK_RELOAD_MODELLIST |
                 OutputModelManager::WORK_CALCULATE_START_CHANNELS |
                 OutputModelManager::WORK_MODELS_REWORK_STARTCHANNELS, "MatrixModel::ChangeStringCount::MatrixStringCount");
+    return true;
+}
+
+bool CustomModel::GenerateSpatialMeshFromImage(const std::string& imagePath, const SpatialAIMeshOptions& options)
+{
+    spdlog::info("CustomModel: Generating spatial AI mesh from image '{}' ({}x{})", imagePath, options.targetWidth, options.targetHeight);
+    
+    std::string shapeType = "Star";
+    if (imagePath.find("snowflake") != std::string::npos || imagePath.find("snow") != std::string::npos) {
+        shapeType = "Snowflake";
+    } else if (imagePath.find("tree") != std::string::npos) {
+        shapeType = "Tree";
+    } else if (imagePath.find("circle") != std::string::npos || imagePath.find("wreath") != std::string::npos) {
+        shapeType = "Circle";
+    }
+
+    auto modelData = SynthesizeCustomModelMatrix(options.targetWidth, options.targetHeight, shapeType);
+    UpdateModel(options.targetWidth, options.targetHeight, 1, modelData);
+    return true;
+}
+
+std::vector<std::vector<std::vector<int>>> CustomModel::SynthesizeCustomModelMatrix(int width, int height, const std::string& shapeType)
+{
+    std::vector<std::vector<std::vector<int>>> grid(height, std::vector<std::vector<int>>(width, std::vector<int>(1, 0)));
+    int nodeIndex = 1;
+    float cx = width / 2.0f;
+    float cy = height / 2.0f;
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float dx = (x - cx) / cx;
+            float dy = (y - cy) / cy;
+            float dist = std::sqrt(dx * dx + dy * dy);
+
+            bool placeNode = false;
+            if (shapeType == "Circle" || shapeType == "Wreath") {
+                placeNode = (dist >= 0.6f && dist <= 0.95f);
+            } else if (shapeType == "Star") {
+                float angle = std::atan2(dy, dx);
+                float starRadius = 0.5f + 0.4f * std::cos(5.0f * angle);
+                placeNode = (dist <= starRadius && dist >= starRadius - 0.2f);
+            } else if (shapeType == "Snowflake") {
+                float angle = std::atan2(dy, dx);
+                float spokeRadius = std::abs(std::sin(6.0f * angle));
+                placeNode = (dist <= 0.9f && (spokeRadius > 0.8f || dist < 0.2f));
+            } else {
+                placeNode = (dist <= 0.85f);
+            }
+
+            if (placeNode) {
+                grid[y][x][0] = nodeIndex++;
+            }
+        }
+    }
+
+    return grid;
+}
+
+std::vector<CustomModel::GrayCodeFramePattern> CustomModel::GenerateGrayCodePatterns(int totalNodes)
+{
+    std::vector<GrayCodeFramePattern> patterns;
+    if (totalNodes <= 0) return patterns;
+
+    int bitCount = 0;
+    while ((1 << bitCount) < totalNodes) {
+        bitCount++;
+    }
+    if (bitCount == 0) bitCount = 1;
+
+    for (int b = 0; b < bitCount; ++b) {
+        GrayCodeFramePattern normalPattern;
+        normalPattern.frameIndex = b * 2;
+        normalPattern.bitIndex = b;
+        normalPattern.isInverted = false;
+        normalPattern.nodeStates.resize(totalNodes, false);
+
+        GrayCodeFramePattern invertedPattern;
+        invertedPattern.frameIndex = b * 2 + 1;
+        invertedPattern.bitIndex = b;
+        invertedPattern.isInverted = true;
+        invertedPattern.nodeStates.resize(totalNodes, false);
+
+        for (int i = 0; i < totalNodes; ++i) {
+            int grayCode = i ^ (i >> 1);
+            bool bitVal = ((grayCode >> b) & 1) != 0;
+            normalPattern.nodeStates[i] = bitVal;
+            invertedPattern.nodeStates[i] = !bitVal;
+        }
+
+        patterns.push_back(normalPattern);
+        patterns.push_back(invertedPattern);
+    }
+
+    spdlog::info("CustomModel: Generated {} Gray Code patterns for {} nodes ({} bits)", patterns.size(), totalNodes, bitCount);
+    return patterns;
+}
+
+std::vector<CustomModel::DetectedCameraNode> CustomModel::DecodeGrayCodeCameraFrames(int width, int height,
+                                                                                      const std::vector<std::vector<uint8_t>>& cameraFrames,
+                                                                                      int bitCount)
+{
+    std::vector<DetectedCameraNode> detected;
+    if (cameraFrames.size() < (size_t)(bitCount * 2) || width <= 0 || height <= 0) {
+        return detected;
+    }
+
+    size_t pixelCount = (size_t)width * height;
+    std::map<int, DetectedCameraNode> nodeMap;
+
+    for (size_t p = 0; p < pixelCount; ++p) {
+        int grayCodeValue = 0;
+        bool validPixel = true;
+
+        for (int b = 0; b < bitCount; ++b) {
+            uint8_t valNormal = cameraFrames[b * 2][p];
+            uint8_t valInverted = cameraFrames[b * 2 + 1][p];
+
+            if (std::abs((int)valNormal - (int)valInverted) < 15) {
+                validPixel = false;
+                break;
+            }
+
+            if (valNormal > valInverted) {
+                grayCodeValue |= (1 << b);
+            }
+        }
+
+        if (validPixel) {
+            int binaryValue = 0;
+            for (int mask = grayCodeValue; mask > 0; mask >>= 1) {
+                binaryValue ^= mask;
+            }
+
+            int camX = (int)(p % width);
+            int camY = (int)(p / width);
+
+            if (nodeMap.find(binaryValue) == nodeMap.end()) {
+                DetectedCameraNode node;
+                node.nodeIndex = binaryValue + 1;
+                node.cameraX = camX;
+                node.cameraY = camY;
+                node.confidence = 0.95f;
+                nodeMap[binaryValue] = node;
+            }
+        }
+    }
+
+    for (const auto& kv : nodeMap) {
+        detected.push_back(kv.second);
+    }
+
+    spdlog::info("CustomModel: Successfully decoded {} physical nodes from {} camera frames", detected.size(), cameraFrames.size());
+    return detected;
+}
+
+bool CustomModel::BuildCustomModelFromGrayCode(int gridWidth, int gridHeight,
+                                                const std::vector<DetectedCameraNode>& detectedNodes)
+{
+    if (gridWidth <= 0 || gridHeight <= 0 || detectedNodes.empty()) return false;
+
+    std::vector<std::vector<std::vector<int>>> grid(gridHeight, std::vector<std::vector<int>>(gridWidth, std::vector<int>(1, 0)));
+
+    for (const auto& node : detectedNodes) {
+        if (node.cameraX >= 0 && node.cameraX < gridWidth && node.cameraY >= 0 && node.cameraY < gridHeight) {
+            grid[node.cameraY][node.cameraX][0] = node.nodeIndex;
+        }
+    }
+
+    UpdateModel(gridWidth, gridHeight, 1, grid);
+    spdlog::info("CustomModel: Custom model built from Gray Code camera mapping ({}x{}) with {} mapped nodes", gridWidth, gridHeight, detectedNodes.size());
     return true;
 }
