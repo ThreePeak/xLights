@@ -170,7 +170,7 @@ const MCP_TOOLS = [
     },
     {
         name: "separate_audio_stems",
-        description: "Executes deep learning HTDemucs source separation on active sequence audio to isolate Vocals, Drums, Bass, and Other stems",
+        description: "Splits song into isolated stems (Vocals/Drums/Bass) and generates transient timing tracks.",
         inputSchema: {
             type: "object",
             properties: {
