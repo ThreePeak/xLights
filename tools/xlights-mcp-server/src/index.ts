@@ -278,6 +278,21 @@ const MCP_TOOLS = [
             },
             required: ["audio_file_path"]
         }
+    },
+    {
+        name: "gray_code_pixel_mapper",
+        description: "Executes OpenCV Gray Code sequence analysis to auto-map custom prop pixel coordinates from camera feed. Generates 2K normal+inverted Gray Code light patterns (K=ceil(log2(N))), decodes camera captures using Bit_k = Frame_pattern > Frame_inverse_pattern, and exports an xLights Custom Model XML.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                total_nodes: { type: "number", description: "Total number of prop nodes to map" },
+                model_width: { type: "number", description: "Custom model grid width (columns)" },
+                model_height: { type: "number", description: "Custom model grid height (rows)" },
+                model_name: { type: "string", description: "Name for the exported Custom Model (default: AI_MappedProp)" },
+                threshold_delta: { type: "number", description: "Minimum brightness delta to confirm a pattern bit (default: 10.0)" }
+            },
+            required: ["total_nodes", "model_width", "model_height"]
+        }
     }
 ];
 
@@ -310,6 +325,7 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "map_audio_dynamics":
         case "extract_audio_volume_envelope": return await httpPost("/api/ai/audio_envelope", args);
         case "analyze_audio_dynamics": return await httpPost("/api/audio-dynamics", args);
+        case "gray_code_pixel_mapper": return await httpPost("/api/ai/gray-code-map", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }

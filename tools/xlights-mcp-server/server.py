@@ -211,6 +211,21 @@ MCP_TOOLS = [
             },
             "required": ["audio_file_path"]
         }
+    },
+    {
+        "name": "gray_code_pixel_mapper",
+        "description": "Executes OpenCV Gray Code sequence analysis to auto-map custom prop pixel coordinates from camera feed. Generates 2K normal+inverted Gray Code light patterns (K=ceil(log2(N))), decodes camera captures using Bit_k = Frame_pattern > Frame_inverse_pattern, and exports an xLights Custom Model XML.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "total_nodes": {"type": "number", "description": "Total number of prop nodes to map"},
+                "model_width": {"type": "number", "description": "Custom model grid width (columns)"},
+                "model_height": {"type": "number", "description": "Custom model grid height (rows)"},
+                "model_name": {"type": "string", "description": "Name for the exported Custom Model (default: AI_MappedProp)"},
+                "threshold_delta": {"type": "number", "description": "Minimum brightness delta to confirm a pattern bit (default: 10.0)"}
+            },
+            "required": ["total_nodes", "model_width", "model_height"]
+        }
     }
 ]
 
@@ -241,6 +256,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/ai/audio_envelope", arguments)
     elif name == "analyze_audio_dynamics":
         return http_post("/api/audio-dynamics", arguments)
+    elif name == "gray_code_pixel_mapper":
+        return http_post("/api/ai/gray-code-map", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 
