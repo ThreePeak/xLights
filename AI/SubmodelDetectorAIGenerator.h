@@ -48,7 +48,7 @@ struct DetectedSubmodel {
     std::string type = "ranges"; // "ranges" or "subbuffer"
     int length = 0;              // Total node count in this submodel
     std::string nodeRangeString; // e.g., "1-48"
-    std::vector<int> nodeIndices;
+    std::vector<int> nodeIndices; // List of pixel node IDs belonging to this submodel
     std::string submodelType;   // e.g., "Outline", "Eyes Open", "Eyes Closed", "Mouth AI", "Ring"
     DetectedSubmodelCategory category = DetectedSubmodelCategory::StructuralRing;
     float confidence = 0.0f;
