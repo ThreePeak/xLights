@@ -12,7 +12,19 @@
 
 #include "SubmodelDetectorAIGenerator.h"
 
-namespace xLights::AI {
+class SubmodelDetectorUtils {
+public:
+    // Apply geometric clustering (DBSCAN) to group node coordinates into spatial clusters
+    static std::vector<std::vector<int>> ClusterNodesDBSCAN(
+        const std::vector<std::pair<float, float>>& points,
+        float eps = 0.15f,
+        int minPts = 3);
+
+    // Apply Radial K-Means clustering to group nodes into concentric rings / spokes
+    static std::vector<std::vector<int>> ClusterNodesRadialKMeans(
+        const std::vector<std::pair<float, float>>& points,
+        int numClusters = 3);
+};
 
 using SubmodelDetector = SubmodelDetectorAIGenerator;
 
