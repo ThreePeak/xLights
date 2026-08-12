@@ -109,6 +109,7 @@ std::string ValueCurveAIGenerator::JsonToSerializedValueCurve(const std::string&
     ss << std::fixed << std::setprecision(2);
     ss << "Active=TRUE|Type=Custom|Min=0.00|Max=100.00|Values=";
 
+    std::ostringstream customDataStream;
     // Parse "x": <val>, "y": <val> pairs from JSON string dynamically
     bool first = true;
     size_t pos = 0;
@@ -127,14 +128,27 @@ std::string ValueCurveAIGenerator::JsonToSerializedValueCurve(const std::string&
         if (endY == std::string::npos) break;
         float yVal = std::strtof(jsonPayload.substr(yPos, endY - yPos).c_str(), nullptr);
 
-        if (!first) ss << ";";
-        ss << std::setprecision(2) << xVal << ":" << yVal;
+        if (!first) customDataStream << ";";
+        customDataStream << std::setprecision(2) << xVal << ":" << yVal;
         first = false;
         pos = endY;
     }
+    std::string dataStr = customDataStream.str();
+    if (!dataStr.empty() && dataStr.back() == ';') {
+        dataStr.pop_back();
+    }
 
-    ss << "|";
+    ss << dataStr << "|RV=TRUE";
     return ss.str();
+}
+
+std::string ValueCurveAIGenerator::GenerateCurveJsonFromAudioDynamics(const AudioDynamicsContourResult& dynamics, const std::string& metricName) {
+    return DynamicsContourMapper::ExportContourToValueCurveJSON(dynamics, metricName);
+}
+
+std::string ValueCurveAIGenerator::BindAudioDynamicsToValueCurve(const AudioDynamicsContourResult& dynamics, const std::string& metricName) {
+    std::string jsonPayload = GenerateCurveJsonFromAudioDynamics(dynamics, metricName);
+    return JsonToSerializedValueCurve(jsonPayload);
 }
 
 } // namespace xLights::AI

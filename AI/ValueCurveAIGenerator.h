@@ -9,6 +9,7 @@
  **************************************************************/
 
 #include "../src-core/ai/AISubsystemBase.h"
+#include "DynamicsContourMapper.h"
 #include <string>
 #include <vector>
 #include <memory>
@@ -46,6 +47,16 @@ public:
      * @brief Converts a curve JSON payload into an xLights serialized pipe string (`Active=TRUE|Type=Custom|...`).
      */
     [[nodiscard]] static std::string JsonToSerializedValueCurve(const std::string& jsonPayload);
+
+    /**
+     * @brief Auto-binds song dynamics contour into an xLights ValueCurve JSON payload.
+     */
+    [[nodiscard]] static std::string GenerateCurveJsonFromAudioDynamics(const AudioDynamicsContourResult& dynamics, const std::string& metricName = "brightness");
+
+    /**
+     * @brief Auto-binds effect brightness or speed sliders directly to song dynamics into an xLights serialized pipe string.
+     */
+    [[nodiscard]] static std::string BindAudioDynamicsToValueCurve(const AudioDynamicsContourResult& dynamics, const std::string& metricName = "brightness");
 
 private:
     std::vector<Point2D> SynthesizePoints(const std::string& prompt, float minVal, float maxVal);
