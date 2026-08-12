@@ -18,6 +18,10 @@ namespace xLights::AI {
 SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromImage(const SubmodelDetectionConfig& config) {
     SubmodelDetectionResult result;
     result.parentModelName = config.parentModelName;
+    std::string path = !config.imagePath.empty() ? config.imagePath : config.propImagePath;
+    if (!path.empty()) {
+        spdlog::info("SubmodelDetectorAIGenerator: Processing prop image path '{}'", path);
+    }
     if (config.totalNodes <= 0) {
         result.success = false;
         result.errorMessage = "Invalid totalNodes in SubmodelDetectionConfig.";

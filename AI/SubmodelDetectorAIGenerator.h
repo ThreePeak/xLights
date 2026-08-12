@@ -36,6 +36,7 @@ enum class DetectedSubmodelCategory {
 struct SubmodelDetectionConfig {
     std::string parentModelName; // Target xLights model name
     std::string imagePath;
+    std::string propImagePath;   // Alias for imagePath
     std::string propHint; // e.g., "Singing Face", "Tree", "Star", "Arch"
     int totalNodes = 0;
     int gridWidth = 0;
