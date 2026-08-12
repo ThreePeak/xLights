@@ -22,6 +22,7 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(const std
     AudioDynamicsContourResult result;
     if (leftChannel.empty() || sampleRate == 0) {
         spdlog::error("AudioDynamicsMapper: Empty audio buffer or zero sample rate.");
+        result.errorMessage = "Empty audio buffer or zero sample rate.";
         return result;
     }
 
@@ -151,6 +152,7 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(AudioMana
     AudioDynamicsContourResult result;
     if (!audioManager || !audioManager->HasAudio()) {
         spdlog::error("AudioDynamicsMapper: AudioManager has no loaded audio.");
+        result.errorMessage = "AudioManager has no loaded audio.";
         return result;
     }
 

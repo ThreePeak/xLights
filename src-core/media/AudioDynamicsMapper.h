@@ -34,6 +34,7 @@ using AudioEmotionFrame = AudioFrameContour;
 struct AudioDynamicsContourResult {
     bool success = false;
     std::string songPath;                     // Path to analyzed audio file
+    std::string errorMessage;                 // Error description if success == false
     int totalDurationMs = 0;                  // Total track duration in milliseconds
     float averageBPM = 120.0f;
     float peakEnergy = 0.0f;
