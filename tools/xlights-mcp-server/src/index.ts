@@ -293,6 +293,26 @@ const MCP_TOOLS = [
             },
             required: ["total_nodes", "model_width", "model_height"]
         }
+    },
+    {
+        name: "auto_prop_mapper",
+        description: "Runs a full OpenCV Gray Code auto-mapping session using PropMappingConfig. Generates 2K patterns, decodes camera captures, and exports an xLights Custom Model XML via POST /api/auto-map-prop.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                total_nodes:        { type: "number",  description: "Total LED/pixel nodes on the prop" },
+                model_width:        { type: "number",  description: "Custom Model grid width (columns)" },
+                model_height:       { type: "number",  description: "Custom Model grid height (rows)" },
+                model_name:         { type: "string",  description: "xLights Custom Model name (default: AI_MappedProp)" },
+                camera_index:       { type: "number",  description: "OpenCV camera device index (default: 0)" },
+                camera_width:       { type: "number",  description: "Camera capture width in pixels (default: 1280)" },
+                camera_height:      { type: "number",  description: "Camera capture height in pixels (default: 720)" },
+                threshold_delta:    { type: "number",  description: "Min brightness delta to confirm a pattern bit (default: 10.0)" },
+                export_csv:         { type: "boolean", description: "Also return a CSV of pixel coordinates (default: false)" },
+                output_directory:   { type: "string",  description: "Directory to write output files (empty = in-memory only)" }
+            },
+            required: ["total_nodes", "model_width", "model_height"]
+        }
     }
 ];
 
@@ -326,6 +346,8 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "extract_audio_volume_envelope": return await httpPost("/api/ai/audio_envelope", args);
         case "analyze_audio_dynamics": return await httpPost("/api/audio-dynamics", args);
         case "gray_code_pixel_mapper": return await httpPost("/api/ai/gray-code-map", args);
+        case "auto_map_prop_camera":
+        case "auto_prop_mapper":       return await httpPost("/api/auto-map-prop", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }

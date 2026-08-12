@@ -263,6 +263,54 @@ const MCP_TOOLS = [
                 frame_period_ms: { type: "number", description: "Frame period in milliseconds (default 50)" }
             }
         }
+    },
+    {
+        name: "analyze_audio_dynamics",
+        description: "Analyze full song audio track into 50ms STFT frames computing RMS Energy, Spectral Centroid, Valence, Arousal, and Harmonic Tension as xLights ValueCurve data.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                audio_file_path: { type: "string", description: "Absolute path to the audio file to analyze" },
+                sample_interval_ms: { type: "number", description: "STFT frame window in milliseconds (default 50)" },
+                metric: { type: "string", description: "Target metric: brightness, valence, arousal, tension, spectralCentroid" }
+            },
+            required: ["audio_file_path"]
+        }
+    },
+    {
+        name: "gray_code_pixel_mapper",
+        description: "Executes OpenCV Gray Code sequence analysis to auto-map custom prop pixel coordinates from camera feed. Generates 2K normal+inverted Gray Code light patterns (K=ceil(log2(N))), decodes camera captures using Bit_k = Frame_pattern > Frame_inverse_pattern, and exports an xLights Custom Model XML.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                total_nodes: { type: "number", description: "Total number of prop nodes to map" },
+                model_width: { type: "number", description: "Custom model grid width (columns)" },
+                model_height: { type: "number", description: "Custom model grid height (rows)" },
+                model_name: { type: "string", description: "Name for the exported Custom Model (default: AI_MappedProp)" },
+                threshold_delta: { type: "number", description: "Minimum brightness delta to confirm a pattern bit (default: 10.0)" }
+            },
+            required: ["total_nodes", "model_width", "model_height"]
+        }
+    },
+    {
+        name: "auto_prop_mapper",
+        description: "Runs a full OpenCV Gray Code auto-mapping session using PropMappingConfig. Generates 2K patterns, decodes camera captures, and exports an xLights Custom Model XML via POST /api/auto-map-prop.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                total_nodes: { type: "number", description: "Total LED/pixel nodes on the prop" },
+                model_width: { type: "number", description: "Custom Model grid width (columns)" },
+                model_height: { type: "number", description: "Custom Model grid height (rows)" },
+                model_name: { type: "string", description: "xLights Custom Model name (default: AI_MappedProp)" },
+                camera_index: { type: "number", description: "OpenCV camera device index (default: 0)" },
+                camera_width: { type: "number", description: "Camera capture width in pixels (default: 1280)" },
+                camera_height: { type: "number", description: "Camera capture height in pixels (default: 720)" },
+                threshold_delta: { type: "number", description: "Min brightness delta to confirm a pattern bit (default: 10.0)" },
+                export_csv: { type: "boolean", description: "Also return a CSV of pixel coordinates (default: false)" },
+                output_directory: { type: "string", description: "Directory to write output files (empty = in-memory only)" }
+            },
+            required: ["total_nodes", "model_width", "model_height"]
+        }
     }
 ];
 async function handleToolCall(name, args) {
@@ -293,6 +341,10 @@ async function handleToolCall(name, args) {
         case "xlights_generate_value_curve": return await httpPost("/api/ai/value_curve", args);
         case "map_audio_dynamics":
         case "extract_audio_volume_envelope": return await httpPost("/api/ai/audio_envelope", args);
+        case "analyze_audio_dynamics": return await httpPost("/api/audio-dynamics", args);
+        case "gray_code_pixel_mapper": return await httpPost("/api/ai/gray-code-map", args);
+        case "auto_map_prop_camera":
+        case "auto_prop_mapper": return await httpPost("/api/auto-map-prop", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }

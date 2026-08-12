@@ -226,6 +226,26 @@ MCP_TOOLS = [
             },
             "required": ["total_nodes", "model_width", "model_height"]
         }
+    },
+    {
+        "name": "auto_prop_mapper",
+        "description": "Runs a full OpenCV Gray Code auto-mapping session using PropMappingConfig. Generates 2K patterns, decodes camera captures, and exports an xLights Custom Model XML via POST /api/auto-map-prop.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "total_nodes":      {"type": "number",  "description": "Total LED/pixel nodes on the prop"},
+                "model_width":      {"type": "number",  "description": "Custom Model grid width (columns)"},
+                "model_height":     {"type": "number",  "description": "Custom Model grid height (rows)"},
+                "model_name":       {"type": "string",  "description": "xLights Custom Model name (default: AI_MappedProp)"},
+                "camera_index":     {"type": "number",  "description": "OpenCV camera device index (default: 0)"},
+                "camera_width":     {"type": "number",  "description": "Camera capture width in pixels (default: 1280)"},
+                "camera_height":    {"type": "number",  "description": "Camera capture height in pixels (default: 720)"},
+                "threshold_delta":  {"type": "number",  "description": "Min brightness delta to confirm a pattern bit (default: 10.0)"},
+                "export_csv":       {"type": "boolean", "description": "Also return a CSV of pixel coordinates (default: false)"},
+                "output_directory": {"type": "string",  "description": "Directory to write output files (empty = in-memory only)"}
+            },
+            "required": ["total_nodes", "model_width", "model_height"]
+        }
     }
 ]
 
@@ -258,6 +278,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/audio-dynamics", arguments)
     elif name == "gray_code_pixel_mapper":
         return http_post("/api/ai/gray-code-map", arguments)
+    elif name in ["auto_prop_mapper", "auto_map_prop_camera"]:
+        return http_post("/api/auto-map-prop", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 
