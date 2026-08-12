@@ -107,8 +107,9 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
         grp.confidence = 0.95f;
     }
     for (auto& [cat, grp] : groupMap) {
-        result.submodelGroups.push_back(std::move(grp));
+        result.submodelGroups.push_back(grp);
     }
+    result.detectedSubmodels = result.submodelGroups;
 
     result.generatedSubmodelXML = ExportToSubmodelXML(result.submodels);
     result.success = true;
