@@ -9,11 +9,49 @@
  **************************************************************/
 
 #include "media/AudioDynamicsMapper.h"
+#include "AISubsystemBase.h"
 
 namespace xLights::AI {
 
-using DynamicsContourMapper = AudioDynamicsMapper;
 using AudioFrameContour = ::AudioFrameContour;
 using AudioDynamicsContourResult = ::AudioDynamicsContourResult;
+
+class DynamicsContourMapper : public AISubsystemBase {
+public:
+    DynamicsContourMapper(ServiceManager* sm = nullptr) : AISubsystemBase(sm) {}
+    virtual ~DynamicsContourMapper() override = default;
+
+    virtual std::future<bool> InitializeAsync(StatusCallback callback = nullptr) override {
+        return std::async(std::launch::async, [this, callback]() {
+            if (callback) callback("Initializing DynamicsContourMapper...", 0.0f);
+            m_isInitialized.store(true);
+            if (callback) callback("DynamicsContourMapper initialized.", 100.0f);
+            return true;
+        });
+    }
+
+    virtual void Shutdown() override {
+        m_isInitialized.store(false);
+    }
+
+    [[nodiscard]] virtual std::string GetSubsystemName() const override { return "DynamicsContourMapper"; }
+    [[nodiscard]] virtual std::vector<std::string> GetCapabilities() const override {
+        return {"rms_dynamics_contour", "tempo_valence_arousal", "value_curve_export"};
+    }
+
+    [[nodiscard]] static AudioDynamicsContourResult AnalyzeDynamicsContour(
+        const std::vector<float>& leftChannel,
+        const std::vector<float>& rightChannel,
+        size_t sampleRate,
+        long framePeriodMS = 50,
+        std::function<void(int pct)> progress = nullptr);
+
+    [[nodiscard]] static AudioDynamicsContourResult AnalyzeDynamicsContour(
+        AudioManager* audioManager,
+        long framePeriodMS = 50,
+        std::function<void(int pct)> progress = nullptr);
+
+    [[nodiscard]] static std::string ExportAsValueCurveString(const AudioDynamicsContourResult& contour);
+};
 
 } // namespace xLights::AI
