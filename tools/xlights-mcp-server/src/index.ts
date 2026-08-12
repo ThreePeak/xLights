@@ -171,6 +171,18 @@ const MCP_TOOLS = [
         }
     },
     {
+        name: "xlights_synthesize_effect_preset",
+        description: "Synthesizes multi-layer effect stack presets from natural language prompts e.g. 'Fire effect with twinkling stars'",
+        inputSchema: {
+            type: "object",
+            properties: {
+                preset_name: { type: "string", description: "Name for generated preset" },
+                prompt: { type: "string", description: "Natural language description e.g. 'Fireworks with decaying twinkling background'" }
+            },
+            required: ["preset_name", "prompt"]
+        }
+    },
+    {
         name: "xlights_generate_value_curve",
         description: "Synthesize a natural language prompt into a normalized Bezier value curve JSON array and xLights pipe string",
         inputSchema: {

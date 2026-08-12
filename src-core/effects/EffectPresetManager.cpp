@@ -694,11 +694,21 @@ EffectPreset* EffectPresetManager::SynthesizePresetFromPrompt(EffectPresetGroup*
     baseLayer.layerIndex = 0;
     baseLayer.startTimeMS = 0;
     baseLayer.endTimeMS = 5000;
+    baseLayer.blendMode = "Normal";
 
     if (lowerPrompt.find("fire") != std::string::npos || lowerPrompt.find("flame") != std::string::npos) {
         baseLayer.effectName = "Fire";
         baseLayer.parameters["E_CHOICE_Fire_Location"] = "Bottom";
-        baseLayer.parameters["E_SLIDER_Fire_Height"] = "50";
+        baseLayer.parameters["E_SLIDER_Fire_Height"] = "60";
+        baseLayer.parameters["E_SLIDER_Fire_HueShift"] = "10";
+    } else if (lowerPrompt.find("fireworks") != std::string::npos || lowerPrompt.find("burst") != std::string::npos) {
+        baseLayer.effectName = "Fireworks";
+        baseLayer.parameters["E_SLIDER_Fireworks_Count"] = "12";
+        baseLayer.parameters["E_SLIDER_Fireworks_Velocity"] = "40";
+    } else if (lowerPrompt.find("plasma") != std::string::npos || lowerPrompt.find("nebula") != std::string::npos) {
+        baseLayer.effectName = "Plasma";
+        baseLayer.parameters["E_SLIDER_Plasma_Style"] = "1";
+        baseLayer.parameters["E_SLIDER_Plasma_Speed"] = "30";
     } else if (lowerPrompt.find("wave") != std::string::npos || lowerPrompt.find("ocean") != std::string::npos) {
         baseLayer.effectName = "Wave";
         baseLayer.parameters["E_CHOICE_Wave_Direction"] = "Left to Right";
@@ -707,15 +717,17 @@ EffectPreset* EffectPresetManager::SynthesizePresetFromPrompt(EffectPresetGroup*
         baseLayer.parameters["E_CHOICE_Bars_Direction"] = "Up";
     } else {
         baseLayer.effectName = "ColorWash";
+        baseLayer.parameters["E_SLIDER_ColorWash_Speed"] = "20";
     }
     specs.push_back(baseLayer);
 
-    // Overlay layer (Layer 1)
+    // Overlay layer 1 (Layer 1)
     if (lowerPrompt.find("storm") != std::string::npos || lowerPrompt.find("meteor") != std::string::npos || lowerPrompt.find("rain") != std::string::npos) {
         AutomatedPresetLayerSpec topLayer;
         topLayer.layerIndex = 1;
         topLayer.startTimeMS = 0;
         topLayer.endTimeMS = 5000;
+        topLayer.blendMode = "Additive";
         topLayer.effectName = "Meteors";
         topLayer.parameters["E_SLIDER_Meteors_Count"] = "25";
         topLayer.parameters["E_SLIDER_Meteors_Length"] = "15";
@@ -725,9 +737,23 @@ EffectPreset* EffectPresetManager::SynthesizePresetFromPrompt(EffectPresetGroup*
         topLayer.layerIndex = 1;
         topLayer.startTimeMS = 0;
         topLayer.endTimeMS = 5000;
+        topLayer.blendMode = "Layered";
         topLayer.effectName = "Twinkle";
-        topLayer.parameters["E_SLIDER_Twinkle_Count"] = "30";
+        topLayer.parameters["E_SLIDER_Twinkle_Count"] = "35";
+        topLayer.parameters["E_SLIDER_Twinkle_Steps"] = "10";
         specs.push_back(topLayer);
+    }
+
+    // Top Accent layer (Layer 2)
+    if (lowerPrompt.find("strobe") != std::string::npos || lowerPrompt.find("flash") != std::string::npos) {
+        AutomatedPresetLayerSpec accentLayer;
+        accentLayer.layerIndex = 2;
+        accentLayer.startTimeMS = 0;
+        accentLayer.endTimeMS = 5000;
+        accentLayer.blendMode = "Additive";
+        accentLayer.effectName = "Strobe";
+        accentLayer.parameters["E_SLIDER_Strobe_Frequency"] = "15";
+        specs.push_back(accentLayer);
     }
 
     return GenerateAutomatedPreset(parent, name, specs);
