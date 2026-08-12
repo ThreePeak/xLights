@@ -301,6 +301,7 @@ file(GLOB_RECURSE SRC_CORE
     AI/*.cpp
     AI/SubmodelDetector.cpp
     AI/PowerInjectionAIGenerator.cpp
+    AI/PowerInjectionAnalyzer.cpp
 )
 if(WIN32)
     list(APPEND SRC_CORE src-core/media/WindowsHardwareVideoReader.cpp)

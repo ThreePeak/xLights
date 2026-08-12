@@ -288,6 +288,23 @@ MCP_TOOLS = [
             },
             "required": ["total_pixels"]
         }
+    },
+    {
+        "name": "analyze_power_injection",
+        "description": "Calculates power injection intervals, voltage drops, wire gauges, and fuse specifications for xLights layouts.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model_name": {"type": "string", "description": "Target xLights model name e.g. MegaTree"},
+                "voltage": {"type": "string", "description": "Supply voltage e.g. 'V5', 'V12', 'V24' (default: 'V12')"},
+                "total_pixel_count": {"type": "number", "description": "Total pixel node count"},
+                "feed_wire_length_feet": {"type": "number", "description": "Distance from PSU to injection point in feet"},
+                "wire_gauge_awg": {"type": "number", "description": "Wire gauge AWG e.g. 14, 16, 18"},
+                "max_power_percentage": {"type": "number", "description": "Power cap percentage e.g. 0.50 (50%)"},
+                "uses_buck_converters": {"type": "boolean", "description": "Whether 12V-to-5V buck converters are used for logic boards"}
+            },
+            "required": ["total_pixel_count"]
+        }
     }
 ]
 
@@ -326,6 +343,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/detect-submodels", arguments)
     elif name == "calculate_power_injection":
         return http_post("/api/power-injection", arguments)
+    elif name == "analyze_power_injection":
+        return http_post("/api/power-analysis", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 
