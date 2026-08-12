@@ -109,6 +109,9 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(const std
     }
 
     result.contours = result.frames;
+    if (!result.frames.empty()) {
+        result.totalDurationMs = (int)result.frames.back().timeMS;
+    }
     result.success = true;
     spdlog::info("AudioDynamicsMapper: Successfully computed dynamics contour across {} frames. Peak Energy: {:.3f}", result.frames.size(), maxEnergy);
     return result;
