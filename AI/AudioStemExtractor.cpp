@@ -63,9 +63,10 @@ StemExtractionResult AudioStemExtractor::ProcessAudioStems(const StemExtractionC
     opts.framePeriodMS = config.framePeriodMS;
     opts.transientSensitivity = config.transientSensitivity;
     opts.exportWavFiles = config.exportWavFiles;
+    opts.generateTimingTracks = config.generateTimingTracks;
 
     StemExtractionResult res = ExtractStems(config.audioManager, opts, config.progress, config.cancel);
-    if (res.success) {
+    if (res.success && config.generateTimingTracks) {
         for (const auto& track : res.timingTracks) {
             std::string xml = CompileTimingTrackToXTimingXML(track, config.framePeriodMS);
             if (!xml.empty()) {

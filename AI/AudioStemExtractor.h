@@ -48,6 +48,7 @@ struct StemSeparationOptions {
     int framePeriodMS = 50;               // Window size for timing marks
     float transientSensitivity = 0.12f;   // 0.0 to 1.0
     bool exportWavFiles = true;
+    bool generateTimingTracks = true;     // Auto-create .xtiming tracks for drum beats & bass transients
 };
 
 struct StemExtractionConfig {
@@ -58,6 +59,7 @@ struct StemExtractionConfig {
     int framePeriodMS = 50;
     float transientSensitivity = 0.12f;   // 0.0 to 1.0
     bool exportWavFiles = true;
+    bool generateTimingTracks = true;     // Auto-create .xtiming tracks for drum beats & bass transients
     std::function<void(int pct)> progress = nullptr;
     const std::atomic<bool>* cancel = nullptr;
 };
