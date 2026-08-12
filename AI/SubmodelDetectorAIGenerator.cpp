@@ -74,6 +74,7 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
         else if (spec.name.find("Mouth") != std::string::npos) sub.category = DetectedSubmodelCategory::SINGING_MOUTH;
         else if (spec.name.find("Spoke") != std::string::npos) sub.category = DetectedSubmodelCategory::StructuralSpoke;
         else if (spec.name.find("Spinner") != std::string::npos || spec.name.find("Radial") != std::string::npos) sub.category = DetectedSubmodelCategory::RADIAL_SPINNER;
+        else if (spec.name.find("Perimeter") != std::string::npos || spec.name.find("Outer") != std::string::npos) sub.category = DetectedSubmodelCategory::OUTER_PERIMETER;
         else sub.category = DetectedSubmodelCategory::StructuralRing;
 
         if (!spec.strands.empty()) {
@@ -99,6 +100,7 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
                 case DetectedSubmodelCategory::FaceVisemeMouth: grp.groupName = "Singing Mouth Visemes"; break;
                 case DetectedSubmodelCategory::StructuralSpoke: grp.groupName = "Spokes"; break;
                 case DetectedSubmodelCategory::RADIAL_SPINNER: grp.groupName = "Radial Spinner"; break;
+                case DetectedSubmodelCategory::OUTER_PERIMETER: grp.groupName = "Outer Perimeter"; break;
                 default: grp.groupName = "Structural Rings"; break;
             }
         }
