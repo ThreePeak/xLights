@@ -27,7 +27,11 @@ static float GetWireResistancePerFoot(float awg) {
 
 PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const PowerInjectionConfig& config) {
     PowerInjectionResult result;
-    if (config.totalPixels <= 0 || config.supplyVoltage <= 0.0f) {
+    float vSupply = config.supplyVoltage;
+    if (config.voltageType == PixelVoltage::V5) vSupply = 5.0f;
+    else if (config.voltageType == PixelVoltage::V24) vSupply = 24.0f;
+
+    if (config.totalPixels <= 0 || vSupply <= 0.0f) {
         result.success = false;
         result.errorMessage = "Invalid totalPixels or supplyVoltage in PowerInjectionConfig.";
         spdlog::error("PowerInjectionAIGenerator: {}", result.errorMessage);

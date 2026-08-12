@@ -15,9 +15,14 @@
 #include <vector>
 #include <future>
 
-namespace xLights::AI {
+enum class PixelVoltage {
+    V5,
+    V12,
+    V24
+};
 
 struct PowerInjectionConfig {
+    PixelVoltage voltageType = PixelVoltage::V12; // Pixel supply voltage type
     float supplyVoltage = 12.0f;           // Supply voltage (e.g. 5.0V or 12.0V)
     float maxCurrentPerPixelAmps = 0.05f;  // Current per pixel in Amps (e.g. 0.05A = 50mA @ 100% white)
     float wireGaugeAWG = 18.0f;            // e.g., 14, 16, 18 AWG
