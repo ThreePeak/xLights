@@ -181,7 +181,7 @@ def handle_tool_call(name: str, arguments: dict):
     elif name == "xlights_stop_sequence":
         return http_post("/api/stop", {})
     elif name == "xlights_extract_audio_stems":
-        return http_post("/api/ai/extract_stems", arguments)
+        return http_post("/api/audio-stems", arguments)
     elif name == "xlights_import_xtiming":
         return http_post("/api/ai/import_xtiming", arguments)
     elif name == "xlights_recommend_layer_blend":
