@@ -200,6 +200,7 @@ std::vector<StemTimingMark> AudioDecoder::ComputeSpectralFluxOnsets(const std::v
                                                                     const std::vector<float>& channelR,
                                                                     long sampleRate,
                                                                     int framePeriodMS,
+                                                                    float transientSensitivity,
                                                                     float thresholdMultiplier) {
     std::vector<StemTimingMark> marks;
     std::vector<float> envelope = ComputeRMSEnvelope(channelL, channelR, sampleRate, framePeriodMS);
@@ -209,7 +210,7 @@ std::vector<StemTimingMark> AudioDecoder::ComputeSpectralFluxOnsets(const std::v
     for (size_t frame = 0; frame < envelope.size(); ++frame) {
         float energy = envelope[frame];
         float flux = energy - prevEnergy;
-        if (energy > 0.12f && flux > 0.0f && energy > prevEnergy * thresholdMultiplier) {
+        if (energy >= transientSensitivity && flux > 0.0f && energy > prevEnergy * thresholdMultiplier) {
             StemTimingMark mark;
             mark.timeMS = (long)(frame * framePeriodMS);
             mark.label = "Onset";

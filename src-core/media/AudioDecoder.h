@@ -89,6 +89,7 @@ public:
                                                                  const std::vector<float>& channelR,
                                                                  long sampleRate,
                                                                  int framePeriodMS = 50,
+                                                                 float transientSensitivity = 0.12f,
                                                                  float thresholdMultiplier = 1.8f);
 
     // Integrated Audio Import Hook: Performs stem separation and generates timing tracks
