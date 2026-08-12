@@ -36,6 +36,7 @@ struct SubmodelDetectionConfig {
     int totalNodes = 0;
     int gridWidth = 0;
     int gridHeight = 0;
+    std::vector<std::pair<float, float>> pixelCoordinates; // Explicit 2D pixel coordinates (x, y)
 };
 
 struct DetectedSubmodel {

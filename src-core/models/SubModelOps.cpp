@@ -887,4 +887,25 @@ SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::vector<
     return result;
 }
 
+SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::pair<float, float>>& pixelCoordinates,
+                                                  int totalNodes,
+                                                  const std::string& propHint)
+{
+    int N = (totalNodes > 0) ? totalNodes : static_cast<int>(pixelCoordinates.size());
+    int W = static_cast<int>(std::ceil(std::sqrt(std::max(1, N))));
+    int H = static_cast<int>(std::ceil(static_cast<double>(std::max(1, N)) / W));
+
+    std::vector<std::vector<int>> grid(H, std::vector<int>(W, 0));
+    int nodeIdx = 1;
+    for (int r = 0; r < H; ++r) {
+        for (int c = 0; c < W; ++c) {
+            if (nodeIdx <= N) {
+                grid[r][c] = nodeIdx++;
+            }
+        }
+    }
+
+    return DetectSubmodelsWithSAM(grid, N, propHint);
+}
+
 } // namespace submodel_ops

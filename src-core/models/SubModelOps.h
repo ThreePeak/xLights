@@ -154,6 +154,11 @@ SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::vector<
                                                   int totalNodes,
                                                   const std::string& propHint = "");
 
+// Overload taking explicit 2D pixel coordinates (x, y) for custom props
+SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::pair<float, float>>& pixelCoordinates,
+                                                  int totalNodes,
+                                                  const std::string& propHint = "");
+
 // ---------------------------------------------------------------------------
 // Geometric point ordering
 // ---------------------------------------------------------------------------
