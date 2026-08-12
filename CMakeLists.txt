@@ -1032,3 +1032,18 @@ endif()
 include(GNUInstallDirs)
 install(TARGETS xLights DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY resources/ DESTINATION ${CMAKE_INSTALL_DATADIR}/xLights)
+
+# ─── AI Unit Tests ──────────────────────────────────────────────────────────
+add_executable(test_DynamicsContourMapper
+    AI/test_DynamicsContourMapper.cpp
+    ${SRC_CORE}
+)
+target_include_directories(test_DynamicsContourMapper PRIVATE
+    ${CMAKE_SOURCE_DIR}/src-core
+    ${CMAKE_SOURCE_DIR}/AI
+)
+target_link_libraries(test_DynamicsContourMapper PRIVATE
+    nlohmann_json::nlohmann_json
+    pugixml::pugixml
+    spdlog::spdlog
+)
