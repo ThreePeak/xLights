@@ -71,7 +71,7 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
         sub.confidence = 0.95f;
         if (spec.name.find("Outline") != std::string::npos) sub.category = DetectedSubmodelCategory::FaceOutline;
         else if (spec.name.find("Eye") != std::string::npos) sub.category = DetectedSubmodelCategory::FaceEyes;
-        else if (spec.name.find("Mouth") != std::string::npos) sub.category = DetectedSubmodelCategory::FaceVisemeMouth;
+        else if (spec.name.find("Mouth") != std::string::npos) sub.category = DetectedSubmodelCategory::SINGING_MOUTH;
         else if (spec.name.find("Spoke") != std::string::npos) sub.category = DetectedSubmodelCategory::StructuralSpoke;
         else if (spec.name.find("Spinner") != std::string::npos || spec.name.find("Radial") != std::string::npos) sub.category = DetectedSubmodelCategory::RADIAL_SPINNER;
         else sub.category = DetectedSubmodelCategory::StructuralRing;
