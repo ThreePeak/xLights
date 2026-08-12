@@ -78,6 +78,14 @@ public:
     std::vector<StemTimingTrackResult> GenerateStemTimingTracks(const StemOutput& stems,
                                                                  long framePeriodMS = 50);
 
+    // Integrated Audio Import Hook: Performs stem separation and generates timing tracks
+    DemucsStemResult ProcessAudioFileStemSeparation(AudioManager* audioManager,
+                                                    const std::string& onnxModelPath,
+                                                    const std::string& outputFolder,
+                                                    std::vector<StemTimingTrackResult>& outTimingTracks,
+                                                    std::function<void(int pct)> progress = nullptr,
+                                                    const std::atomic<bool>* cancel = nullptr);
+
 private:
     std::unique_ptr<IAudioDecoder> _underlyingDecoder;
 };

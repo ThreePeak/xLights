@@ -167,3 +167,18 @@ std::vector<StemTimingTrackResult> AudioDecoder::GenerateStemTimingTracks(const 
 
     return results;
 }
+
+DemucsStemResult AudioDecoder::ProcessAudioFileStemSeparation(AudioManager* audioManager,
+                                                              const std::string& onnxModelPath,
+                                                              const std::string& outputFolder,
+                                                              std::vector<StemTimingTrackResult>& outTimingTracks,
+                                                              std::function<void(int pct)> progress,
+                                                              const std::atomic<bool>* cancel) {
+    spdlog::info("AudioDecoder: Executing integrated audio import stem separation workflow...");
+    DemucsStemResult result = SeparateDemucsStemsONNX(audioManager, onnxModelPath, outputFolder, progress, cancel);
+    if (result.success) {
+        outTimingTracks = GenerateStemTimingTracks(result.stemBuffers);
+        spdlog::info("AudioDecoder: Generated {} timing tracks from separated audio stems.", outTimingTracks.size());
+    }
+    return result;
+}
