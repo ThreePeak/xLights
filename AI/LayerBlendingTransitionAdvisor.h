@@ -67,6 +67,19 @@ public:
     );
 
     /**
+     * @brief Evaluates color muddying risk between top and bottom layer colors.
+     * Flags complementary colors in "Normal" mode with high saturation (>0.7) as "COLOR_MUDDYING"
+     * and suggests "Mask" or "True 3D Mask".
+     */
+    static bool CheckColorMuddying(
+        const std::string& topColorHex,
+        const std::string& bottomColorHex,
+        const std::string& currentBlendMode,
+        std::string& outWarning,
+        std::string& outSuggestedBlendMode
+    );
+
+    /**
      * @brief Analyzes a full multi-layer effect stack and returns layer blend recommendations.
      */
     [[nodiscard]] static LayerBlendAnalysis AnalyzeLayerStack(const std::vector<std::string>& effectStack);

@@ -56,6 +56,14 @@ int main() {
     assert(parsed.recommendations[0].topEffectName == "Twinkle");
     std::cout << " -> Test 3 (JSON Parsing): PASSED" << std::endl;
 
+    // Test 4: CheckColorMuddying Validation
+    std::string warn, suggest;
+    bool isMuddy = xLights::AI::LayerBlendingTransitionAdvisor::CheckColorMuddying("#FF0000", "#00FFFF", "Normal", warn, suggest);
+    assert(isMuddy);
+    assert(warn == "COLOR_MUDDYING");
+    assert(suggest == "Mask");
+    std::cout << " -> Test 4 (CheckColorMuddying Validation): PASSED" << std::endl;
+
     std::cout << "[Unit Test] ALL TESTS PASSED!" << std::endl;
     return 0;
 }

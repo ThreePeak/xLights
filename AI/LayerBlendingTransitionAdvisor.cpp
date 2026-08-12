@@ -100,6 +100,71 @@ LayerBlendRecommendation LayerBlendingTransitionAdvisor::RecommendBlendMode(
     return rec;
 }
 
+static void HexToHSV(const std::string& hexStr, float& outH, float& outS, float& outV) {
+    std::string hex = hexStr;
+    if (!hex.empty() && hex[0] == '#') hex.erase(0, 1);
+    if (hex.length() < 6) { outH = 0; outS = 0; outV = 0; return; }
+
+    unsigned int rInt = 0, gInt = 0, bInt = 0;
+    std::stringstream ss;
+    ss << std::hex << hex.substr(0, 2); ss >> rInt; ss.clear();
+    ss << std::hex << hex.substr(2, 2); ss >> gInt; ss.clear();
+    ss << std::hex << hex.substr(4, 2); ss >> bInt;
+
+    float r = rInt / 255.0f;
+    float g = gInt / 255.0f;
+    float b = bInt / 255.0f;
+
+    float maxC = std::max({r, g, b});
+    float minC = std::min({r, g, b});
+    float delta = maxC - minC;
+
+    outV = maxC;
+    outS = (maxC > 0.0f) ? (delta / maxC) : 0.0f;
+
+    if (delta < 0.00001f) {
+        outH = 0.0f;
+    } else {
+        if (maxC == r) {
+            outH = 60.0f * (fmod(((g - b) / delta), 6.0f));
+        } else if (maxC == g) {
+            outH = 60.0f * (((b - r) / delta) + 2.0f);
+        } else {
+            outH = 60.0f * (((r - g) / delta) + 4.0f);
+        }
+        if (outH < 0.0f) outH += 360.0f;
+    }
+}
+
+bool LayerBlendingTransitionAdvisor::CheckColorMuddying(
+    const std::string& topColorHex,
+    const std::string& bottomColorHex,
+    const std::string& currentBlendMode,
+    std::string& outWarning,
+    std::string& outSuggestedBlendMode)
+{
+    if (currentBlendMode != "Normal" && currentBlendMode != "normal") {
+        return false;
+    }
+
+    float h1 = 0.0f, s1 = 0.0f, v1 = 0.0f;
+    float h2 = 0.0f, s2 = 0.0f, v2 = 0.0f;
+    HexToHSV(topColorHex, h1, s1, v1);
+    HexToHSV(bottomColorHex, h2, s2, v2);
+
+    float hueDiff = std::abs(h1 - h2);
+    if (hueDiff > 180.0f) hueDiff = 360.0f - hueDiff;
+
+    // Complementary colors (hue distance 135 deg - 180 deg) with high saturation (>0.7) in Normal mode causes muddy colors
+    if (s1 > 0.7f && s2 > 0.7f && hueDiff >= 135.0f && hueDiff <= 180.0f) {
+        outWarning = "COLOR_MUDDYING";
+        outSuggestedBlendMode = "Mask";
+        return true;
+    }
+
+    return false;
+}
+
 LayerBlendAnalysis LayerBlendingTransitionAdvisor::AnalyzeLayerStack(const std::vector<std::string>& effectStack) {
     LayerBlendAnalysis analysis;
     analysis.stackDescription = "Multi-layer effect stack analysis (" + std::to_string(effectStack.size()) + " layers)";
