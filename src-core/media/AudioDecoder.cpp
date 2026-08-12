@@ -16,6 +16,7 @@
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -74,12 +75,22 @@ DemucsStemResult AudioDecoder::SeparateDemucsStemsONNX(AudioManager* audioManage
         return result;
     }
 
-    // Save stem WAV files
+    // Save stem WAV files using song name prefix: [Song]_vocals.wav, [Song]_drums.wav, etc.
     std::string baseDir = outputFolder.empty() ? "." : outputFolder;
-    result.vocalStemPath = baseDir + "/stem_vocals.wav";
-    result.drumStemPath  = baseDir + "/stem_drums.wav";
-    result.bassStemPath  = baseDir + "/stem_bass.wav";
-    result.otherStemPath = baseDir + "/stem_other.wav";
+    std::string songPrefix = "song";
+    if (audioManager) {
+        std::string songTitle = audioManager->GetTitle();
+        if (songTitle.empty()) {
+            std::filesystem::path p(audioManager->GetAudioFile());
+            if (p.has_stem()) songTitle = p.stem().string();
+        }
+        if (!songTitle.empty()) songPrefix = songTitle;
+    }
+
+    result.vocalStemPath = baseDir + "/" + songPrefix + "_vocals.wav";
+    result.drumStemPath  = baseDir + "/" + songPrefix + "_drums.wav";
+    result.bassStemPath  = baseDir + "/" + songPrefix + "_bass.wav";
+    result.otherStemPath = baseDir + "/" + songPrefix + "_other.wav";
 
     size_t rate = result.stemBuffers.sampleRate > 0 ? (size_t)result.stemBuffers.sampleRate : 44100;
 
