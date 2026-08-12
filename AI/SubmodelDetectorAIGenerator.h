@@ -19,6 +19,7 @@
 namespace xLights::AI {
 
 struct SubmodelDetectionConfig {
+    std::string parentModelName; // Target xLights model name
     std::string imagePath;
     std::string propHint; // e.g., "Singing Face", "Tree", "Star", "Arch"
     int totalNodes = 0;
@@ -40,6 +41,7 @@ struct DetectedSubmodel {
 struct SubmodelDetectionResult {
     bool success = false;
     std::string errorMessage;
+    std::string parentModelName; // Target parent model name
     std::string faceTypeDetected;
     std::vector<DetectedSubmodel> submodels;
     std::string generatedSubmodelXML; // XML string containing <submodel> and <node range="1-48"/> elements
