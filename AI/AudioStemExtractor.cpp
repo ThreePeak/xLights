@@ -35,6 +35,7 @@ nlohmann::json StemExtractionResult::ToJson() const {
         tj["mark_count"] = tt.marks.size();
         j["timing_tracks"].push_back(tj);
     }
+    j["generated_timing_track_files"] = generatedTimingTrackFiles;
     return j;
 }
 

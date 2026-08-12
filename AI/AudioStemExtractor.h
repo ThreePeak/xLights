@@ -51,6 +51,7 @@ struct StemExtractionResult {
     bool success = false;
     std::vector<AudioStem> stems;
     std::vector<StemTimingTrackResult> timingTracks;
+    std::vector<std::string> generatedTimingTrackFiles;       // List of .xtiming XML files
     std::string errorMessage;
 
     [[nodiscard]] nlohmann::json ToJson() const;
