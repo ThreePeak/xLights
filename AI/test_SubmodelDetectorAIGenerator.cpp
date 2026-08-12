@@ -86,19 +86,23 @@ TEST_CASE("SubmodelDetectorAIGenerator: XML Export format validation", "[Submode
         DetectedSubmodel sub1;
         sub1.name = "Outline";
         sub1.nodeRangeString = "1-48";
+        sub1.type = "ranges";
+        sub1.length = 48;
         submodels.push_back(sub1);
 
         DetectedSubmodel sub2;
         sub2.name = "Eyes Open";
+        sub2.type = "ranges";
+        sub2.length = 27;
         sub2.nodeRangeString = "49-75";
         submodels.push_back(sub2);
 
         std::string xml = SubmodelDetectorAIGenerator::ExportToSubmodelXML(submodels);
         REQUIRE(!xml.empty());
         REQUIRE(xml.find("<submodels>") != std::string::npos);
-        REQUIRE(xml.find("<submodel name=\"Outline\">") != std::string::npos);
+        REQUIRE(xml.find("<submodel name=\"Outline\" type=\"ranges\" length=\"48\">") != std::string::npos);
         REQUIRE(xml.find("<node range=\"1-48\"/>") != std::string::npos);
-        REQUIRE(xml.find("<submodel name=\"Eyes Open\">") != std::string::npos);
+        REQUIRE(xml.find("<submodel name=\"Eyes Open\" type=\"ranges\" length=\"27\">") != std::string::npos);
         REQUIRE(xml.find("<node range=\"49-75\"/>") != std::string::npos);
     }
 }
