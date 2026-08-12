@@ -81,6 +81,9 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(const std
         // Valence: -1.0 to +1.0
         frame.valence = (normEnergy > 0.5f) ? (normEnergy - 0.5f) * 2.0f : -(0.5f - normEnergy) * 2.0f;
 
+        // Harmonic Tension: 0.0 (resolution) to 1.0 (dissonance)
+        frame.harmonicTension = std::min(1.0f, std::max(0.0f, normEnergy * 0.85f + (1.0f - frame.valence) * 0.15f));
+
         // Recommend Vibe
         if (frame.arousal > 0.7f && frame.valence > 0.2f) {
             frame.recommendedVibe = "High Energy Energetic";
