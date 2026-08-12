@@ -176,6 +176,17 @@ MCP_TOOLS = [
             },
             "required": ["prompt"]
         }
+    },
+    {
+        "name": "extract_audio_volume_envelope",
+        "description": "Extracts song volume envelopes and spectral energy curves into xLights ValueCurves.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "stem_type": {"type": "string", "description": "Target stem e.g. Vocals, Drums, Bass, Full"},
+                "frame_period_ms": {"type": "number", "description": "Frame period in milliseconds (default 50)"}
+            }
+        }
     }
 ]
 
@@ -202,6 +213,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/effect", arguments)
     elif name == "xlights_generate_value_curve":
         return http_post("/api/ai/value_curve", arguments)
+    elif name == "extract_audio_volume_envelope":
+        return http_post("/api/ai/audio_envelope", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 

@@ -243,6 +243,17 @@ const MCP_TOOLS = [
             },
             required: ["prompt"]
         }
+    },
+    {
+        name: "extract_audio_volume_envelope",
+        description: "Extracts song volume envelopes and spectral energy curves into xLights ValueCurves.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                stem_type: { type: "string", description: "Target stem e.g. Vocals, Drums, Bass, Full" },
+                frame_period_ms: { type: "number", description: "Frame period in milliseconds (default 50)" }
+            }
+        }
     }
 ];
 
@@ -272,6 +283,7 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "xlights_recommend_layer_blend": return await httpPost("/api/ai/recommend_blend", args);
         case "xlights_synthesize_effect_preset": return await httpPost("/api/ai/synthesize_preset", args);
         case "xlights_generate_value_curve": return await httpPost("/api/ai/value_curve", args);
+        case "extract_audio_volume_envelope": return await httpPost("/api/ai/audio_envelope", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }
