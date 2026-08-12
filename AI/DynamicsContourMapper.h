@@ -52,6 +52,9 @@ public:
         long framePeriodMS = 50,
         std::function<void(int pct)> progress = nullptr);
 
+    /**
+     * @brief Process full song audio track into a time-series DynamicsMapResult.
+     */
     [[nodiscard]] static AudioDynamicsContourResult AnalyzeAudioDynamics(
         AudioManager* audioManager,
         long framePeriodMS = 50,

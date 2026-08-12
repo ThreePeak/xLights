@@ -28,6 +28,7 @@ AudioDynamicsContourResult DynamicsContourMapper::AnalyzeAudioDynamics(
     long framePeriodMS,
     std::function<void(int pct)> progress)
 {
+    // Process full song audio track into a time-series DynamicsMapResult
     return AnalyzeDynamicsContour(audioManager, framePeriodMS, progress);
 }
 
