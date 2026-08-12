@@ -70,7 +70,7 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
         sub.type = spec.isRanges ? "ranges" : "subbuffer";
         sub.confidence = 0.95f;
         if (spec.name.find("Outline") != std::string::npos) sub.category = DetectedSubmodelCategory::FaceOutline;
-        else if (spec.name.find("Eye") != std::string::npos) sub.category = DetectedSubmodelCategory::FaceEyes;
+        else if (spec.name.find("Eye") != std::string::npos) sub.category = DetectedSubmodelCategory::SINGING_EYE;
         else if (spec.name.find("Mouth") != std::string::npos) sub.category = DetectedSubmodelCategory::SINGING_MOUTH;
         else if (spec.name.find("Spoke") != std::string::npos) sub.category = DetectedSubmodelCategory::StructuralSpoke;
         else if (spec.name.find("Spinner") != std::string::npos || spec.name.find("Radial") != std::string::npos) sub.category = DetectedSubmodelCategory::RADIAL_SPINNER;
@@ -96,6 +96,7 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
         if (grp.groupName.empty()) {
             switch (sub.category) {
                 case DetectedSubmodelCategory::FaceOutline: grp.groupName = "Face Outline"; break;
+                case DetectedSubmodelCategory::SINGING_EYE:
                 case DetectedSubmodelCategory::FaceEyes: grp.groupName = "Face Eyes"; break;
                 case DetectedSubmodelCategory::SINGING_MOUTH:
                 case DetectedSubmodelCategory::FaceVisemeMouth: grp.groupName = "Singing Mouth Visemes"; break;

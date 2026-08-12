@@ -29,7 +29,8 @@ enum class DetectedSubmodelCategory {
     SINGING_MOUTH,
     OUTER_PERIMETER,
     CUSTOM_CLUSTER,
-    INNER_CORE
+    INNER_CORE,
+    SINGING_EYE
 };
 
 struct SubmodelDetectionConfig {
