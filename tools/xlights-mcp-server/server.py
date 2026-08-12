@@ -178,6 +178,17 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "map_audio_dynamics",
+        "description": "Extracts song volume envelopes, spectral energy curves, valence, arousal, and harmonic tension into xLights ValueCurves.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "metric": {"type": "string", "description": "Target metric e.g. brightness, valence, arousal, tension"},
+                "frame_period_ms": {"type": "number", "description": "Frame period in milliseconds (default 50)"}
+            }
+        }
+    },
+    {
         "name": "extract_audio_volume_envelope",
         "description": "Extracts song volume envelopes and spectral energy curves into xLights ValueCurves.",
         "inputSchema": {
@@ -213,7 +224,7 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/effect", arguments)
     elif name == "xlights_generate_value_curve":
         return http_post("/api/ai/value_curve", arguments)
-    elif name == "extract_audio_volume_envelope":
+    elif name in ["map_audio_dynamics", "extract_audio_volume_envelope"]:
         return http_post("/api/ai/audio_envelope", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}

@@ -243,6 +243,17 @@ const MCP_TOOLS = [
         }
     },
     {
+        name: "map_audio_dynamics",
+        description: "Extracts song volume envelopes, spectral energy curves, valence, arousal, and harmonic tension into xLights ValueCurves.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                metric: { type: "string", description: "Target metric e.g. brightness, valence, arousal, tension" },
+                frame_period_ms: { type: "number", description: "Frame period in milliseconds (default 50)" }
+            }
+        }
+    },
+    {
         name: "extract_audio_volume_envelope",
         description: "Extracts song volume envelopes and spectral energy curves into xLights ValueCurves.",
         inputSchema: {
@@ -280,6 +291,7 @@ async function handleToolCall(name, args) {
         case "xlights_recommend_layer_blend": return await httpPost("/api/ai/recommend_blend", args);
         case "xlights_synthesize_effect_preset": return await httpPost("/api/ai/synthesize_preset", args);
         case "xlights_generate_value_curve": return await httpPost("/api/ai/value_curve", args);
+        case "map_audio_dynamics":
         case "extract_audio_volume_envelope": return await httpPost("/api/ai/audio_envelope", args);
         default: return { error: `Unknown tool: ${name}` };
     }
