@@ -168,6 +168,60 @@ std::vector<StemTimingTrackResult> AudioDecoder::GenerateStemTimingTracks(const 
     return results;
 }
 
+std::vector<float> AudioDecoder::ComputeRMSEnvelope(const std::vector<float>& channelL,
+                                                   const std::vector<float>& channelR,
+                                                   long sampleRate,
+                                                   int framePeriodMS) {
+    std::vector<float> envelope;
+    if (sampleRate <= 0 || channelL.empty()) return envelope;
+
+    long samplesPerFrame = (sampleRate * framePeriodMS) / 1000;
+    if (samplesPerFrame <= 0) samplesPerFrame = 2205;
+    size_t totalSamples = channelL.size();
+
+    envelope.reserve(totalSamples / samplesPerFrame + 1);
+
+    for (size_t i = 0; i < totalSamples; i += samplesPerFrame) {
+        size_t endIdx = std::min(totalSamples, i + samplesPerFrame);
+        float sumSq = 0.0f;
+        for (size_t j = i; j < endIdx; ++j) {
+            float rVal = (j < channelR.size()) ? channelR[j] : channelL[j];
+            float mono = 0.5f * (std::abs(channelL[j]) + std::abs(rVal));
+            sumSq += mono * mono;
+        }
+        float rms = std::sqrt(sumSq / (endIdx - i));
+        envelope.push_back(rms);
+    }
+
+    return envelope;
+}
+
+std::vector<StemTimingMark> AudioDecoder::ComputeSpectralFluxOnsets(const std::vector<float>& channelL,
+                                                                    const std::vector<float>& channelR,
+                                                                    long sampleRate,
+                                                                    int framePeriodMS,
+                                                                    float thresholdMultiplier) {
+    std::vector<StemTimingMark> marks;
+    std::vector<float> envelope = ComputeRMSEnvelope(channelL, channelR, sampleRate, framePeriodMS);
+    if (envelope.empty()) return marks;
+
+    float prevEnergy = 0.0f;
+    for (size_t frame = 0; frame < envelope.size(); ++frame) {
+        float energy = envelope[frame];
+        float flux = energy - prevEnergy;
+        if (energy > 0.12f && flux > 0.0f && energy > prevEnergy * thresholdMultiplier) {
+            StemTimingMark mark;
+            mark.timeMS = (long)(frame * framePeriodMS);
+            mark.label = "Onset";
+            mark.confidence = std::min(1.0f, energy);
+            marks.push_back(mark);
+        }
+        prevEnergy = energy;
+    }
+
+    return marks;
+}
+
 DemucsStemResult AudioDecoder::ProcessAudioFileStemSeparation(AudioManager* audioManager,
                                                               const std::string& onnxModelPath,
                                                               const std::string& outputFolder,

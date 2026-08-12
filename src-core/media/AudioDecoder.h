@@ -78,6 +78,19 @@ public:
     std::vector<StemTimingTrackResult> GenerateStemTimingTracks(const StemOutput& stems,
                                                                  long framePeriodMS = 50);
 
+    // Compute RMS energy envelope for audio channels over window framePeriodMS
+    static std::vector<float> ComputeRMSEnvelope(const std::vector<float>& channelL,
+                                                 const std::vector<float>& channelR,
+                                                 long sampleRate,
+                                                 int framePeriodMS = 50);
+
+    // Compute spectral flux / energy difference onsets for drum or bass audio channels
+    static std::vector<StemTimingMark> ComputeSpectralFluxOnsets(const std::vector<float>& channelL,
+                                                                 const std::vector<float>& channelR,
+                                                                 long sampleRate,
+                                                                 int framePeriodMS = 50,
+                                                                 float thresholdMultiplier = 1.8f);
+
     // Integrated Audio Import Hook: Performs stem separation and generates timing tracks
     DemucsStemResult ProcessAudioFileStemSeparation(AudioManager* audioManager,
                                                     const std::string& onnxModelPath,
