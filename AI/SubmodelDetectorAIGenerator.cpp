@@ -74,6 +74,7 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
         else if (spec.name.find("Mouth") != std::string::npos) sub.category = DetectedSubmodelCategory::SINGING_MOUTH;
         else if (spec.name.find("Spoke") != std::string::npos) sub.category = DetectedSubmodelCategory::StructuralSpoke;
         else if (spec.name.find("Spinner") != std::string::npos || spec.name.find("Radial") != std::string::npos) sub.category = DetectedSubmodelCategory::RADIAL_SPINNER;
+        else if (spec.name.find("Inner") != std::string::npos || spec.name.find("Core") != std::string::npos) sub.category = DetectedSubmodelCategory::INNER_CORE;
         else if (spec.name.find("Perimeter") != std::string::npos || spec.name.find("Outer") != std::string::npos) sub.category = DetectedSubmodelCategory::OUTER_PERIMETER;
         else sub.category = DetectedSubmodelCategory::StructuralRing;
 
@@ -101,6 +102,7 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
                 case DetectedSubmodelCategory::StructuralSpoke: grp.groupName = "Spokes"; break;
                 case DetectedSubmodelCategory::RADIAL_SPINNER: grp.groupName = "Radial Spinner"; break;
                 case DetectedSubmodelCategory::OUTER_PERIMETER: grp.groupName = "Outer Perimeter"; break;
+                case DetectedSubmodelCategory::INNER_CORE: grp.groupName = "Inner Core"; break;
                 case DetectedSubmodelCategory::CUSTOM_CLUSTER:
                 case DetectedSubmodelCategory::CustomCluster: grp.groupName = "Custom Cluster"; break;
                 default: grp.groupName = "Structural Rings"; break;

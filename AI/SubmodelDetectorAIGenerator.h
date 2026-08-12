@@ -28,7 +28,8 @@ enum class DetectedSubmodelCategory {
     RADIAL_SPINNER,
     SINGING_MOUTH,
     OUTER_PERIMETER,
-    CUSTOM_CLUSTER
+    CUSTOM_CLUSTER,
+    INNER_CORE
 };
 
 struct SubmodelDetectionConfig {
