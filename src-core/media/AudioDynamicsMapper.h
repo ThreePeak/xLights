@@ -54,4 +54,7 @@ public:
 
     // Export dynamics brightness contour as serialized xLights ValueCurve string
     static std::string ExportAsValueCurveString(const AudioDynamicsContourResult& contour);
+
+    // Export dynamics brightness contour as xLights ValueCurve JSON format
+    static std::string ExportAsValueCurveJson(const AudioDynamicsContourResult& contour);
 };

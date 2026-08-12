@@ -34,4 +34,8 @@ std::string DynamicsContourMapper::ExportAsValueCurveString(const AudioDynamicsC
     return AudioDynamicsMapper::ExportAsValueCurveString(contour);
 }
 
+std::string DynamicsContourMapper::ExportAsValueCurveJson(const AudioDynamicsContourResult& contour) {
+    return AudioDynamicsMapper::ExportAsValueCurveJson(contour);
+}
+
 } // namespace xLights::AI

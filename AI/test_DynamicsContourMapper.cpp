@@ -57,6 +57,13 @@ int main() {
     assert(vcStr.find("CustomData=") != std::string::npos);
     std::cout << " -> Test 3 (ExportAsValueCurveString): PASSED" << std::endl;
 
+    // Test 4: Export to xLights ValueCurve JSON Format
+    std::string vcJson = AudioDynamicsMapper::ExportAsValueCurveJson(result);
+    assert(!vcJson.empty());
+    assert(vcJson.find("\"Type\":\"Custom\"") != std::string::npos || vcJson.find("\"Type\": \"Custom\"") != std::string::npos);
+    assert(vcJson.find("\"Points\"") != std::string::npos);
+    std::cout << " -> Test 4 (ExportAsValueCurveJson Output): PASSED" << std::endl;
+
     std::cout << "[Unit Test] ALL DYNAMICS CONTOUR MAPPER TESTS PASSED!" << std::endl;
     return 0;
 }

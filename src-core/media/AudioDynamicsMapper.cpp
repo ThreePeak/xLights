@@ -8,6 +8,7 @@
 
 #include "media/AudioDynamicsMapper.h"
 #include "media/AudioManager.h"
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <cmath>
@@ -149,4 +150,23 @@ std::string AudioDynamicsMapper::ExportAsValueCurveString(const AudioDynamicsCon
     }
 
     return ss.str();
+}
+
+std::string AudioDynamicsMapper::ExportAsValueCurveJson(const AudioDynamicsContourResult& contour) {
+    nlohmann::json j;
+    j["Type"] = "Custom";
+    j["Points"] = nlohmann::json::array();
+
+    if (contour.success && !contour.frames.empty()) {
+        size_t total = contour.frames.size();
+        for (size_t i = 0; i < total; ++i) {
+            float normX = (total > 1) ? (float)i / (float)(total - 1) : 0.0f;
+            float normY = contour.frames[i].brightnessLevel;
+            nlohmann::json pt;
+            pt["x"] = normX;
+            pt["y"] = normY;
+            j["Points"].push_back(pt);
+        }
+    }
+    return j.dump();
 }

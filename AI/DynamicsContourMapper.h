@@ -52,6 +52,8 @@ public:
         std::function<void(int pct)> progress = nullptr);
 
     [[nodiscard]] static std::string ExportAsValueCurveString(const AudioDynamicsContourResult& contour);
+
+    [[nodiscard]] static std::string ExportAsValueCurveJson(const AudioDynamicsContourResult& contour);
 };
 
 } // namespace xLights::AI
