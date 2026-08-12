@@ -9,7 +9,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const http_1 = __importDefault(require("http"));
 const readline_1 = __importDefault(require("readline"));
-const XLIGHTS_REST_PORT = 49913;
+const XLIGHTS_REST_PORT = process.env.XLIGHTS_REST_PORT ? parseInt(process.env.XLIGHTS_REST_PORT) : 49913;
 const XLIGHTS_HOST = 'localhost';
 function httpGet(endpoint) {
     return new Promise((resolve) => {

@@ -6,7 +6,7 @@
 import http from 'http';
 import readline from 'readline';
 
-const XLIGHTS_REST_PORT = 49913;
+const XLIGHTS_REST_PORT = process.env.XLIGHTS_REST_PORT ? parseInt(process.env.XLIGHTS_REST_PORT) : 49913;
 const XLIGHTS_HOST = 'localhost';
 
 export interface MCPToolCallArgs {
