@@ -8,6 +8,8 @@
 
 #include "AudioStemExtractor.h"
 #include "spdlog/spdlog.h"
+#include <pugixml.hpp>
+#include <sstream>
 #include <algorithm>
 #include <cmath>
 
@@ -135,6 +137,38 @@ std::vector<StemTimingMark> AudioStemExtractor::ComputeSpectralFluxOnsets(
     float transientSensitivity)
 {
     return AudioDecoder::ComputeSpectralFluxOnsets(stem.leftBuffer, stem.rightBuffer, stem.sampleRate, framePeriodMS, transientSensitivity);
+}
+
+std::string AudioStemExtractor::CompileTimingTrackToXTimingXML(
+    const StemTimingTrackResult& timingTrack,
+    int markDurationMS)
+{
+    pugi::xml_document doc;
+
+    // XML Declaration
+    pugi::xml_node decl = doc.prepend_child(pugi::node_declaration);
+    decl.append_attribute("version").set_value("1.0");
+    decl.append_attribute("encoding").set_value("UTF-8");
+
+    // Root Element: <timing name="TRACK_NAME" version="2">
+    pugi::xml_node rootNode = doc.append_child("timing");
+    rootNode.append_attribute("name").set_value(timingTrack.trackName.c_str());
+    rootNode.append_attribute("version").set_value("2");
+
+    // <EffectDB version="1">
+    pugi::xml_node dbNode = rootNode.append_child("EffectDB");
+    dbNode.append_attribute("version").set_value("1");
+
+    for (const auto& mark : timingTrack.marks) {
+        pugi::xml_node effNode = dbNode.append_child("Effect");
+        effNode.append_attribute("label").set_value(mark.label.c_str());
+        effNode.append_attribute("start").set_value(mark.timeMS);
+        effNode.append_attribute("end").set_value(mark.timeMS + markDurationMS);
+    }
+
+    std::ostringstream ss;
+    doc.save(ss, "  ");
+    return ss.str();
 }
 
 } // namespace xLights::AI

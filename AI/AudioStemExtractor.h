@@ -97,6 +97,14 @@ public:
         int framePeriodMS = 50,
         float transientSensitivity = 0.12f
     );
+
+    /**
+     * @brief Constructs xLights .xtiming XML files anchoring marks to detected transient timestamps (ms).
+     */
+    [[nodiscard]] static std::string CompileTimingTrackToXTimingXML(
+        const StemTimingTrackResult& timingTrack,
+        int markDurationMS = 50
+    );
 };
 
 } // namespace xLights::AI

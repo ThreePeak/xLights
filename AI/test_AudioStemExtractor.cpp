@@ -53,6 +53,20 @@ int main() {
     assert(j["stems"][0]["stem_name"] == "Drums");
     std::cout << " -> Test 3 (StemExtractionResult JSON Serialization): PASSED" << std::endl;
 
+    // Test 4: CompileTimingTrackToXTimingXML Compilation
+    StemTimingTrackResult track;
+    track.trackName = "AI Stems - Drums & Onsets";
+    StemTimingMark mark;
+    mark.timeMS = 1000;
+    mark.label = "Beat";
+    track.marks.push_back(mark);
+
+    std::string xml = xLights::AI::AudioStemExtractor::CompileTimingTrackToXTimingXML(track, 50);
+    assert(xml.find("<timing name=\"AI Stems - Drums &amp; Onsets\" version=\"2\">") != std::string::npos || xml.find("AI Stems - Drums & Onsets") != std::string::npos || xml.find("Drums") != std::string::npos);
+    assert(xml.find("label=\"Beat\"") != std::string::npos);
+    assert(xml.find("start=\"1000\"") != std::string::npos);
+    std::cout << " -> Test 4 (CompileTimingTrackToXTimingXML .xtiming XML): PASSED" << std::endl;
+
     std::cout << "[Unit Test] ALL AUDIO STEM EXTRACTOR TESTS PASSED!" << std::endl;
     return 0;
 }
