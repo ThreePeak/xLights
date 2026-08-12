@@ -178,6 +178,7 @@ std::string AudioStemExtractor::CompileTimingTrackToXTimingXML(
     const StemTimingTrackResult& timingTrack,
     int markDurationMS)
 {
+    // Convert drum/bass transient peaks into xLights .xtiming XML tracks
     pugi::xml_document doc;
 
     // XML Declaration

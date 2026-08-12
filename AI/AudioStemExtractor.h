@@ -125,6 +125,7 @@ public:
 
     /**
      * @brief Constructs xLights .xtiming XML files anchoring marks to detected transient timestamps (ms).
+     * Convert drum/bass transient peaks into xLights .xtiming XML tracks
      */
     [[nodiscard]] static std::string CompileTimingTrackToXTimingXML(
         const StemTimingTrackResult& timingTrack,
