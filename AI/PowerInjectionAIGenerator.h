@@ -30,6 +30,7 @@ struct PowerInjectionTap {
     int pixelIndex = 0;                    // Pixel index (1-based) where power tap is inserted
     float calculatedVoltage = 0.0f;        // Voltage at this tap
     float calculatedCurrentAmps = 0.0f;    // Current draw at this tap
+    float recommendedAmperage = 0.0f;      // e.g., 5A, 10A, 15A fuse rating
     std::string tapType;                   // "Front", "Mid-String", "End-String"
     std::string recommendedWireAWG;        // Recommended wire AWG e.g. "18 AWG"
 };
@@ -39,6 +40,7 @@ struct PowerInjectionResult {
     std::string errorMessage;
     float totalCurrentAmps = 0.0f;
     float totalPowerWatts = 0.0f;
+    float recommendedAmperage = 0.0f;      // e.g., 5A, 10A, 15A total power supply rating recommendation
     float endVoltageNoInjection = 0.0f;
     int requiredTapsCount = 0;
     std::vector<PowerInjectionTap> injectionTaps;

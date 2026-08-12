@@ -40,6 +40,7 @@ PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const Po
 
     result.totalCurrentAmps = totalCurrent;
     result.totalPowerWatts = totalPower;
+    result.recommendedAmperage = (totalCurrent <= 5.0f) ? 5.0f : ((totalCurrent <= 10.0f) ? 10.0f : ((totalCurrent <= 15.0f) ? 15.0f : 20.0f));
 
     // Calculate voltage drop along string without injection
     // Voltage drop V_drop = 2 * (Wire_Length_Per_Node * R_per_foot) * I_accumulated
@@ -63,6 +64,7 @@ PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const Po
     frontTap.pixelIndex = 1;
     frontTap.calculatedVoltage = config.supplyVoltage;
     frontTap.calculatedCurrentAmps = totalCurrent;
+    frontTap.recommendedAmperage = (totalCurrent <= 5.0f) ? 5.0f : ((totalCurrent <= 10.0f) ? 10.0f : 15.0f);
     frontTap.tapType = "Front";
     frontTap.recommendedWireAWG = (config.wireGaugeAWG <= 14.0f) ? "14 AWG" : ((config.wireGaugeAWG <= 16.0f) ? "16 AWG" : "18 AWG");
     result.injectionTaps.push_back(frontTap);
@@ -75,6 +77,7 @@ PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const Po
             tap.pixelIndex = p + 1;
             tap.calculatedVoltage = config.minRequiredVoltage;
             tap.calculatedCurrentAmps = (config.totalPixels - p) * config.maxCurrentPerPixelAmps;
+            tap.recommendedAmperage = (tap.calculatedCurrentAmps <= 5.0f) ? 5.0f : ((tap.calculatedCurrentAmps <= 10.0f) ? 10.0f : 15.0f);
             tap.tapType = (p == config.totalPixels - 1) ? "End-String" : "Mid-String";
             tap.recommendedWireAWG = frontTap.recommendedWireAWG;
             result.injectionTaps.push_back(tap);
