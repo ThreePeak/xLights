@@ -50,12 +50,21 @@ struct DetectedSubmodel {
     float confidence = 0.0f;
 };
 
+struct DetectedSubmodelGroup {
+    std::string groupName;
+    DetectedSubmodelCategory category = DetectedSubmodelCategory::StructuralRing;
+    std::vector<DetectedSubmodel> submodels;
+    int totalNodesInGroup = 0;
+    float confidence = 0.0f;
+};
+
 struct SubmodelDetectionResult {
     bool success = false;
     std::string errorMessage;
     std::string parentModelName; // Target parent model name
     std::string faceTypeDetected;
     std::vector<DetectedSubmodel> submodels;
+    std::vector<DetectedSubmodelGroup> submodelGroups;
     std::string generatedSubmodelXML; // XML string containing <submodel> and <node range="1-48"/> elements
 };
 

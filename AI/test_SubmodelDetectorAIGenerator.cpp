@@ -24,6 +24,7 @@ TEST_CASE("SubmodelDetectorAIGenerator: Singing face SAM submodel auto-detection
         REQUIRE(result.success == true);
         REQUIRE(result.faceTypeDetected == "Singing Face 8-Viseme");
         REQUIRE(result.submodels.size() >= 10); // Outline + Eyes Open + 8 Visemes
+        REQUIRE(result.submodelGroups.size() >= 3); // Outline, Eyes, Mouth groups
         REQUIRE(!result.generatedSubmodelXML.empty());
         REQUIRE(result.generatedSubmodelXML.find("<submodel name=\"Outline\"") != std::string::npos);
         REQUIRE(result.generatedSubmodelXML.find("<node range=") != std::string::npos);

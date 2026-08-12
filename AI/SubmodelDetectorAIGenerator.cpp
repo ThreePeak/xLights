@@ -86,6 +86,30 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
         result.submodels.push_back(std::move(sub));
     }
 
+    // Populate submodelGroups by category
+    std::map<DetectedSubmodelCategory, DetectedSubmodelGroup> groupMap;
+    for (const auto& sub : result.submodels) {
+        auto& grp = groupMap[sub.category];
+        grp.category = sub.category;
+        if (grp.groupName.empty()) {
+            switch (sub.category) {
+                case DetectedSubmodelCategory::FaceOutline: grp.groupName = "Face Outline"; break;
+                case DetectedSubmodelCategory::FaceEyes: grp.groupName = "Face Eyes"; break;
+                case DetectedSubmodelCategory::SINGING_MOUTH:
+                case DetectedSubmodelCategory::FaceVisemeMouth: grp.groupName = "Singing Mouth Visemes"; break;
+                case DetectedSubmodelCategory::StructuralSpoke: grp.groupName = "Spokes"; break;
+                case DetectedSubmodelCategory::RADIAL_SPINNER: grp.groupName = "Radial Spinner"; break;
+                default: grp.groupName = "Structural Rings"; break;
+            }
+        }
+        grp.submodels.push_back(sub);
+        grp.totalNodesInGroup += sub.length;
+        grp.confidence = 0.95f;
+    }
+    for (auto& [cat, grp] : groupMap) {
+        result.submodelGroups.push_back(std::move(grp));
+    }
+
     result.generatedSubmodelXML = ExportToSubmodelXML(result.submodels);
     result.success = true;
 
