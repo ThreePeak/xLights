@@ -23,6 +23,14 @@ AudioDynamicsContourResult DynamicsContourMapper::AnalyzeDynamicsContour(
     return mapper.AnalyzeDynamicsContour(audioManager, framePeriodMS, progress);
 }
 
+AudioDynamicsContourResult DynamicsContourMapper::AnalyzeAudioDynamics(
+    AudioManager* audioManager,
+    long framePeriodMS,
+    std::function<void(int pct)> progress)
+{
+    return AnalyzeDynamicsContour(audioManager, framePeriodMS, progress);
+}
+
 std::string DynamicsContourMapper::ExportAsValueCurveString(const AudioDynamicsContourResult& contour) {
     return AudioDynamicsMapper::ExportAsValueCurveString(contour);
 }

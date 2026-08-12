@@ -52,6 +52,11 @@ public:
         long framePeriodMS = 50,
         std::function<void(int pct)> progress = nullptr);
 
+    [[nodiscard]] static AudioDynamicsContourResult AnalyzeAudioDynamics(
+        AudioManager* audioManager,
+        long framePeriodMS = 50,
+        std::function<void(int pct)> progress = nullptr);
+
 using DynamicsMapResult = AudioDynamicsContourResult;
 
     [[nodiscard]] static std::string ExportAsValueCurveString(const AudioDynamicsContourResult& contour);
