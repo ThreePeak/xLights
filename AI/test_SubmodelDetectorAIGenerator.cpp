@@ -38,7 +38,7 @@ TEST_CASE("SubmodelDetectorAIGenerator: Singing face SAM submodel auto-detection
         SubmodelDetectionResult result = SubmodelDetectorAIGenerator::DetectSubmodelsFromImage(config);
         REQUIRE(result.success == true);
         REQUIRE(result.submodels.size() == 3); // 3 Ring submodels
-        REQUIRE(result.generatedSubmodelXML.find("<submodel name=\"Ring 1\"") != std::string::npos);
+        REQUIRE(result.generatedSubmodelXML.find("<submodel name=\"Outer_Ring\"") != std::string::npos);
     }
 
     SECTION("Handles invalid totalNodes gracefully") {

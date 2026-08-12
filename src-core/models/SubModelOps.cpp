@@ -855,9 +855,10 @@ SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::vector<
 
         int ringCount = 3;
         int nodesPerRing = totalNodes / ringCount;
+        std::vector<std::string> ringNames = {"Outer_Ring", "Mid_Ring", "Inner_Core"};
         for (int r = 0; r < ringCount; ++r) {
             SubModelSpec ringSpec;
-            ringSpec.name = "Ring " + std::to_string(r + 1);
+            ringSpec.name = (r < (int)ringNames.size()) ? ringNames[r] : ("Ring_" + std::to_string(r + 1));
             ringSpec.isRanges = true;
             int rStart = r * nodesPerRing + 1;
             int rEnd = (r == ringCount - 1) ? totalNodes : (r + 1) * nodesPerRing;
