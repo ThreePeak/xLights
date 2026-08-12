@@ -362,7 +362,8 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "gray_code_pixel_mapper": return await httpPost("/api/ai/gray-code-map", args);
         case "auto_map_prop_camera":
         case "auto_prop_mapper":       return await httpPost("/api/auto-map-prop", args);
-        case "detect_submodels_sam":   return await httpPost("/api/ai/submodels", args);
+        case "detect_submodels":
+        case "detect_submodels_sam":   return await httpPost("/api/detect-submodels", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }

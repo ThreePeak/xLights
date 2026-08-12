@@ -294,8 +294,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/ai/gray-code-map", arguments)
     elif name in ["auto_prop_mapper", "auto_map_prop_camera"]:
         return http_post("/api/auto-map-prop", arguments)
-    elif name == "detect_submodels_sam":
-        return http_post("/api/ai/submodels", arguments)
+    elif name in ["detect_submodels_sam", "detect_submodels"]:
+        return http_post("/api/detect-submodels", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 
