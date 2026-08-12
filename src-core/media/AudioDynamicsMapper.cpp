@@ -94,6 +94,8 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(const std
         frame.tempoBPM = 120.0f; // Standard baseline tempo
         frame.tempoBpm = 120.0f;
         frame.spectralCentroid = centroid;
+        // Pattern bit: Bit_k = Frame_pattern > Frame_inverse_pattern
+        frame.patternBit = ComputePatternBit(rms, 1.0f - rms);
         result.frames.push_back(frame);
     }
 
@@ -144,6 +146,12 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(const std
     result.success = true;
     spdlog::info("AudioDynamicsMapper: Successfully computed dynamics contour across {} frames. Peak Energy: {:.3f}", result.frames.size(), maxEnergy);
     return result;
+}
+
+bool AudioDynamicsMapper::ComputePatternBit(float framePattern, float frameInversePattern) noexcept {
+    // Bit_k = Frame_pattern > Frame_inverse_pattern
+    // True when forward energy pattern exceeds its mirror inverse — signals a beat or onset
+    return framePattern > frameInversePattern;
 }
 
 AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(AudioManager* audioManager,

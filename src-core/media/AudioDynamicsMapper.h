@@ -18,6 +18,7 @@ struct AudioFrameContour {
     long timeMS = 0;
     int timestampMs = 0;              // Timestamp in milliseconds
     int channelOffset = 0;            // PCM channel sample offset for this frame
+    bool patternBit = false;          // Bit_k = Frame_pattern > Frame_inverse_pattern
     float rmsEnergy = 0.0f;          // Normalized 0.0 to 1.0
     float tempoBPM = 120.0f;          // Estimated local BPM
     float tempoBpm = 120.0f;          // Local BPM tracking
@@ -84,4 +85,8 @@ public:
 
     // Convert binary index to Gray Code for FFT bit-reversal permutation: G(n) = n XOR (n >> 1)
     static constexpr size_t GrayCode(size_t n) noexcept { return n ^ (n >> 1); }
+
+    // Pattern bit comparator: Bit_k = Frame_pattern > Frame_inverse_pattern
+    // Returns true if the forward energy pattern exceeds the inverse (beat/onset detection)
+    static bool ComputePatternBit(float framePattern, float frameInversePattern) noexcept;
 };
