@@ -69,8 +69,11 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
         sub.submodelName = spec.name;
         sub.type = spec.isRanges ? "ranges" : "subbuffer";
         sub.confidence = 0.95f;
-        sub.submodelType = (propHint.find("face") != std::string::npos || propHint.find("singing") != std::string::npos)
-                            ? "Face Viseme Component" : "Structural Ring/Spoke";
+        if (spec.name.find("Outline") != std::string::npos) sub.category = DetectedSubmodelCategory::FaceOutline;
+        else if (spec.name.find("Eye") != std::string::npos) sub.category = DetectedSubmodelCategory::FaceEyes;
+        else if (spec.name.find("Mouth") != std::string::npos) sub.category = DetectedSubmodelCategory::FaceVisemeMouth;
+        else if (spec.name.find("Spoke") != std::string::npos) sub.category = DetectedSubmodelCategory::StructuralSpoke;
+        else sub.category = DetectedSubmodelCategory::StructuralRing;
 
         if (!spec.strands.empty()) {
             sub.nodeRangeString = spec.strands[0];

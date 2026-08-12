@@ -18,6 +18,15 @@
 
 namespace xLights::AI {
 
+enum class DetectedSubmodelCategory {
+    StructuralRing,
+    StructuralSpoke,
+    FaceOutline,
+    FaceEyes,
+    FaceVisemeMouth,
+    CustomCluster
+};
+
 struct SubmodelDetectionConfig {
     std::string parentModelName; // Target xLights model name
     std::string imagePath;
@@ -35,6 +44,7 @@ struct DetectedSubmodel {
     std::string nodeRangeString; // e.g., "1-48"
     std::vector<int> nodeIndices;
     std::string submodelType;   // e.g., "Outline", "Eyes Open", "Eyes Closed", "Mouth AI", "Ring"
+    DetectedSubmodelCategory category = DetectedSubmodelCategory::StructuralRing;
     float confidence = 0.0f;
 };
 
