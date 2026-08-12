@@ -30,6 +30,7 @@ using AudioEmotionFrame = AudioFrameContour;
 
 struct AudioDynamicsContourResult {
     bool success = false;
+    std::string songPath;                     // Path to analyzed audio file
     float averageBPM = 120.0f;
     float peakEnergy = 0.0f;
     std::string dominantEmotion;

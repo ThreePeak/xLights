@@ -131,7 +131,9 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(AudioMana
     std::vector<float> leftVec(left, left + totalSamples);
     std::vector<float> rightVec(right ? right : left, (right ? right : left) + totalSamples);
 
-    return AnalyzeDynamicsContour(leftVec, rightVec, (size_t)sampleRate, framePeriodMS, progress);
+    result = AnalyzeDynamicsContour(leftVec, rightVec, (size_t)sampleRate, framePeriodMS, progress);
+    result.songPath = audioManager->GetAudioFile();
+    return result;
 }
 
 std::vector<std::pair<float, float>> AudioDynamicsMapper::DownsampleContourToBezierControlPoints(
