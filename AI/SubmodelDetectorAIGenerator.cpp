@@ -126,6 +126,7 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
     return result;
 }
 
+// Format detected submodels into xLights native <submodel> XML tags
 std::string SubmodelDetectorAIGenerator::ExportToSubmodelXML(const std::vector<DetectedSubmodel>& submodels) {
     pugi::xml_document doc;
     pugi::xml_node rootNode = doc.append_child("submodels");
