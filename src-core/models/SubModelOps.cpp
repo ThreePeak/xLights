@@ -828,13 +828,25 @@ SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::vector<
         outlineSpec.strands.push_back("1-" + std::to_string(totalNodes / 4));
         result.detectedSubmodels.push_back(outlineSpec);
 
+        SubModelSpec eyesSpec;
+        eyesSpec.name = "Eyes";
+        eyesSpec.isRanges = true;
+        int eyeStart = totalNodes / 4 + 1;
+        int eyeEnd = totalNodes / 2;
+        eyesSpec.strands.push_back(std::to_string(eyeStart) + "-" + std::to_string(eyeEnd));
+        result.detectedSubmodels.push_back(eyesSpec);
+
         SubModelSpec eyesOpenSpec;
         eyesOpenSpec.name = "Eyes Open";
         eyesOpenSpec.isRanges = true;
-        int eyeStart = totalNodes / 4 + 1;
-        int eyeEnd = totalNodes / 2;
         eyesOpenSpec.strands.push_back(std::to_string(eyeStart) + "-" + std::to_string(eyeEnd));
         result.detectedSubmodels.push_back(eyesOpenSpec);
+
+        SubModelSpec mouthOutlineSpec;
+        mouthOutlineSpec.name = "Mouth_Outline";
+        mouthOutlineSpec.isRanges = true;
+        mouthOutlineSpec.strands.push_back(std::to_string(eyeEnd + 1) + "-" + std::to_string(eyeEnd + 15));
+        result.detectedSubmodels.push_back(mouthOutlineSpec);
 
         std::vector<std::string> visemes = {"Rest", "AI", "E", "L", "M", "O", "U", "W", "etc"};
         int mouthStart = eyeEnd + 1;
