@@ -169,6 +169,18 @@ const MCP_TOOLS = [
         }
     },
     {
+        name: "separate_audio_stems",
+        description: "Executes deep learning HTDemucs source separation on active sequence audio to isolate Vocals, Drums, Bass, and Other stems",
+        inputSchema: {
+            type: "object",
+            properties: {
+                model_path: { type: "string", description: "Path to ONNX or CoreML HTDemucs model file" },
+                output_directory: { type: "string", description: "Directory to save exported stem WAV files" },
+                transient_sensitivity: { type: "number", description: "Transient onset sensitivity threshold (default 0.12)" }
+            }
+        }
+    },
+    {
         name: "xlights_extract_audio_stems",
         description: "Executes deep learning HTDemucs source separation on active sequence audio to isolate Vocals, Drums, Bass, and Other stems",
         inputSchema: {
@@ -251,6 +263,7 @@ async function handleToolCall(name, args) {
         case "insert_effect":
         case "xlights_insert_effect":
         case "xlights_set_effect": return await httpPost("/api/effect", args);
+        case "separate_audio_stems":
         case "xlights_extract_audio_stems": return await httpPost("/api/audio-stems", args);
         case "xlights_import_xtiming": return await httpPost("/api/ai/import_xtiming", args);
         case "xlights_recommend_layer_blend": return await httpPost("/api/ai/recommend_blend", args);

@@ -101,6 +101,18 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "separate_audio_stems",
+        "description": "Executes deep learning HTDemucs source separation on active sequence audio to isolate Vocals, Drums, Bass, and Other stems",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model_path": {"type": "string", "description": "Path to ONNX or CoreML HTDemucs model file"},
+                "output_directory": {"type": "string", "description": "Directory to save exported stem WAV files"},
+                "transient_sensitivity": {"type": "number", "description": "Transient onset sensitivity threshold (default 0.12)"}
+            }
+        }
+    },
+    {
         "name": "xlights_extract_audio_stems",
         "description": "Executes deep learning HTDemucs source separation on active sequence audio to isolate Vocals, Drums, Bass, and Other stems",
         "inputSchema": {
@@ -180,7 +192,7 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/play", {})
     elif name == "xlights_stop_sequence":
         return http_post("/api/stop", {})
-    elif name == "xlights_extract_audio_stems":
+    elif name in ["separate_audio_stems", "xlights_extract_audio_stems"]:
         return http_post("/api/audio-stems", arguments)
     elif name == "xlights_import_xtiming":
         return http_post("/api/ai/import_xtiming", arguments)
