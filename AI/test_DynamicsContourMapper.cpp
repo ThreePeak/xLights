@@ -7,6 +7,8 @@
  **************************************************************/
 
 #include "media/AudioDynamicsMapper.h"
+#include "DynamicsContourMapper.h"
+#include <nlohmann/json.hpp>
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -69,6 +71,23 @@ int main() {
     assert(!tensionJson.empty());
     assert(tensionJson.find("\"Points\"") != std::string::npos);
     std::cout << " -> Test 5 (ExportContourToValueCurveJSON by metric): PASSED" << std::endl;
+
+    // Test 6: Crescendo Audio Signal to Ascending Bezier ValueCurve JSON
+    std::vector<float> crescendoL(44100 * 2);
+    std::vector<float> crescendoR(44100 * 2);
+    for (size_t i = 0; i < 44100 * 2; ++i) {
+        float ramp = static_cast<float>(i) / static_cast<float>(44100 * 2);
+        crescendoL[i] = ramp * std::sin(2.0f * 3.14159f * 440.0f * (i / 44100.0f));
+        crescendoR[i] = crescendoL[i];
+    }
+    auto crescendoRes = mapper.AnalyzeDynamicsContour(crescendoL, crescendoR, 44100, 50);
+    std::string crescendoJsonStr = xLights::AI::DynamicsContourMapper::ExportAsValueCurveJson(crescendoRes);
+    nlohmann::json crescJson = nlohmann::json::parse(crescendoJsonStr);
+    assert(crescJson["Points"].size() >= 2);
+    float firstY = crescJson["Points"].front()["y"];
+    float lastY  = crescJson["Points"].back()["y"];
+    assert(lastY > firstY);
+    std::cout << " -> Test 6 (Crescendo Audio to Ascending Bezier ValueCurve JSON): PASSED" << std::endl;
 
     std::cout << "[Unit Test] ALL DYNAMICS CONTOUR MAPPER TESTS PASSED!" << std::endl;
     return 0;
