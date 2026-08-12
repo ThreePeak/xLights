@@ -101,6 +101,8 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
                 case DetectedSubmodelCategory::StructuralSpoke: grp.groupName = "Spokes"; break;
                 case DetectedSubmodelCategory::RADIAL_SPINNER: grp.groupName = "Radial Spinner"; break;
                 case DetectedSubmodelCategory::OUTER_PERIMETER: grp.groupName = "Outer Perimeter"; break;
+                case DetectedSubmodelCategory::CUSTOM_CLUSTER:
+                case DetectedSubmodelCategory::CustomCluster: grp.groupName = "Custom Cluster"; break;
                 default: grp.groupName = "Structural Rings"; break;
             }
         }
