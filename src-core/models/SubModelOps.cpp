@@ -920,4 +920,13 @@ SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::pair<fl
     return DetectSubmodelsWithSAM(grid, N, propHint);
 }
 
+std::vector<SubModelSpec> AutoCreateSubmodelsFromAI(int totalNodes, const std::string& propHint) {
+    std::vector<std::vector<int>> dummyGrid;
+    auto samResult = DetectSubmodelsWithSAM(dummyGrid, totalNodes, propHint);
+    if (samResult.success) {
+        return samResult.detectedSubmodels;
+    }
+    return {};
+}
+
 } // namespace submodel_ops

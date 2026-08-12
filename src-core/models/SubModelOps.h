@@ -108,6 +108,9 @@ struct SubModelSpec {
 // the file reads in the same order the editor shows.
 std::string ExportSubModelsCSV(const std::vector<SubModelSpec>& subModels);
 
+// Hook for model editing dialogs: Auto-create submodels for a model using AI SAM submodel detector
+std::vector<SubModelSpec> AutoCreateSubmodelsFromAI(int totalNodes, const std::string& propHint);
+
 // ---------------------------------------------------------------------------
 // Slice generation
 // ---------------------------------------------------------------------------
