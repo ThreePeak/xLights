@@ -64,12 +64,14 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
     for (const auto& spec : samResult.detectedSubmodels) {
         DetectedSubmodel sub;
         sub.name = spec.name;
+        sub.type = spec.isRanges ? "ranges" : "subbuffer";
         sub.confidence = 0.95f;
         sub.submodelType = (propHint.find("face") != std::string::npos || propHint.find("singing") != std::string::npos)
                             ? "Face Viseme Component" : "Structural Ring/Spoke";
 
         if (!spec.strands.empty()) {
             sub.nodeRangeString = spec.strands[0];
+            sub.length = 240; // Default strand node length or parse range
         } else if (!spec.subBuffer.empty()) {
             sub.nodeRangeString = spec.subBuffer;
         }
@@ -92,6 +94,10 @@ std::string SubmodelDetectorAIGenerator::ExportToSubmodelXML(const std::vector<D
     for (const auto& sub : submodels) {
         pugi::xml_node subNode = rootNode.append_child("submodel");
         subNode.append_attribute("name") = sub.name.c_str();
+        subNode.append_attribute("type") = sub.type.empty() ? "ranges" : sub.type.c_str();
+        if (sub.length > 0) {
+            subNode.append_attribute("length") = sub.length;
+        }
 
         pugi::xml_node nodeRange = subNode.append_child("node");
         nodeRange.append_attribute("range") = sub.nodeRangeString.c_str();

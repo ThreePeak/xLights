@@ -28,6 +28,8 @@ struct SubmodelDetectionConfig {
 
 struct DetectedSubmodel {
     std::string name;
+    std::string type = "ranges"; // "ranges" or "subbuffer"
+    int length = 0;              // Total node count in this submodel
     std::string nodeRangeString; // e.g., "1-48"
     std::vector<int> nodeIndices;
     std::string submodelType;   // e.g., "Outline", "Eyes Open", "Eyes Closed", "Mouth AI", "Ring"
