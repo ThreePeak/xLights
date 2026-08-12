@@ -70,7 +70,7 @@ struct SubmodelDetectionResult {
     std::vector<DetectedSubmodel> submodels;
     std::vector<DetectedSubmodelGroup> submodelGroups;
     std::vector<DetectedSubmodelGroup> detectedSubmodels; // Alias for submodelGroups
-    std::string generatedSubmodelXML; // XML string containing <submodel> and <node range="1-48"/> elements
+    std::string generatedSubmodelXML; // Output XML block for xLights model files
 };
 
 /**
