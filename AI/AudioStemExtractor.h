@@ -100,6 +100,7 @@ public:
 
     /**
      * @brief Extracts 4 stems (Vocals, Drums, Bass, Other) from audio manager and generates timing tracks.
+     * Extract stems using ONNX Runtime model inference on raw PCM audio buffers
      */
     [[nodiscard]] static StemExtractionResult ExtractStems(
         AudioManager* audioManager,

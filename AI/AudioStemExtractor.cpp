@@ -90,6 +90,7 @@ StemExtractionResult AudioStemExtractor::ExtractStems(
     std::function<void(int pct)> progress,
     const std::atomic<bool>* cancel)
 {
+    // Extract stems using ONNX Runtime model inference on raw PCM audio buffers
     StemExtractionResult result;
 
     if (!audioManager) {
