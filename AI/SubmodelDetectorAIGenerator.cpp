@@ -14,6 +14,7 @@
 
 namespace xLights::AI {
 
+// Process image/render using ONNX SAM model to segment prop into submodels
 SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromImage(const SubmodelDetectionConfig& config) {
     SubmodelDetectionResult result;
     if (config.totalNodes <= 0) {

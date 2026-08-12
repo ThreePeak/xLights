@@ -73,7 +73,7 @@ public:
         return {"sam_submodel_detection", "singing_face_viseme_segmentation", "submodel_xml_export"};
     }
 
-    // Auto-detect structural submodels and face components from image or node grid config
+    // Process image/render using ONNX SAM model to segment prop into submodels
     [[nodiscard]] static SubmodelDetectionResult DetectSubmodelsFromImage(const SubmodelDetectionConfig& config);
 
     // Auto-detect structural submodels from a 2D node grid
