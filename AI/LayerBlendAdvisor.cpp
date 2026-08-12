@@ -12,6 +12,36 @@
 
 namespace xLights::AI {
 
+std::vector<LayerBlendRecommendation> LayerBlendAdvisor::AnalyzeLayerStack(const std::vector<LayerBlendSpec>& layers) {
+    std::vector<LayerBlendRecommendation> recommendations;
+    if (layers.size() < 2) return recommendations;
+
+    for (size_t i = 1; i < layers.size(); ++i) {
+        const auto& top = layers[i];
+        const auto& bot = layers[i - 1];
+
+        std::vector<std::string> topCols = top.hexColors;
+        std::vector<std::string> botCols = bot.hexColors;
+
+        LayerBlendRecommendation rec = RecommendBlendMode(top.effectName, bot.effectName, topCols, botCols);
+        rec.topLayerIndex = top.layerIndex;
+        rec.bottomLayerIndex = bot.layerIndex;
+
+        // Apply muddying check override if applicable
+        if (!topCols.empty() && !botCols.empty()) {
+            std::string warn, suggest;
+            if (CheckColorMuddying(topCols[0], botCols[0], top.currentBlendMode, warn, suggest)) {
+                rec.recommendedBlendMode = suggest;
+                rec.reasoning += " (Overridden: " + warn + " detected between complementary colors)";
+            }
+        }
+
+        recommendations.push_back(rec);
+    }
+
+    return recommendations;
+}
+
 std::vector<LayerBlendIssue> LayerBlendAdvisor::DetectLayerBlendIssues(
     const std::string& topEffect,
     const std::string& bottomEffect,

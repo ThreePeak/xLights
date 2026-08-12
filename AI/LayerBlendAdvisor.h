@@ -23,6 +23,15 @@ struct LayerBlendIssue {
     float suggestedOpacity = 1.0f;
 };
 
+struct LayerBlendSpec {
+    int layerIndex = 0;
+    std::string effectName;
+    std::string currentBlendMode = "Normal";
+    float currentOpacity = 1.0f;
+    std::vector<std::string> hexColors;
+    int strobeFrequency = 0;
+};
+
 /**
  * @brief LayerBlendAdvisor provides detection rules for color muddying,
  * spatial occlusion, and strobe overpowering across multi-layer effect stacks.
@@ -31,6 +40,11 @@ class LayerBlendAdvisor : public LayerBlendingTransitionAdvisor {
 public:
     LayerBlendAdvisor(ServiceManager* sm = nullptr) : LayerBlendingTransitionAdvisor(sm) {}
     virtual ~LayerBlendAdvisor() override = default;
+
+    /**
+     * @brief Analyzes multi-layer effect stack using structured LayerBlendSpec inputs.
+     */
+    static std::vector<LayerBlendRecommendation> AnalyzeLayerStack(const std::vector<LayerBlendSpec>& layers);
 
     /**
      * @brief Detects all blend issues (color muddying, spatial occlusion, strobe overpowering) between top and bottom layers.

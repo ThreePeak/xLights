@@ -44,6 +44,16 @@ int main() {
     assert(issues.size() >= 2);
     std::cout << " -> Test 4 (Combined Multi-Issue Detection): PASSED" << std::endl;
 
+    // Test 5: AnalyzeLayerStack with LayerBlendSpec structs
+    std::vector<xLights::AI::LayerBlendSpec> blendSpecs = {
+        {0, "Fire", "Normal", 1.0f, {"#FF0000"}},
+        {1, "Twinkle", "Normal", 1.0f, {"#00FFFF"}}
+    };
+    auto recs = xLights::AI::LayerBlendAdvisor::AnalyzeLayerStack(blendSpecs);
+    assert(recs.size() == 1);
+    assert(recs[0].recommendedBlendMode == "Mask");
+    std::cout << " -> Test 5 (AnalyzeLayerStack LayerBlendSpec Overload): PASSED" << std::endl;
+
     std::cout << "[Unit Test] ALL DETECTOR TESTS PASSED!" << std::endl;
     return 0;
 }
