@@ -133,18 +133,56 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(AudioMana
     return AnalyzeDynamicsContour(leftVec, rightVec, (size_t)sampleRate, framePeriodMS, progress);
 }
 
+std::vector<std::pair<float, float>> AudioDynamicsMapper::DownsampleContourToBezierControlPoints(
+    const std::vector<AudioFrameContour>& frames,
+    size_t maxControlPoints)
+{
+    std::vector<std::pair<float, float>> points;
+    if (frames.empty()) return points;
+
+    size_t total = frames.size();
+    if (total <= maxControlPoints || maxControlPoints < 2) {
+        for (size_t i = 0; i < total; ++i) {
+            float normX = (total > 1) ? (float)i / (float)(total - 1) : 0.0f;
+            float normY = frames[i].brightnessLevel;
+            points.push_back({normX, normY});
+        }
+        return points;
+    }
+
+    // Always include start point
+    points.push_back({0.0f, frames.front().brightnessLevel});
+
+    // Uniform step sampling with peak retention
+    float step = (float)(total - 1) / (float)(maxControlPoints - 1);
+    for (size_t k = 1; k < maxControlPoints - 1; ++k) {
+        size_t idx = (size_t)(k * step);
+        if (idx >= total - 1) idx = total - 2;
+
+        float normX = (float)idx / (float)(total - 1);
+        float normY = frames[idx].brightnessLevel;
+        points.push_back({normX, normY});
+    }
+
+    // Always include end point
+    points.push_back({1.0f, frames.back().brightnessLevel});
+    return points;
+}
+
 std::string AudioDynamicsMapper::ExportAsValueCurveString(const AudioDynamicsContourResult& contour) {
     if (!contour.success || contour.frames.empty()) {
         return "Type=Flat;P1=100;";
     }
 
+    auto controlPoints = DownsampleContourToBezierControlPoints(contour.frames, 40);
+
     std::ostringstream ss;
     ss << "Type=Custom;CustomData=";
 
-    size_t total = contour.frames.size();
+    size_t total = controlPoints.size();
     for (size_t i = 0; i < total; ++i) {
-        float normX = (float)i / (float)(total - 1);
-        float normY = contour.frames[i].brightnessLevel / 100.0f;
+        float normX = controlPoints[i].first;
+        float normY = controlPoints[i].second / 100.0f;
         
         ss << normX << ":" << normY;
         if (i < total - 1) ss << "|";
@@ -159,14 +197,12 @@ std::string AudioDynamicsMapper::ExportAsValueCurveJson(const AudioDynamicsConto
     j["Points"] = nlohmann::json::array();
 
     if (contour.success && !contour.frames.empty()) {
-        size_t total = contour.frames.size();
-        for (size_t i = 0; i < total; ++i) {
-            float normX = (total > 1) ? (float)i / (float)(total - 1) : 0.0f;
-            float normY = contour.frames[i].brightnessLevel;
-            nlohmann::json pt;
-            pt["x"] = normX;
-            pt["y"] = normY;
-            j["Points"].push_back(pt);
+        auto controlPoints = DownsampleContourToBezierControlPoints(contour.frames, 40);
+        for (const auto& pt : controlPoints) {
+            nlohmann::json p;
+            p["x"] = pt.first;
+            p["y"] = pt.second;
+            j["Points"].push_back(p);
         }
     }
     return j.dump();

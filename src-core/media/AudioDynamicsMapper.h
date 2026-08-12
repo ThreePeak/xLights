@@ -53,6 +53,11 @@ public:
                                                       long framePeriodMS = 50,
                                                       std::function<void(int pct)> progress = nullptr);
 
+    // Downsample 50ms frame arrays into Bezier control points compatible with ValueCurveDialog.cpp
+    static std::vector<std::pair<float, float>> DownsampleContourToBezierControlPoints(
+        const std::vector<AudioFrameContour>& frames,
+        size_t maxControlPoints = 40);
+
     // Export dynamics brightness contour as serialized xLights ValueCurve string
     static std::string ExportAsValueCurveString(const AudioDynamicsContourResult& contour);
 
