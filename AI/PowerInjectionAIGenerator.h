@@ -52,6 +52,9 @@ struct PowerInjectionResult {
     std::string recommendationSummary;
 };
 
+using PowerDistributionConfig = PowerInjectionConfig;
+using PowerAnalysisResult = PowerInjectionResult;
+
 class PowerInjectionAIGenerator : public AISubsystemBase {
 public:
     PowerInjectionAIGenerator(ServiceManager* sm = nullptr) : AISubsystemBase(sm) {}
@@ -77,6 +80,7 @@ public:
 
     // Calculates Ohm's Law voltage drop and power injection tap points across pixel strings
     [[nodiscard]] static PowerInjectionResult CalculatePowerInjection(const PowerInjectionConfig& config);
+    [[nodiscard]] static PowerAnalysisResult AnalyzePowerDistribution(const PowerDistributionConfig& config);
 };
 
 } // namespace xLights::AI

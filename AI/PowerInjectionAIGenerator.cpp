@@ -107,4 +107,8 @@ PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const Po
     return result;
 }
 
+PowerAnalysisResult PowerInjectionAIGenerator::AnalyzePowerDistribution(const PowerDistributionConfig& config) {
+    return CalculatePowerInjection(config);
+}
+
 } // namespace xLights::AI
