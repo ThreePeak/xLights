@@ -101,6 +101,18 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "xlights_recommend_layer_blend",
+        "description": "Evaluates multi-layer effect stacks and recommends optimal blend modes (Additive, Layered, Mask) and transition durations",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "top_effect": {"type": "string", "description": "Top effect type e.g. Twinkle, Meteors, Strobe"},
+                "bottom_effect": {"type": "string", "description": "Bottom effect type e.g. ColorWash, Fire, Wave"}
+            },
+            "required": ["top_effect", "bottom_effect"]
+        }
+    },
+    {
         "name": "xlights_set_effect",
         "description": "Place an effect onto a target model in the active sequence",
         "inputSchema": {
@@ -143,6 +155,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/play", {})
     elif name == "xlights_stop_sequence":
         return http_post("/api/stop", {})
+    elif name == "xlights_recommend_layer_blend":
+        return http_post("/api/ai/recommend_blend", arguments)
     elif name in ["insert_effect", "xlights_insert_effect", "xlights_set_effect"]:
         return http_post("/api/effect", arguments)
     elif name == "xlights_generate_value_curve":

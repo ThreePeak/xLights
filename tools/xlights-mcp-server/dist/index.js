@@ -169,6 +169,30 @@ const MCP_TOOLS = [
         }
     },
     {
+        name: "xlights_recommend_layer_blend",
+        description: "Evaluates multi-layer effect stacks and recommends optimal blend modes (Additive, Layered, Mask) and transition durations",
+        inputSchema: {
+            type: "object",
+            properties: {
+                top_effect: { type: "string", description: "Top effect type e.g. Twinkle, Meteors, Strobe" },
+                bottom_effect: { type: "string", description: "Bottom effect type e.g. ColorWash, Fire, Wave" }
+            },
+            required: ["top_effect", "bottom_effect"]
+        }
+    },
+    {
+        name: "xlights_synthesize_effect_preset",
+        description: "Synthesizes multi-layer effect stack presets from natural language prompts e.g. 'Fire effect with twinkling stars'",
+        inputSchema: {
+            type: "object",
+            properties: {
+                preset_name: { type: "string", description: "Name for generated preset" },
+                prompt: { type: "string", description: "Natural language description e.g. 'Fireworks with decaying twinkling background'" }
+            },
+            required: ["preset_name", "prompt"]
+        }
+    },
+    {
         name: "xlights_generate_value_curve",
         description: "Synthesize a natural language prompt into a normalized Bezier value curve JSON array and xLights pipe string",
         inputSchema: {
@@ -202,6 +226,8 @@ async function handleToolCall(name, args) {
         case "insert_effect":
         case "xlights_insert_effect":
         case "xlights_set_effect": return await httpPost("/api/effect", args);
+        case "xlights_recommend_layer_blend": return await httpPost("/api/ai/recommend_blend", args);
+        case "xlights_synthesize_effect_preset": return await httpPost("/api/ai/synthesize_preset", args);
         case "xlights_generate_value_curve": return await httpPost("/api/ai/value_curve", args);
         default: return { error: `Unknown tool: ${name}` };
     }
