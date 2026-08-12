@@ -24,7 +24,8 @@ enum class DetectedSubmodelCategory {
     FaceOutline,
     FaceEyes,
     FaceVisemeMouth,
-    CustomCluster
+    CustomCluster,
+    RADIAL_SPINNER
 };
 
 struct SubmodelDetectionConfig {
