@@ -14,7 +14,7 @@
 
 class AudioManager;
 
-struct AudioEmotionFrame {
+struct AudioFrameContour {
     long timeMS = 0;
     float rmsEnergy = 0.0f;       // Normalized 0.0 to 1.0
     float tempoBPM = 120.0f;       // Estimated local BPM
@@ -24,6 +24,8 @@ struct AudioEmotionFrame {
     float harmonicTension = 0.0f;  // Dissonance vs Resolution (0.0 to 1.0)
     std::string recommendedVibe;   // Recommended color palette mood/vibe
 };
+
+using AudioEmotionFrame = AudioFrameContour;
 
 struct AudioDynamicsContourResult {
     bool success = false;
