@@ -903,6 +903,9 @@ SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::pair<fl
                                                   int totalNodes,
                                                   const std::string& propHint)
 {
+    // Pass pixelCoordinates as point prompts to classify pixel clusters into spatial boundary masks
+    spdlog::info("SubModelOps: Evaluating {} pixelCoordinates as SAM point prompts for spatial boundary mask classification.", pixelCoordinates.size());
+
     int N = (totalNodes > 0) ? totalNodes : static_cast<int>(pixelCoordinates.size());
     int W = static_cast<int>(std::ceil(std::sqrt(std::max(1, N))));
     int H = static_cast<int>(std::ceil(static_cast<double>(std::max(1, N)) / W));
