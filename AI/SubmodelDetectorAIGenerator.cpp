@@ -64,6 +64,7 @@ SubmodelDetectionResult SubmodelDetectorAIGenerator::DetectSubmodelsFromNodeGrid
     for (const auto& spec : samResult.detectedSubmodels) {
         DetectedSubmodel sub;
         sub.name = spec.name;
+        sub.submodelName = spec.name;
         sub.type = spec.isRanges ? "ranges" : "subbuffer";
         sub.confidence = 0.95f;
         sub.submodelType = (propHint.find("face") != std::string::npos || propHint.find("singing") != std::string::npos)
@@ -93,7 +94,8 @@ std::string SubmodelDetectorAIGenerator::ExportToSubmodelXML(const std::vector<D
 
     for (const auto& sub : submodels) {
         pugi::xml_node subNode = rootNode.append_child("submodel");
-        subNode.append_attribute("name") = sub.name.c_str();
+        std::string displayName = !sub.name.empty() ? sub.name : sub.submodelName;
+        subNode.append_attribute("name") = displayName.c_str();
         subNode.append_attribute("type") = sub.type.empty() ? "ranges" : sub.type.c_str();
         if (sub.length > 0) {
             subNode.append_attribute("length") = sub.length;
