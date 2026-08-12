@@ -313,6 +313,20 @@ const MCP_TOOLS = [
             },
             required: ["total_nodes", "model_width", "model_height"]
         }
+    },
+    {
+        name: "detect_submodels_sam",
+        description: "Auto-detect structural submodels and Singing Face 8-viseme components (Outline, Eyes, Mouth REST/AI/E/L/M/O/U/W/etc) using Segment Anything Model (SAM) segmentation.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                total_nodes: { type: "number", description: "Total node count on the prop" },
+                prop_hint:   { type: "string", description: "Prop hint descriptor e.g. 'Singing Face', 'Tree', 'Star', 'Arch'" },
+                grid_width:  { type: "number", description: "Prop grid width (columns)" },
+                grid_height: { type: "number", description: "Prop grid height (rows)" }
+            },
+            required: ["total_nodes"]
+        }
     }
 ];
 
@@ -348,6 +362,7 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "gray_code_pixel_mapper": return await httpPost("/api/ai/gray-code-map", args);
         case "auto_map_prop_camera":
         case "auto_prop_mapper":       return await httpPost("/api/auto-map-prop", args);
+        case "detect_submodels_sam":   return await httpPost("/api/ai/submodels", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }

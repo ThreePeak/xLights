@@ -1,0 +1,86 @@
+#pragma once
+
+/***************************************************************
+ * This source file comes from the xLights project
+ * https://www.xlights.org
+ * https://github.com/xLightsSequencer/xLights
+ * Copyright claimed based on commit dates recorded in Github
+ * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
+ **************************************************************/
+
+#include "AISubsystemBase.h"
+#include "../src-core/models/SubModelOps.h"
+#include <string>
+#include <vector>
+#include <map>
+#include <memory>
+#include <future>
+
+namespace xLights::AI {
+
+struct SubmodelDetectionConfig {
+    std::string imagePath;
+    std::string propHint; // e.g., "Singing Face", "Tree", "Star", "Arch"
+    int totalNodes = 0;
+    int gridWidth = 0;
+    int gridHeight = 0;
+};
+
+struct DetectedSubmodel {
+    std::string name;
+    std::string nodeRangeString; // e.g., "1-48"
+    std::vector<int> nodeIndices;
+    std::string submodelType;   // e.g., "Outline", "Eyes Open", "Eyes Closed", "Mouth AI", "Ring"
+    float confidence = 0.0f;
+};
+
+struct SubmodelDetectionResult {
+    bool success = false;
+    std::string errorMessage;
+    std::string faceTypeDetected;
+    std::vector<DetectedSubmodel> submodels;
+    std::string generatedSubmodelXML; // XML string containing <submodel> and <node range="1-48"/> elements
+};
+
+/**
+ * @brief Feature #10: Automated Submodel & Face Detector (SAM Integration)
+ * Auto-segments custom prop node grids into structural submodels (Rings, Spokes, Clusters)
+ * and Singing Face components (Outline, Eyes Open, Eyes Closed, and 8 Mouth viseme states).
+ */
+class SubmodelDetectorAIGenerator : public AISubsystemBase {
+public:
+    SubmodelDetectorAIGenerator(ServiceManager* sm = nullptr) : AISubsystemBase(sm) {}
+    virtual ~SubmodelDetectorAIGenerator() override = default;
+
+    virtual std::future<bool> InitializeAsync(StatusCallback callback = nullptr) override {
+        return std::async(std::launch::async, [this, callback]() {
+            if (callback) callback("Initializing SubmodelDetectorAIGenerator...", 0.0f);
+            m_isInitialized.store(true);
+            if (callback) callback("SubmodelDetectorAIGenerator initialized.", 100.0f);
+            return true;
+        });
+    }
+
+    virtual void Shutdown() override {
+        m_isInitialized.store(false);
+    }
+
+    [[nodiscard]] virtual std::string GetSubsystemName() const override { return "SubmodelDetectorAIGenerator"; }
+    [[nodiscard]] virtual std::vector<std::string> GetCapabilities() const override {
+        return {"sam_submodel_detection", "singing_face_viseme_segmentation", "submodel_xml_export"};
+    }
+
+    // Auto-detect structural submodels and face components from image or node grid config
+    [[nodiscard]] static SubmodelDetectionResult DetectSubmodelsFromImage(const SubmodelDetectionConfig& config);
+
+    // Auto-detect structural submodels from a 2D node grid
+    [[nodiscard]] static SubmodelDetectionResult DetectSubmodelsFromNodeGrid(
+        const std::vector<std::vector<int>>& nodeGrid,
+        int totalNodes,
+        const std::string& propHint = "");
+
+    // Export detected submodels into xLights <submodels> XML format with <node range="..."/> tags
+    [[nodiscard]] static std::string ExportToSubmodelXML(const std::vector<DetectedSubmodel>& submodels);
+};
+
+} // namespace xLights::AI
