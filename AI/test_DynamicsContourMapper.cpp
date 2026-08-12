@@ -64,6 +64,12 @@ int main() {
     assert(vcJson.find("\"Points\"") != std::string::npos);
     std::cout << " -> Test 4 (ExportAsValueCurveJson Output): PASSED" << std::endl;
 
+    // Test 5: ExportContourToValueCurveJSON by metric name
+    std::string tensionJson = xLights::AI::DynamicsContourMapper::ExportContourToValueCurveJSON(result, "harmonicTension");
+    assert(!tensionJson.empty());
+    assert(tensionJson.find("\"Points\"") != std::string::npos);
+    std::cout << " -> Test 5 (ExportContourToValueCurveJSON by metric): PASSED" << std::endl;
+
     std::cout << "[Unit Test] ALL DYNAMICS CONTOUR MAPPER TESTS PASSED!" << std::endl;
     return 0;
 }

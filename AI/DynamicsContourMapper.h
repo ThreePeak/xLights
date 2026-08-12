@@ -15,6 +15,7 @@ namespace xLights::AI {
 
 using AudioFrameContour = ::AudioFrameContour;
 using AudioDynamicsContourResult = ::AudioDynamicsContourResult;
+using DynamicsMapResult = ::AudioDynamicsContourResult;
 
 class DynamicsContourMapper : public AISubsystemBase {
 public:
@@ -51,9 +52,13 @@ public:
         long framePeriodMS = 50,
         std::function<void(int pct)> progress = nullptr);
 
+using DynamicsMapResult = AudioDynamicsContourResult;
+
     [[nodiscard]] static std::string ExportAsValueCurveString(const AudioDynamicsContourResult& contour);
 
     [[nodiscard]] static std::string ExportAsValueCurveJson(const AudioDynamicsContourResult& contour);
+
+    [[nodiscard]] static std::string ExportContourToValueCurveJSON(const DynamicsMapResult& dynamics, const std::string& metricName);
 };
 
 } // namespace xLights::AI

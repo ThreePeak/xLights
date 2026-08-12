@@ -1,12 +1,5 @@
-/***************************************************************
- * This source file comes from the xLights project
- * https://www.xlights.org
- * https://github.com/xLightsSequencer/xLights
- * Copyright claimed based on commit dates recorded in Github
- * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
- **************************************************************/
-
 #include "DynamicsContourMapper.h"
+#include <nlohmann/json.hpp>
 
 namespace xLights::AI {
 
@@ -36,6 +29,37 @@ std::string DynamicsContourMapper::ExportAsValueCurveString(const AudioDynamicsC
 
 std::string DynamicsContourMapper::ExportAsValueCurveJson(const AudioDynamicsContourResult& contour) {
     return AudioDynamicsMapper::ExportAsValueCurveJson(contour);
+}
+
+std::string DynamicsContourMapper::ExportContourToValueCurveJSON(const DynamicsMapResult& dynamics, const std::string& metricName) {
+    nlohmann::json j;
+    j["Type"] = "Custom";
+    j["Points"] = nlohmann::json::array();
+
+    if (dynamics.success && !dynamics.frames.empty()) {
+        size_t total = dynamics.frames.size();
+        for (size_t i = 0; i < total; ++i) {
+            float normX = (total > 1) ? (float)i / (float)(total - 1) : 0.0f;
+            float normY = 50.0f;
+            const auto& f = dynamics.frames[i];
+
+            if (metricName == "valence") {
+                normY = (f.valence + 1.0f) * 50.0f; // Scale -1..1 to 0..100
+            } else if (metricName == "arousal") {
+                normY = f.arousal * 100.0f;
+            } else if (metricName == "tension" || metricName == "harmonicTension") {
+                normY = f.harmonicTension * 100.0f;
+            } else { // "brightness", "rms", or default
+                normY = f.brightnessLevel;
+            }
+
+            nlohmann::json pt;
+            pt["x"] = normX;
+            pt["y"] = normY;
+            j["Points"].push_back(pt);
+        }
+    }
+    return j.dump();
 }
 
 } // namespace xLights::AI
