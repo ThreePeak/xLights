@@ -311,6 +311,34 @@ const MCP_TOOLS = [
             },
             required: ["total_nodes", "model_width", "model_height"]
         }
+    },
+    {
+        name: "detect_submodels_sam",
+        description: "Runs Segment Anything Model (SAM) vision inference to auto-generate submodels for complex props.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                total_nodes: { type: "number", description: "Total node count on the prop" },
+                prop_hint: { type: "string", description: "Prop hint descriptor e.g. 'Singing Face', 'Tree', 'Star', 'Arch'" },
+                grid_width: { type: "number", description: "Prop grid width (columns)" },
+                grid_height: { type: "number", description: "Prop grid height (rows)" }
+            },
+            required: ["total_nodes"]
+        }
+    },
+    {
+        name: "detect_prop_submodels",
+        description: "Runs Segment Anything Model (SAM) vision inference to auto-generate submodels for complex props.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                total_nodes: { type: "number", description: "Total node count on the prop" },
+                prop_hint: { type: "string", description: "Prop hint descriptor e.g. 'Singing Face', 'Tree', 'Star', 'Arch'" },
+                grid_width: { type: "number", description: "Prop grid width (columns)" },
+                grid_height: { type: "number", description: "Prop grid height (rows)" }
+            },
+            required: ["total_nodes"]
+        }
     }
 ];
 async function handleToolCall(name, args) {
@@ -345,6 +373,9 @@ async function handleToolCall(name, args) {
         case "gray_code_pixel_mapper": return await httpPost("/api/ai/gray-code-map", args);
         case "auto_map_prop_camera":
         case "auto_prop_mapper": return await httpPost("/api/auto-map-prop", args);
+        case "detect_submodels":
+        case "detect_prop_submodels":
+        case "detect_submodels_sam": return await httpPost("/api/detect-submodels", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }
