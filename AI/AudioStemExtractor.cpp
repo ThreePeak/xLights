@@ -36,6 +36,13 @@ nlohmann::json StemExtractionResult::ToJson() const {
         j["timing_tracks"].push_back(tj);
     }
     j["generated_timing_track_files"] = generatedTimingTrackFiles;
+    j["extracted_stem_files"] = nlohmann::json::object();
+    for (const auto& [stemType, filePath] : extractedStemFiles) {
+        std::string key = (stemType == AudioStemType::VOCALS) ? "vocals" :
+                          (stemType == AudioStemType::DRUMS)  ? "drums"  :
+                          (stemType == AudioStemType::BASS)   ? "bass"   : "other";
+        j["extracted_stem_files"][key] = filePath;
+    }
     return j;
 }
 
@@ -115,6 +122,7 @@ StemExtractionResult AudioStemExtractor::ExtractStems(
     vocals.rightBuffer = demucsRes.stemBuffers.vocalsR;
     vocals.sampleRate = demucsRes.stemBuffers.sampleRate;
     result.stems.push_back(vocals);
+    result.extractedStemFiles[AudioStemType::VOCALS] = demucsRes.vocalStemPath;
 
     // Drums Stem
     AudioStem drums;
@@ -125,6 +133,7 @@ StemExtractionResult AudioStemExtractor::ExtractStems(
     drums.rightBuffer = demucsRes.stemBuffers.drumsR;
     drums.sampleRate = demucsRes.stemBuffers.sampleRate;
     result.stems.push_back(drums);
+    result.extractedStemFiles[AudioStemType::DRUMS] = demucsRes.drumStemPath;
 
     // Bass Stem
     AudioStem bass;
@@ -135,6 +144,7 @@ StemExtractionResult AudioStemExtractor::ExtractStems(
     bass.rightBuffer = demucsRes.stemBuffers.bassR;
     bass.sampleRate = demucsRes.stemBuffers.sampleRate;
     result.stems.push_back(bass);
+    result.extractedStemFiles[AudioStemType::BASS] = demucsRes.bassStemPath;
 
     // Other Stem
     AudioStem other;
@@ -145,6 +155,7 @@ StemExtractionResult AudioStemExtractor::ExtractStems(
     other.rightBuffer = demucsRes.stemBuffers.otherR;
     other.sampleRate = demucsRes.stemBuffers.sampleRate;
     result.stems.push_back(other);
+    result.extractedStemFiles[AudioStemType::OTHER] = demucsRes.otherStemPath;
 
     spdlog::info("AudioStemExtractor: Extracted {} audio stems and {} timing tracks successfully.", result.stems.size(), result.timingTracks.size());
     return result;

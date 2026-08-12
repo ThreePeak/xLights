@@ -67,6 +67,7 @@ struct StemExtractionConfig {
 struct StemExtractionResult {
     bool success = false;
     std::vector<AudioStem> stems;
+    std::map<AudioStemType, std::string> extractedStemFiles;  // StemType -> FilePath
     std::vector<StemTimingTrackResult> timingTracks;
     std::vector<std::string> generatedTimingTrackFiles;       // List of .xtiming XML files
     std::string errorMessage;
