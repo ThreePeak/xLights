@@ -64,14 +64,16 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(const std
         float magnitudeSum = 0.0f;
         size_t halfFrame = count / 2;
         for (size_t k = 0; k < halfFrame; ++k) {
-            // Rectangular DFT magnitude approximation for bin k
+            // Convert binary bin index to Gray Code for FFT bit-reversal permutation: G(k) = k XOR (k >> 1)
+            size_t gk = GrayCode(k);
+            if (gk >= halfFrame) gk = k; // Safety clamp
             float re = 0.0f, im = 0.0f;
-            float binFreqHz = (float)k * (float)sampleRate / (float)count;
+            float binFreqHz = (float)gk * (float)sampleRate / (float)count;
             for (size_t n = 0; n < count; ++n) {
                 float sL = leftChannel[startIdx + n];
                 float sR = hasRight ? rightChannel[startIdx + n] : sL;
                 float mono = 0.5f * (sL + sR);
-                float angle = -2.0f * 3.14159265f * (float)k * (float)n / (float)count;
+                float angle = -2.0f * 3.14159265f * (float)gk * (float)n / (float)count;
                 re += mono * std::cos(angle);
                 im += mono * std::sin(angle);
             }

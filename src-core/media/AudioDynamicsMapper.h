@@ -80,4 +80,7 @@ public:
 
     // Export dynamics brightness contour as xLights ValueCurve JSON format
     static std::string ExportAsValueCurveJson(const AudioDynamicsContourResult& contour);
+
+    // Convert binary index to Gray Code for FFT bit-reversal permutation: G(n) = n XOR (n >> 1)
+    static constexpr size_t GrayCode(size_t n) noexcept { return n ^ (n >> 1); }
 };
