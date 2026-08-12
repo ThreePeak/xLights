@@ -145,4 +145,12 @@ std::string SubmodelDetectorAIGenerator::ExportToSubmodelXML(const std::vector<D
     return oss.str();
 }
 
+std::string SubmodelDetectorAIGenerator::ExportToSubmodelXML(const std::vector<DetectedSubmodelGroup>& submodelGroups) {
+    std::vector<DetectedSubmodel> flattened;
+    for (const auto& grp : submodelGroups) {
+        flattened.insert(flattened.end(), grp.submodels.begin(), grp.submodels.end());
+    }
+    return ExportToSubmodelXML(flattened);
+}
+
 } // namespace xLights::AI

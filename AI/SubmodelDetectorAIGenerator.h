@@ -111,6 +111,7 @@ public:
 
     // Export detected submodels into xLights <submodels> XML format with <node range="..."/> tags
     [[nodiscard]] static std::string ExportToSubmodelXML(const std::vector<DetectedSubmodel>& submodels);
+    [[nodiscard]] static std::string ExportToSubmodelXML(const std::vector<DetectedSubmodelGroup>& submodels);
 };
 
 } // namespace xLights::AI
