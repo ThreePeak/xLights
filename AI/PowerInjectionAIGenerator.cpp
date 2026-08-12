@@ -27,6 +27,7 @@ static float GetWireResistancePerFoot(float awg) {
 
 PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const PowerInjectionConfig& config) {
     PowerInjectionResult result;
+    result.modelName = config.modelName;
     float vSupply = config.supplyVoltage;
     if (config.voltageType == PixelVoltage::V5) vSupply = 5.0f;
     else if (config.voltageType == PixelVoltage::V24) vSupply = 24.0f;
