@@ -20,7 +20,7 @@ describe('xLights MCP Server Test Suite', () => {
 
     it('should list all registered MCP tools via tools/list request', (done) => {
         const serverPath = path.join(__dirname, '../dist/index.js');
-        const child = exec(`node "${serverPath}"`, { env: { ...process.env, XLIGHTS_REST_PORT: '49914' } }, (error, stdout, stderr) => {
+        const child = exec(`node "${serverPath}"`, { env: { ...process.env, XLIGHTS_REST_PORT: '38491' } }, (error, stdout, stderr) => {
             expect(error).toBeNull();
             const response = JSON.parse(stdout.trim());
             expect(response.jsonrpc).toBe("2.0");
@@ -42,7 +42,7 @@ describe('xLights MCP Server Test Suite', () => {
 
     it('should execute get_show_layout tool call against mock REST API', (done) => {
         const serverPath = path.join(__dirname, '../dist/index.js');
-        const child = exec(`node "${serverPath}"`, { env: { ...process.env, XLIGHTS_REST_PORT: '49914' } }, (error, stdout, stderr) => {
+        const child = exec(`node "${serverPath}"`, { env: { ...process.env, XLIGHTS_REST_PORT: '38491' } }, (error, stdout, stderr) => {
             expect(error).toBeNull();
             const response = JSON.parse(stdout.trim());
             expect(response.jsonrpc).toBe("2.0");

@@ -5,7 +5,7 @@
 
 import http from 'http';
 
-const PORT = process.env.TEST_PORT ? parseInt(process.env.TEST_PORT) : 49914;
+const PORT = process.env.TEST_PORT ? parseInt(process.env.TEST_PORT) : 38491;
 
 export function startMockRestServer(): Promise<http.Server> {
     return new Promise((resolve) => {
