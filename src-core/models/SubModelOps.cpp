@@ -853,17 +853,32 @@ SAMSubmodelDetectionResult DetectSubmodelsWithSAM(const std::vector<std::vector<
     } else {
         result.faceTypeDetected = "Structural Ring/Spoke Submodels";
 
-        int ringCount = 3;
-        int nodesPerRing = totalNodes / ringCount;
-        std::vector<std::string> ringNames = {"Outer_Ring", "Mid_Ring", "Inner_Core"};
-        for (int r = 0; r < ringCount; ++r) {
-            SubModelSpec ringSpec;
-            ringSpec.name = (r < (int)ringNames.size()) ? ringNames[r] : ("Ring_" + std::to_string(r + 1));
-            ringSpec.isRanges = true;
-            int rStart = r * nodesPerRing + 1;
-            int rEnd = (r == ringCount - 1) ? totalNodes : (r + 1) * nodesPerRing;
-            ringSpec.strands.push_back(std::to_string(rStart) + "-" + std::to_string(rEnd));
-            result.detectedSubmodels.push_back(ringSpec);
+        bool isSpokeProp = (propHint.find("spoke") != std::string::npos || propHint.find("star") != std::string::npos || propHint.find("spinner") != std::string::npos);
+        if (isSpokeProp) {
+            int spokeCount = 8;
+            int nodesPerSpoke = totalNodes / spokeCount;
+            for (int s = 0; s < spokeCount; ++s) {
+                SubModelSpec spokeSpec;
+                spokeSpec.name = "Spoke_" + std::to_string(s + 1);
+                spokeSpec.isRanges = true;
+                int sStart = s * nodesPerSpoke + 1;
+                int sEnd = (s == spokeCount - 1) ? totalNodes : (s + 1) * nodesPerSpoke;
+                spokeSpec.strands.push_back(std::to_string(sStart) + "-" + std::to_string(sEnd));
+                result.detectedSubmodels.push_back(spokeSpec);
+            }
+        } else {
+            int ringCount = 3;
+            int nodesPerRing = totalNodes / ringCount;
+            std::vector<std::string> ringNames = {"Outer_Ring", "Mid_Ring", "Inner_Core"};
+            for (int r = 0; r < ringCount; ++r) {
+                SubModelSpec ringSpec;
+                ringSpec.name = (r < (int)ringNames.size()) ? ringNames[r] : ("Ring_" + std::to_string(r + 1));
+                ringSpec.isRanges = true;
+                int rStart = r * nodesPerRing + 1;
+                int rEnd = (r == ringCount - 1) ? totalNodes : (r + 1) * nodesPerRing;
+                ringSpec.strands.push_back(std::to_string(rStart) + "-" + std::to_string(rEnd));
+                result.detectedSubmodels.push_back(ringSpec);
+            }
         }
     }
 

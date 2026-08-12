@@ -32,13 +32,25 @@ TEST_CASE("SubmodelDetectorAIGenerator: Singing face SAM submodel auto-detection
 
     SECTION("Detects structural ring submodels for standard prop") {
         SubmodelDetectionConfig config;
-        config.propHint = "Mega Tree Star";
+        config.propHint = "Mega Tree";
         config.totalNodes = 90;
 
         SubmodelDetectionResult result = SubmodelDetectorAIGenerator::DetectSubmodelsFromImage(config);
         REQUIRE(result.success == true);
         REQUIRE(result.submodels.size() == 3); // 3 Ring submodels
         REQUIRE(result.generatedSubmodelXML.find("<submodel name=\"Outer_Ring\"") != std::string::npos);
+    }
+
+    SECTION("Detects linear spoke submodels Spoke_1 through Spoke_N") {
+        SubmodelDetectionConfig config;
+        config.propHint = "8 Spoke Star Spinner";
+        config.totalNodes = 80;
+
+        SubmodelDetectionResult result = SubmodelDetectorAIGenerator::DetectSubmodelsFromImage(config);
+        REQUIRE(result.success == true);
+        REQUIRE(result.submodels.size() == 8); // 8 Spoke submodels
+        REQUIRE(result.generatedSubmodelXML.find("<submodel name=\"Spoke_1\"") != std::string::npos);
+        REQUIRE(result.generatedSubmodelXML.find("<submodel name=\"Spoke_8\"") != std::string::npos);
     }
 
     SECTION("Handles invalid totalNodes gracefully") {
