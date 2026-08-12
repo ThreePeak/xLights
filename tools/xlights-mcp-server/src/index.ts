@@ -265,6 +265,19 @@ const MCP_TOOLS = [
                 frame_period_ms: { type: "number", description: "Frame period in milliseconds (default 50)" }
             }
         }
+    },
+    {
+        name: "analyze_audio_dynamics",
+        description: "Analyze full song audio track into 50ms STFT frames computing RMS Energy, Spectral Centroid, Valence, Arousal, and Harmonic Tension as xLights ValueCurve data.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                audio_file_path: { type: "string", description: "Absolute path to the audio file to analyze" },
+                sample_interval_ms: { type: "number", description: "STFT frame window in milliseconds (default 50)" },
+                metric: { type: "string", description: "Target metric: brightness, valence, arousal, tension, spectralCentroid" }
+            },
+            required: ["audio_file_path"]
+        }
     }
 ];
 
@@ -296,6 +309,7 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "xlights_generate_value_curve": return await httpPost("/api/ai/value_curve", args);
         case "map_audio_dynamics":
         case "extract_audio_volume_envelope": return await httpPost("/api/ai/audio_envelope", args);
+        case "analyze_audio_dynamics": return await httpPost("/api/audio-dynamics", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }

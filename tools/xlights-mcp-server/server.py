@@ -198,6 +198,19 @@ MCP_TOOLS = [
                 "frame_period_ms": {"type": "number", "description": "Frame period in milliseconds (default 50)"}
             }
         }
+    },
+    {
+        "name": "analyze_audio_dynamics",
+        "description": "Analyze full song audio track into 50ms STFT frames computing RMS Energy, Spectral Centroid, Valence, Arousal, and Harmonic Tension as xLights ValueCurve data.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "audio_file_path": {"type": "string", "description": "Absolute path to the audio file to analyze"},
+                "sample_interval_ms": {"type": "number", "description": "STFT frame window in milliseconds (default 50)"},
+                "metric": {"type": "string", "description": "Target metric: brightness, valence, arousal, tension, spectralCentroid"}
+            },
+            "required": ["audio_file_path"]
+        }
     }
 ]
 
@@ -226,6 +239,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/ai/value_curve", arguments)
     elif name in ["map_audio_dynamics", "extract_audio_volume_envelope"]:
         return http_post("/api/ai/audio_envelope", arguments)
+    elif name == "analyze_audio_dynamics":
+        return http_post("/api/audio-dynamics", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 

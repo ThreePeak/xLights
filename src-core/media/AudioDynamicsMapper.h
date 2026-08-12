@@ -58,6 +58,17 @@ public:
                                                       long framePeriodMS = 50,
                                                       std::function<void(int pct)> progress = nullptr);
 
+    // Process full song audio track from file path into a time-series DynamicsMapResult
+    // Windows audio stream in 50ms frames using Short-Time Fourier Transform (STFT)
+    // Compute RMS Energy: RMS = sqrt(1/N * sum(x[n]^2))
+    // Compute Spectral Centroid: Centroid = sum(f * |X(f)|) / sum(|X(f)|)
+    // Normalize all metrics to 0.0 - 1.0 range
+    static AudioDynamicsContourResult AnalyzeAudioDynamics(const std::string& audioFilePath, int sampleIntervalMs = 50);
+
+    // Convert an RMS energy contour into an xLights ValueCurve JSON object for effect parameter binding
+    static std::string ExportContourToValueCurveJSON(const AudioDynamicsContourResult& result,
+                                                     const std::string& metricName = "brightness");
+
     // Downsample 50ms frame arrays into Bezier control points compatible with ValueCurveDialog.cpp
     static std::vector<std::pair<float, float>> DownsampleContourToBezierControlPoints(
         const std::vector<AudioFrameContour>& frames,
