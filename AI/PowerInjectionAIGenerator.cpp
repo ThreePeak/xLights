@@ -72,6 +72,9 @@ PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const Po
     frontTap.tapType = "Front";
     frontTap.recommendedWireAWG = (config.wireGaugeAWG <= 14.0f) ? "14 AWG" : ((config.wireGaugeAWG <= 16.0f) ? "16 AWG" : "18 AWG");
     frontTap.wireGauge = frontTap.recommendedWireAWG;
+    frontTap.fuse.recommendedAmperage = frontTap.recommendedAmperage;
+    frontTap.fuse.fuseType = "ATC/ATO";
+    frontTap.fuse.notes = "Front power feed inline fuse";
     result.injectionTaps.push_back(frontTap);
 
     int tapCount = 1;
@@ -86,6 +89,9 @@ PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const Po
             tap.tapType = (p == config.totalPixels - 1) ? "End-String" : "Mid-String";
             tap.recommendedWireAWG = frontTap.recommendedWireAWG;
             tap.wireGauge = frontTap.recommendedWireAWG;
+            tap.fuse.recommendedAmperage = tap.recommendedAmperage;
+            tap.fuse.fuseType = "ATC/ATO";
+            tap.fuse.notes = "Injection lead inline fuse";
             result.injectionTaps.push_back(tap);
             tapCount++;
             // Reset voltage after tap

@@ -31,6 +31,12 @@ struct PowerInjectionConfig {
     float minRequiredVoltage = 9.6f;       // Minimum required operating voltage (e.g. 80% threshold = 9.6V)
 };
 
+struct FuseRecommendation {
+    float recommendedAmperage = 5.0f; // e.g., 5A, 10A, 15A
+    std::string fuseType = "ATC/ATO"; // e.g. ATC/ATO, Mini, Glass
+    std::string notes;
+};
+
 struct PowerInjectionTap {
     int pixelIndex = 0;                    // Pixel index (1-based) where power tap is inserted
     float calculatedVoltage = 0.0f;        // Voltage at this tap
@@ -39,6 +45,7 @@ struct PowerInjectionTap {
     std::string tapType;                   // "Front", "Mid-String", "End-String"
     std::string recommendedWireAWG;        // Recommended wire AWG e.g. "18 AWG"
     std::string wireGauge;                 // Recommended wire gauge for injection lead
+    FuseRecommendation fuse;               // Recommended inline fuse specification
 };
 
 struct PowerInjectionResult {
