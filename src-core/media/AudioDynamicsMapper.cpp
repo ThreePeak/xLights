@@ -197,6 +197,7 @@ std::string AudioDynamicsMapper::ExportAsValueCurveString(const AudioDynamicsCon
 std::string AudioDynamicsMapper::ExportAsValueCurveJson(const AudioDynamicsContourResult& contour) {
     nlohmann::json j;
     j["Type"] = "Custom";
+    j["Active"] = true;
     j["Points"] = nlohmann::json::array();
 
     if (contour.success && !contour.frames.empty()) {
