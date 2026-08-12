@@ -16,6 +16,7 @@ class AudioManager;
 
 struct AudioFrameContour {
     long timeMS = 0;
+    int timestampMs = 0;           // Timestamp in milliseconds
     float rmsEnergy = 0.0f;       // Normalized 0.0 to 1.0
     float tempoBPM = 120.0f;       // Estimated local BPM
     float brightnessLevel = 50.0f; // Target brightness 0.0 to 100.0%
