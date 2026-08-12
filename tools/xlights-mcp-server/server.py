@@ -270,9 +270,23 @@ MCP_TOOLS = [
                 "total_nodes": {"type": "number", "description": "Total node count on the prop"},
                 "prop_hint":   {"type": "string", "description": "Prop hint descriptor e.g. 'Singing Face', 'Tree', 'Star', 'Arch'"},
                 "grid_width":  {"type": "number", "description": "Prop grid width (columns)"},
-                "grid_height": {"type": "number", "description": "Prop grid height (rows)"}
             },
             "required": ["total_nodes"]
+        }
+    },
+    {
+        "name": "calculate_power_injection",
+        "description": "Calculates Ohm's Law voltage drop, total current draw, and power injection tap points across LED pixel strings.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "total_pixels": {"type": "number", "description": "Total pixel node count"},
+                "supply_voltage": {"type": "number", "description": "Supply voltage e.g. 5.0 or 12.0"},
+                "wire_gauge_awg": {"type": "number", "description": "Wire gauge AWG e.g. 14, 16, 18"},
+                "wire_length_feet": {"type": "number", "description": "Wire run length in feet"},
+                "max_current_per_pixel_amps": {"type": "number", "description": "Max current per pixel in Amps e.g. 0.05 (50mA)"}
+            },
+            "required": ["total_pixels"]
         }
     }
 ]
@@ -310,6 +324,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/auto-map-prop", arguments)
     elif name in ["detect_submodels_sam", "detect_submodels", "detect_prop_submodels"]:
         return http_post("/api/detect-submodels", arguments)
+    elif name == "calculate_power_injection":
+        return http_post("/api/power-injection", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 

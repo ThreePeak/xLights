@@ -339,6 +339,21 @@ const MCP_TOOLS = [
             },
             required: ["total_nodes"]
         }
+    },
+    {
+        name: "calculate_power_injection",
+        description: "Calculates Ohm's Law voltage drop, total current draw, and power injection tap points across LED pixel strings.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                total_pixels: { type: "number", description: "Total pixel node count" },
+                supply_voltage: { type: "number", description: "Supply voltage e.g. 5.0 or 12.0" },
+                wire_gauge_awg: { type: "number", description: "Wire gauge AWG e.g. 14, 16, 18" },
+                wire_length_feet: { type: "number", description: "Wire run length in feet" },
+                max_current_per_pixel_amps: { type: "number", description: "Max current per pixel in Amps e.g. 0.05 (50mA)" }
+            },
+            required: ["total_pixels"]
+        }
     }
 ];
 async function handleToolCall(name, args) {
@@ -376,6 +391,7 @@ async function handleToolCall(name, args) {
         case "detect_submodels":
         case "detect_prop_submodels":
         case "detect_submodels_sam": return await httpPost("/api/detect-submodels", args);
+        case "calculate_power_injection": return await httpPost("/api/power-injection", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }
