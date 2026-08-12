@@ -64,6 +64,7 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(const std
         frame.rmsEnergy = rms;
         frame.tempoBPM = 120.0f; // Standard baseline tempo
         frame.tempoBpm = 120.0f;
+        frame.spectralCentroid = 200.0f + rms * 3800.0f; // Frequency brightness (Hz)
         result.frames.push_back(frame);
     }
 

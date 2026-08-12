@@ -58,6 +58,8 @@ std::string DynamicsContourMapper::ExportContourToValueCurveJSON(const DynamicsM
                 normY = f.arousal * 100.0f;
             } else if (metricName == "tension" || metricName == "harmonicTension") {
                 normY = f.harmonicTension * 100.0f;
+            } else if (metricName == "spectralCentroid" || metricName == "centroid") {
+                normY = std::min(100.0f, (f.spectralCentroid / 4000.0f) * 100.0f);
             } else { // "brightness", "rms", or default
                 normY = f.brightnessLevel;
             }

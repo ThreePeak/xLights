@@ -24,6 +24,7 @@ struct AudioFrameContour {
     float valence = 0.0f;          // Emotional valence -1.0 (melancholy) to +1.0 (joyous)
     float arousal = 0.5f;          // Emotional arousal 0.0 (calm) to 1.0 (intense)
     float harmonicTension = 0.0f;  // Dissonance vs Resolution (0.0 to 1.0)
+    float spectralCentroid = 1000.0f; // Frequency brightness (Bass vs Treble)
     std::string recommendedVibe;   // Recommended color palette mood/vibe
 };
 
