@@ -106,6 +106,7 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(const std
         result.dominantEmotion = "Dynamic Melodic";
     }
 
+    result.contours = result.frames;
     result.success = true;
     spdlog::info("AudioDynamicsMapper: Successfully computed dynamics contour across {} frames. Peak Energy: {:.3f}", result.frames.size(), maxEnergy);
     return result;

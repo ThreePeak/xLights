@@ -34,6 +34,7 @@ struct AudioDynamicsContourResult {
     float peakEnergy = 0.0f;
     std::string dominantEmotion;
     std::vector<AudioEmotionFrame> frames;
+    std::vector<AudioFrameContour> contours;  // Frame contours list alias
 };
 
 class AudioDynamicsMapper {
