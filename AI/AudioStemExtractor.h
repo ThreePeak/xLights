@@ -47,6 +47,17 @@ struct StemSeparationOptions {
     bool exportWavFiles = true;
 };
 
+struct StemExtractionConfig {
+    AudioManager* audioManager = nullptr;
+    std::string modelPath;
+    std::string outputDirectory;
+    int framePeriodMS = 50;
+    float transientSensitivity = 0.12f;
+    bool exportWavFiles = true;
+    std::function<void(int pct)> progress = nullptr;
+    const std::atomic<bool>* cancel = nullptr;
+};
+
 struct StemExtractionResult {
     bool success = false;
     std::vector<AudioStem> stems;
@@ -74,6 +85,11 @@ public:
     [[nodiscard]] virtual std::vector<std::string> GetCapabilities() const override {
         return {"htdemucs_stem_separation", "rms_energy_envelopes", "spectral_flux_onsets", "stem_timing_tracks"};
     }
+
+    /**
+     * @brief Extracts 4 stems and compiles .xtiming XML files using structured StemExtractionConfig.
+     */
+    [[nodiscard]] static StemExtractionResult ProcessAudioStems(const StemExtractionConfig& config);
 
     /**
      * @brief Extracts 4 stems (Vocals, Drums, Bass, Other) from audio manager and generates timing tracks.

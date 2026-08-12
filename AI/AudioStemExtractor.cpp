@@ -55,6 +55,26 @@ void AudioStemExtractor::Shutdown() {
     m_isInitialized.store(false);
 }
 
+StemExtractionResult AudioStemExtractor::ProcessAudioStems(const StemExtractionConfig& config) {
+    StemSeparationOptions opts;
+    opts.modelPath = config.modelPath;
+    opts.outputDirectory = config.outputDirectory;
+    opts.framePeriodMS = config.framePeriodMS;
+    opts.transientSensitivity = config.transientSensitivity;
+    opts.exportWavFiles = config.exportWavFiles;
+
+    StemExtractionResult res = ExtractStems(config.audioManager, opts, config.progress, config.cancel);
+    if (res.success) {
+        for (const auto& track : res.timingTracks) {
+            std::string xml = CompileTimingTrackToXTimingXML(track, config.framePeriodMS);
+            if (!xml.empty()) {
+                res.generatedTimingTrackFiles.push_back(xml);
+            }
+        }
+    }
+    return res;
+}
+
 StemExtractionResult AudioStemExtractor::ExtractStems(
     AudioManager* audioManager,
     const StemSeparationOptions& options,

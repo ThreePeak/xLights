@@ -74,6 +74,16 @@ int main() {
     assert(pcmXml.find("start=\"1000\"") != std::string::npos);
     std::cout << " -> Test 5 (GenerateTransientTimingXML direct from PCM): PASSED" << std::endl;
 
+    // Test 6: ProcessAudioStems with StemExtractionConfig
+    xLights::AI::StemExtractionConfig config;
+    config.modelPath = "mock_model.onnx";
+    config.outputDirectory = ".";
+    // Null audioManager returns error gracefully
+    auto configRes = xLights::AI::AudioStemExtractor::ProcessAudioStems(config);
+    assert(!configRes.success);
+    assert(configRes.errorMessage == "Null AudioManager provided.");
+    std::cout << " -> Test 6 (ProcessAudioStems with StemExtractionConfig): PASSED" << std::endl;
+
     std::cout << "[Unit Test] ALL AUDIO STEM EXTRACTOR TESTS PASSED!" << std::endl;
     return 0;
 }
