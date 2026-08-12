@@ -106,6 +106,15 @@ public:
         const StemTimingTrackResult& timingTrack,
         int markDurationMS = 50
     );
+
+    /**
+     * @brief Computes spectral flux onsets on raw PCM buffer and generates formatted .xtiming XML payload.
+     */
+    [[nodiscard]] static std::string GenerateTransientTimingXML(
+        const std::vector<float>& pcmBuffer,
+        int sampleRate,
+        const std::string& trackName
+    );
 };
 
 } // namespace xLights::AI

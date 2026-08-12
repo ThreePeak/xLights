@@ -172,4 +172,24 @@ std::string AudioStemExtractor::CompileTimingTrackToXTimingXML(
     return ss.str();
 }
 
+std::string AudioStemExtractor::GenerateTransientTimingXML(
+    const std::vector<float>& pcmBuffer,
+    int sampleRate,
+    const std::string& trackName)
+{
+    AudioStem stem;
+    stem.stemName = trackName;
+    stem.sampleRate = sampleRate;
+    stem.leftBuffer = pcmBuffer;
+    stem.rightBuffer = pcmBuffer;
+
+    auto marks = ComputeSpectralFluxOnsets(stem, 50, 0.12f);
+
+    StemTimingTrackResult timingTrack;
+    timingTrack.trackName = trackName.empty() ? "AI Transient Onsets" : trackName;
+    timingTrack.marks = marks;
+
+    return CompileTimingTrackToXTimingXML(timingTrack, 50);
+}
+
 } // namespace xLights::AI

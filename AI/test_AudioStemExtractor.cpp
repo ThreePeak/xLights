@@ -67,6 +67,13 @@ int main() {
     assert(xml.find("start=\"1000\"") != std::string::npos);
     std::cout << " -> Test 4 (CompileTimingTrackToXTimingXML .xtiming XML): PASSED" << std::endl;
 
+    // Test 5: GenerateTransientTimingXML directly from PCM buffer
+    std::string pcmXml = xLights::AI::AudioStemExtractor::GenerateTransientTimingXML(drumStem.leftBuffer, 44100, "AI Drums Onsets");
+    assert(!pcmXml.empty());
+    assert(pcmXml.find("<timing name=\"AI Drums Onsets\" version=\"2\">") != std::string::npos);
+    assert(pcmXml.find("start=\"1000\"") != std::string::npos);
+    std::cout << " -> Test 5 (GenerateTransientTimingXML direct from PCM): PASSED" << std::endl;
+
     std::cout << "[Unit Test] ALL AUDIO STEM EXTRACTOR TESTS PASSED!" << std::endl;
     return 0;
 }
