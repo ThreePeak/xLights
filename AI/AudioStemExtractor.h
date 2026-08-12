@@ -23,12 +23,14 @@ class AudioManager;
 
 namespace xLights::AI {
 
-enum class StemType {
+enum class AudioStemType {
     VOCALS,
     DRUMS,
     BASS,
     OTHER
 };
+
+using StemType = AudioStemType;
 
 struct AudioStem {
     StemType type = StemType::VOCALS;
