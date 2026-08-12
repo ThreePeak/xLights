@@ -63,6 +63,7 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(const std
         frame.timestampMs = (int)frame.timeMS;
         frame.rmsEnergy = rms;
         frame.tempoBPM = 120.0f; // Standard baseline tempo
+        frame.tempoBpm = 120.0f;
         result.frames.push_back(frame);
     }
 
