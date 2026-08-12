@@ -316,7 +316,7 @@ const MCP_TOOLS = [
     },
     {
         name: "detect_submodels_sam",
-        description: "Auto-detect structural submodels and Singing Face 8-viseme components (Outline, Eyes, Mouth REST/AI/E/L/M/O/U/W/etc) using Segment Anything Model (SAM) segmentation.",
+        description: "Runs Segment Anything Model (SAM) vision inference to auto-generate submodels for complex props.",
         inputSchema: {
             type: "object",
             properties: {
