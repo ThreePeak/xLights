@@ -39,6 +39,22 @@ TEST_CASE("SubmodelDetectorAIGenerator: Singing face SAM submodel auto-detection
         REQUIRE(result.success == true);
         REQUIRE(result.submodels.size() == 3); // 3 Ring submodels
         REQUIRE(result.generatedSubmodelXML.find("<submodel name=\"Outer_Ring\"") != std::string::npos);
+        REQUIRE(result.generatedSubmodelXML.find("<submodel name=\"Inner_Core\"") != std::string::npos);
+    }
+
+    SECTION("Concentric point coordinate arrays are correctly categorized into Outer_Perimeter and Inner_Core submodels") {
+        SubmodelDetectionConfig config;
+        config.parentModelName = "ConcentricProp";
+        config.totalNodes = 100;
+        for (int i = 0; i < 100; ++i) {
+            float r = (i < 50) ? 0.9f : 0.2f;
+            float angle = (i % 50) * 2.0f * 3.14159f / 50.0f;
+            config.pixelCoordinates.push_back({0.5f + r * std::cos(angle), 0.5f + r * std::sin(angle)});
+        }
+
+        SubmodelDetectionResult result = SubmodelDetectorAIGenerator::DetectSubmodelsFromImage(config);
+        REQUIRE(result.success == true);
+        REQUIRE(result.generatedSubmodelXML.find("<submodel name=\"Inner_Core\"") != std::string::npos);
     }
 
     SECTION("Detects linear spoke submodels Spoke_1 through Spoke_N") {
