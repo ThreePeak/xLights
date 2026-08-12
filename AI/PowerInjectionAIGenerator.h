@@ -60,6 +60,7 @@ struct PowerInjectionResult {
     int requiredTapsCount = 0;
     std::vector<PowerInjectionTap> injectionTaps;
     std::string recommendationSummary;
+    std::string safetyWarning;              // Overcurrent / voltage drop safety warning message
 };
 
 using PowerDistributionConfig = PowerInjectionConfig;

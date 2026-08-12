@@ -111,6 +111,14 @@ PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const Po
             << "Requires " << tapCount << " power injection tap(s) using " << frontTap.recommendedWireAWG << " wire.";
     result.recommendationSummary = summary.str();
 
+    if (result.endVoltageNoInjection < config.minRequiredVoltage) {
+        std::ostringstream warn;
+        warn << "WARNING: Uninjected end-string voltage (" << std::fixed << std::setprecision(1)
+             << result.endVoltageNoInjection << "V) drops below the minimum operating threshold ("
+             << config.minRequiredVoltage << "V). Power injection required to prevent pixel flickering or color shift.";
+        result.safetyWarning = warn.str();
+    }
+
     result.success = true;
     spdlog::info("PowerInjectionAIGenerator: {}", result.recommendationSummary);
     return result;
