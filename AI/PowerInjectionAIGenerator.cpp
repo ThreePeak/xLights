@@ -71,6 +71,7 @@ PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const Po
     frontTap.recommendedAmperage = (totalCurrent <= 5.0f) ? 5.0f : ((totalCurrent <= 10.0f) ? 10.0f : 15.0f);
     frontTap.tapType = "Front";
     frontTap.recommendedWireAWG = (config.wireGaugeAWG <= 14.0f) ? "14 AWG" : ((config.wireGaugeAWG <= 16.0f) ? "16 AWG" : "18 AWG");
+    frontTap.wireGauge = frontTap.recommendedWireAWG;
     result.injectionTaps.push_back(frontTap);
 
     int tapCount = 1;
@@ -84,6 +85,7 @@ PowerInjectionResult PowerInjectionAIGenerator::CalculatePowerInjection(const Po
             tap.recommendedAmperage = (tap.calculatedCurrentAmps <= 5.0f) ? 5.0f : ((tap.calculatedCurrentAmps <= 10.0f) ? 10.0f : 15.0f);
             tap.tapType = (p == config.totalPixels - 1) ? "End-String" : "Mid-String";
             tap.recommendedWireAWG = frontTap.recommendedWireAWG;
+            tap.wireGauge = frontTap.recommendedWireAWG;
             result.injectionTaps.push_back(tap);
             tapCount++;
             // Reset voltage after tap

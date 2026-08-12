@@ -38,6 +38,7 @@ struct PowerInjectionTap {
     float recommendedAmperage = 0.0f;      // e.g., 5A, 10A, 15A fuse rating
     std::string tapType;                   // "Front", "Mid-String", "End-String"
     std::string recommendedWireAWG;        // Recommended wire AWG e.g. "18 AWG"
+    std::string wireGauge;                 // Recommended wire gauge for injection lead
 };
 
 struct PowerInjectionResult {
