@@ -40,6 +40,7 @@ struct AudioStem {
 };
 
 struct StemSeparationOptions {
+    std::string sourceAudioPath;          // Path to input audio file
     std::string modelPath;                // Path to Demucs ONNX or CoreML model
     std::string outputDirectory;
     int framePeriodMS = 50;               // Window size for timing marks
@@ -49,6 +50,7 @@ struct StemSeparationOptions {
 
 struct StemExtractionConfig {
     AudioManager* audioManager = nullptr;
+    std::string sourceAudioPath;          // Path to input audio file
     std::string modelPath;
     std::string outputDirectory;
     int framePeriodMS = 50;

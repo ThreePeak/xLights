@@ -57,6 +57,7 @@ void AudioStemExtractor::Shutdown() {
 
 StemExtractionResult AudioStemExtractor::ProcessAudioStems(const StemExtractionConfig& config) {
     StemSeparationOptions opts;
+    opts.sourceAudioPath = config.sourceAudioPath;
     opts.modelPath = config.modelPath;
     opts.outputDirectory = config.outputDirectory;
     opts.framePeriodMS = config.framePeriodMS;
