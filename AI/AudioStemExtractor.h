@@ -43,7 +43,7 @@ struct StemSeparationOptions {
     std::string modelPath;                // Path to Demucs ONNX or CoreML model
     std::string outputDirectory;
     int framePeriodMS = 50;               // Window size for timing marks
-    float transientSensitivity = 0.12f;
+    float transientSensitivity = 0.12f;   // 0.0 to 1.0
     bool exportWavFiles = true;
 };
 
@@ -52,7 +52,7 @@ struct StemExtractionConfig {
     std::string modelPath;
     std::string outputDirectory;
     int framePeriodMS = 50;
-    float transientSensitivity = 0.12f;
+    float transientSensitivity = 0.12f;   // 0.0 to 1.0
     bool exportWavFiles = true;
     std::function<void(int pct)> progress = nullptr;
     const std::atomic<bool>* cancel = nullptr;
