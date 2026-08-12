@@ -183,6 +183,19 @@ const MCP_TOOLS = [
         }
     },
     {
+        name: "xlights_import_xtiming",
+        description: "Imports a compiled .xtiming XML file or payload into active xLights sequence timing tracks",
+        inputSchema: {
+            type: "object",
+            properties: {
+                timing_name: { type: "string", description: "Timing track name e.g. 'AI Stems - Drums & Onsets'" },
+                xtiming_xml: { type: "string", description: "Raw .xtiming XML content payload" },
+                file_path: { type: "string", description: "Path to .xtiming XML file" }
+            },
+            required: ["timing_name"]
+        }
+    },
+    {
         name: "xlights_recommend_layer_blend",
         description: "Evaluates multi-layer effect stacks and recommends optimal blend modes (Additive, Layered, Mask) and transition durations",
         inputSchema: {
@@ -242,6 +255,7 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "xlights_insert_effect":
         case "xlights_set_effect": return await httpPost("/api/effect", args);
         case "xlights_extract_audio_stems": return await httpPost("/api/ai/extract_stems", args);
+        case "xlights_import_xtiming": return await httpPost("/api/ai/import_xtiming", args);
         case "xlights_recommend_layer_blend": return await httpPost("/api/ai/recommend_blend", args);
         case "xlights_synthesize_effect_preset": return await httpPost("/api/ai/synthesize_preset", args);
         case "xlights_generate_value_curve": return await httpPost("/api/ai/value_curve", args);

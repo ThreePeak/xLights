@@ -113,6 +113,19 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "xlights_import_xtiming",
+        "description": "Imports a compiled .xtiming XML file or payload into active xLights sequence timing tracks",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "timing_name": {"type": "string", "description": "Timing track name e.g. 'AI Stems - Drums & Onsets'"},
+                "xtiming_xml": {"type": "string", "description": "Raw .xtiming XML content payload"},
+                "file_path": {"type": "string", "description": "Path to .xtiming XML file"}
+            },
+            "required": ["timing_name"]
+        }
+    },
+    {
         "name": "xlights_recommend_layer_blend",
         "description": "Evaluates multi-layer effect stacks and recommends optimal blend modes (Additive, Layered, Mask) and transition durations",
         "inputSchema": {
@@ -169,6 +182,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/stop", {})
     elif name == "xlights_extract_audio_stems":
         return http_post("/api/ai/extract_stems", arguments)
+    elif name == "xlights_import_xtiming":
+        return http_post("/api/ai/import_xtiming", arguments)
     elif name == "xlights_recommend_layer_blend":
         return http_post("/api/ai/recommend_blend", arguments)
     elif name in ["insert_effect", "xlights_insert_effect", "xlights_set_effect"]:
