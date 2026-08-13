@@ -61,6 +61,7 @@ enum AuditCategoryFlags {
 
 enum class ExecutionActionMode {
     REPORT_ONLY,         // Audit and generate report; make no edits
+    PROMPT_BEFORE_FIX,   // Flag issues and wait for explicit confirmation per item
     AUTO_REPAIR,
     AUTO_REMEDIATE       // Automatically fix all safe technical issues in XML
 };
