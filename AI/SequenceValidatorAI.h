@@ -38,6 +38,15 @@ struct SequenceValidationIssue {
     bool autoFixable = false;          // Whether AI engine can automatically resolve this issue
 };
 
+enum AuditCategoryFlags {
+    AUDIT_NONE               = 0,
+    AUDIT_TIMING             = 1 << 0,
+    AUDIT_OVERLAP            = 1 << 1,
+    AUDIT_PERFORMANCE        = 1 << 2,
+    AUDIT_BOUNDS             = 1 << 3,
+    AUDIT_ALL                = 0xFF
+};
+
 enum class ExecutionActionMode {
     REPORT_ONLY,
     AUTO_REPAIR,
