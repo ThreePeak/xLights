@@ -100,6 +100,7 @@ struct SequenceValidationResult {
     bool success = false;
     std::string errorMessage;
     int totalIssuesCount = 0;
+    int totalIssuesFound = 0;          // Alias for totalIssuesCount
     int errorCount = 0;
     int warningCount = 0;
     std::vector<SequenceValidationIssue> issues;

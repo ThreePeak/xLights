@@ -108,6 +108,7 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
     }
 
     result.totalIssuesCount = static_cast<int>(result.issues.size());
+    result.totalIssuesFound = result.totalIssuesCount;
     result.detectedIssues = result.issues;
     result.scorecard = CalculateScorecard(result.detectedIssues);
 
@@ -195,6 +196,7 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
     root["success"] = result.success;
     root["errorMessage"] = result.errorMessage;
     root["totalIssuesCount"] = result.totalIssuesCount;
+    root["totalIssuesFound"] = result.totalIssuesFound;
     root["errorCount"] = result.errorCount;
     root["warningCount"] = result.warningCount;
     root["validationSummary"] = result.validationSummary;
