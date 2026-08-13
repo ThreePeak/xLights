@@ -579,6 +579,7 @@ public:
     void OnMenuItem_ViewLogSelected(wxCommandEvent& event);
     void OnMenuItemCheckSequenceSelected(wxCommandEvent& event);
     void OnMenuAISequenceValidatorSelected(wxCommandEvent& event);
+    void OnToolsAISequenceValidator(wxCommandEvent& event) { OnMenuAISequenceValidatorSelected(event); }
     void OnMenuAILuaGeneratorSelected(wxCommandEvent& event);
     void OnMenuAIPowerInspectorSelected(wxCommandEvent& event);
     void OnMenuAIModelMapperSelected(wxCommandEvent& event);
@@ -806,6 +807,7 @@ public:
     static const wxWindowID ID_MNU_REMAPCUSTOM;
     static const wxWindowID ID_MENUITEM_GenerateAIImage;
     static const wxWindowID ID_MENUITEM_AI_SEQUENCE_VALIDATOR;
+    static const wxWindowID ID_TOOLS_AI_SEQUENCE_VALIDATOR = ID_MENUITEM_AI_SEQUENCE_VALIDATOR;
     static const wxWindowID ID_MENUITEM_AI_LUA_GENERATOR;
     static const wxWindowID ID_MENUITEM_AI_POWER_INSPECTOR;
     static const wxWindowID ID_MENUITEM_AI_MODEL_MAPPER;
