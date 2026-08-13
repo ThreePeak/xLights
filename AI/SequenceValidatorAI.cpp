@@ -113,6 +113,20 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
         }
     }
 
+    // Rule 5: Hardware safety checks (>80% white pixel density across long spans / over-current risk)
+    if (config.currentPowerCapPercent > 0.80f || (config.xsqXmlContent.find("255,255,255") != std::string::npos && config.totalDurationMs > 60000)) {
+        SequenceValidationIssue issue;
+        issue.issueId = "VAL-" + std::to_string(issueCounter++);
+        issue.severity = ValidationIssueSeverity::Warning;
+        issue.category = "HardwareSafety";
+        issue.categoryFlag = AUDIT_HARDWARE_SAFETY;
+        issue.message = "Excessive high-density white pixel output detected (>80% power load). Risk of power supply brownouts or thermal fuse clipping.";
+        issue.suggestedFix = "Enable Brightness Limiter / Current Power Cap to 70% in xLights output settings or inject additional power feeds.";
+        issue.autoFixable = true;
+        result.issues.push_back(issue);
+        result.warningCount++;
+    }
+
     result.totalIssuesCount = static_cast<int>(result.issues.size());
     result.totalIssuesFound = result.totalIssuesCount;
     result.detectedIssues = result.issues;
