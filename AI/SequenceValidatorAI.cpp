@@ -100,23 +100,27 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
     }
 
     // Rule 1: Unassigned model layout check
-    if (config.activeModelNames.empty() && filteredModels.empty()) {
-        SequenceValidationIssue issue;
-        issue.issueId = "VAL-" + std::to_string(issueCounter++);
-        issue.severity = ValidationIssueSeverity::Error;
-        issue.category = "UnassignedModel";
-        issue.message = "No active target models declared in sequence layout.";
-        issue.suggestedFix = "Add at least one model to the sequence layout before rendering.";
-        result.issues.push_back(issue);
-        result.errorCount++;
+    if ((config.activeCategories & AUDIT_BOUNDS) != 0 || (config.activeCategories & AUDIT_CHANNEL_BOUNDS) != 0) {
+        if (config.activeModelNames.empty() && filteredModels.empty()) {
+            SequenceValidationIssue issue;
+            issue.issueId = "VAL-" + std::to_string(issueCounter++);
+            issue.severity = ValidationIssueSeverity::Error;
+            issue.category = "UnassignedModel";
+            issue.categoryFlag = AUDIT_BOUNDS;
+            issue.message = "No active target models declared in sequence layout.";
+            issue.suggestedFix = "Add at least one model to the sequence layout before rendering.";
+            result.issues.push_back(issue);
+            result.errorCount++;
+        }
     }
 
     // Rule 2: High effect density / performance bottleneck check
-    if (config.checkPerformanceBottlenecks && config.activeEffectCount > 2000) {
+    if (((config.activeCategories & AUDIT_RENDER_PERFORMANCE) != 0 || (config.activeCategories & AUDIT_PERFORMANCE) != 0) && config.checkPerformanceBottlenecks && config.activeEffectCount > 2000) {
         SequenceValidationIssue issue;
         issue.issueId = "VAL-" + std::to_string(issueCounter++);
         issue.severity = ValidationIssueSeverity::Warning;
         issue.category = "Performance";
+        issue.categoryFlag = AUDIT_RENDER_PERFORMANCE;
         issue.message = "High effect density detected (" + std::to_string(config.activeEffectCount) + " effects). Render latency may increase.";
         issue.suggestedFix = "Consolidate overlapping static effects into layer groups or submodel ranges.";
         result.issues.push_back(issue);
@@ -124,76 +128,88 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
     }
 
     // Rule 3: Timing grid gaps check (scoped time range check)
-    int evalDurationMs = (config.scopeFilter.endMs > 0) ? (config.scopeFilter.endMs - config.scopeFilter.startMs) : config.totalDurationMs;
-    if (config.checkTimingGaps && evalDurationMs > 30000 && config.activeEffectCount < 5) {
-        SequenceValidationIssue issue;
-        issue.issueId = "VAL-" + std::to_string(issueCounter++);
-        issue.severity = ValidationIssueSeverity::Warning;
-        issue.category = "TimingGrid";
-        issue.message = "Large un-sequenced timing gaps detected across 30+ second audio duration.";
-        issue.suggestedFix = "Use AI Value Curve / Preset Synthesizer to fill empty timing tracks.";
-        result.issues.push_back(issue);
-        result.warningCount++;
+    if (((config.activeCategories & AUDIT_TIMING) != 0 || (config.activeCategories & AUDIT_RHYTHM_SYNC) != 0) && config.checkTimingGaps) {
+        int evalDurationMs = (config.scopeFilter.endMs > 0) ? (config.scopeFilter.endMs - config.scopeFilter.startMs) : config.totalDurationMs;
+        if (evalDurationMs > 30000 && config.activeEffectCount < 5) {
+            SequenceValidationIssue issue;
+            issue.issueId = "VAL-" + std::to_string(issueCounter++);
+            issue.severity = ValidationIssueSeverity::Warning;
+            issue.category = "TimingGrid";
+            issue.categoryFlag = AUDIT_TIMING;
+            issue.message = "Large un-sequenced timing gaps detected across 30+ second audio duration.";
+            issue.suggestedFix = "Use AI Value Curve / Preset Synthesizer to fill empty timing tracks.";
+            result.issues.push_back(issue);
+            result.warningCount++;
+        }
     }
 
     // Rule 4: Model specific check (applied to filtered scope models)
-    for (const auto& model : filteredModels) {
-        if (ToLower(model).find("tree") != std::string::npos && config.activeEffectCount < 2) {
-            SequenceValidationIssue issue;
-            issue.issueId = "VAL-" + std::to_string(issueCounter++);
-            issue.severity = ValidationIssueSeverity::Info;
-            issue.category = "DesignSuggestion";
-            issue.message = "Model '" + model + "' has low effect coverage.";
-            issue.affectedModelName = model;
-            issue.suggestedFix = "Apply a 3D Spiral or Bars effect preset to " + model + ".";
-            issue.autoFixable = (config.actionMode == ExecutionActionMode::AUTO_REPAIR || config.actionMode == ExecutionActionMode::AUTO_REMEDIATE);
-            result.issues.push_back(issue);
+    if ((config.activeCategories & AUDIT_CREATIVE_HARMONY) != 0) {
+        for (const auto& model : filteredModels) {
+            if (ToLower(model).find("tree") != std::string::npos && config.activeEffectCount < 2) {
+                SequenceValidationIssue issue;
+                issue.issueId = "VAL-" + std::to_string(issueCounter++);
+                issue.severity = ValidationIssueSeverity::Info;
+                issue.category = "DesignSuggestion";
+                issue.categoryFlag = AUDIT_CREATIVE_HARMONY;
+                issue.message = "Model '" + model + "' has low effect coverage.";
+                issue.affectedModelName = model;
+                issue.suggestedFix = "Apply a 3D Spiral or Bars effect preset to " + model + ".";
+                issue.autoFixable = (config.actionMode == ExecutionActionMode::AUTO_REPAIR || config.actionMode == ExecutionActionMode::AUTO_REMEDIATE);
+                result.issues.push_back(issue);
+            }
         }
     }
 
     // Rule 5: Hardware safety checks (>80% white pixel density across long spans / over-current risk)
-    if (config.currentPowerCapPercent > 0.80f || (config.xsqXmlContent.find("255,255,255") != std::string::npos && config.totalDurationMs > 60000)) {
-        SequenceValidationIssue issue;
-        issue.issueId = "VAL-" + std::to_string(issueCounter++);
-        issue.severity = ValidationIssueSeverity::Warning;
-        issue.category = "HardwareSafety";
-        issue.categoryFlag = AUDIT_HARDWARE_SAFETY;
-        issue.message = "Excessive high-density white pixel output detected (>80% power load). Risk of power supply brownouts or thermal fuse clipping.";
-        issue.suggestedFix = "Enable Brightness Limiter / Current Power Cap to 70% in xLights output settings or inject additional power feeds.";
-        issue.autoFixable = true;
-        result.issues.push_back(issue);
-        result.warningCount++;
+    if ((config.activeCategories & AUDIT_HARDWARE_SAFETY) != 0) {
+        if (config.currentPowerCapPercent > 0.80f || (config.xsqXmlContent.find("255,255,255") != std::string::npos && config.totalDurationMs > 60000)) {
+            SequenceValidationIssue issue;
+            issue.issueId = "VAL-" + std::to_string(issueCounter++);
+            issue.severity = ValidationIssueSeverity::Warning;
+            issue.category = "HardwareSafety";
+            issue.categoryFlag = AUDIT_HARDWARE_SAFETY;
+            issue.message = "Excessive high-density white pixel output detected (>80% power load). Risk of power supply brownouts or thermal fuse clipping.";
+            issue.suggestedFix = "Enable Brightness Limiter / Current Power Cap to 70% in xLights output settings or inject additional power feeds.";
+            issue.autoFixable = true;
+            result.issues.push_back(issue);
+            result.warningCount++;
+        }
     }
 
     // Rule 6: XML integrity checks (pugixml syntax validation, unclosed tags, missing model references)
-    if (!config.xsqXmlContent.empty() || !config.layoutXmlContent.empty()) {
-        std::string rawXml = !config.xsqXmlContent.empty() ? config.xsqXmlContent : config.layoutXmlContent;
-        if (rawXml.find("<") == std::string::npos || rawXml.find(">") == std::string::npos || rawXml.find("</") == std::string::npos) {
-            SequenceValidationIssue issue;
-            issue.issueId = "VAL-" + std::to_string(issueCounter++);
-            issue.severity = ValidationIssueSeverity::Error;
-            issue.category = "XmlIntegrity";
-            issue.categoryFlag = AUDIT_XML_INTEGRITY;
-            issue.message = "Corrupted or malformed XML syntax detected. Unclosed elements or invalid tags.";
-            issue.suggestedFix = "Run Auto-Remediate XML repair tool or re-export sequence XML from xLights.";
-            issue.autoFixable = true;
-            result.issues.push_back(issue);
-            result.errorCount++;
+    if ((config.activeCategories & AUDIT_XML_INTEGRITY) != 0) {
+        if (!config.xsqXmlContent.empty() || !config.layoutXmlContent.empty()) {
+            std::string rawXml = !config.xsqXmlContent.empty() ? config.xsqXmlContent : config.layoutXmlContent;
+            if (rawXml.find("<") == std::string::npos || rawXml.find(">") == std::string::npos || rawXml.find("</") == std::string::npos) {
+                SequenceValidationIssue issue;
+                issue.issueId = "VAL-" + std::to_string(issueCounter++);
+                issue.severity = ValidationIssueSeverity::Error;
+                issue.category = "XmlIntegrity";
+                issue.categoryFlag = AUDIT_XML_INTEGRITY;
+                issue.message = "Corrupted or malformed XML syntax detected. Unclosed elements or invalid tags.";
+                issue.suggestedFix = "Run Auto-Remediate XML repair tool or re-export sequence XML from xLights.";
+                issue.autoFixable = true;
+                result.issues.push_back(issue);
+                result.errorCount++;
+            }
         }
     }
 
     // Rule 7: Channel & Universe overlap checks
-    if (config.checkChannelOverlaps && (config.layoutXmlContent.find("overlap=\"true\"") != std::string::npos || config.xsqXmlContent.find("channel_conflict") != std::string::npos)) {
-        SequenceValidationIssue issue;
-        issue.issueId = "VAL-" + std::to_string(issueCounter++);
-        issue.severity = ValidationIssueSeverity::Error;
-        issue.category = "ChannelOverlap";
-        issue.categoryFlag = AUDIT_CHANNEL_BOUNDS;
-        issue.message = "DMX / Pixel Universe channel overlap collision detected across assigned models.";
-        issue.suggestedFix = "Re-assign start channels sequentially in Layout tab or execute Auto-Remediate channel re-map.";
-        issue.autoFixable = true;
-        result.issues.push_back(issue);
-        result.errorCount++;
+    if (((config.activeCategories & AUDIT_CHANNEL_BOUNDS) != 0 || (config.activeCategories & AUDIT_OVERLAP) != 0) && config.checkChannelOverlaps) {
+        if (config.layoutXmlContent.find("overlap=\"true\"") != std::string::npos || config.xsqXmlContent.find("channel_conflict") != std::string::npos) {
+            SequenceValidationIssue issue;
+            issue.issueId = "VAL-" + std::to_string(issueCounter++);
+            issue.severity = ValidationIssueSeverity::Error;
+            issue.category = "ChannelOverlap";
+            issue.categoryFlag = AUDIT_CHANNEL_BOUNDS;
+            issue.message = "DMX / Pixel Universe channel overlap collision detected across assigned models.";
+            issue.suggestedFix = "Re-assign start channels sequentially in Layout tab or execute Auto-Remediate channel re-map.";
+            issue.autoFixable = true;
+            result.issues.push_back(issue);
+            result.errorCount++;
+        }
     }
 
     result.totalIssuesCount = static_cast<int>(result.issues.size());
