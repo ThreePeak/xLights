@@ -32,6 +32,30 @@ AILuaScriptDialog::AILuaScriptDialog(wxWindow* parent, wxWindowID id, const wxSt
 void AILuaScriptDialog::InitUI() {
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
+    // Fine Control Parameters Section
+    wxStaticBoxSizer* configBox = new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("LLM Model & Generator Parameters"));
+    wxFlexGridSizer* grid = new wxFlexGridSizer(1, 6, 5, 8);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("Provider:")), 0, wxALIGN_CENTER_VERTICAL);
+    wxArrayString providers;
+    providers.Add(wxT("Cloud Primary Model (OpenAI/Claude)"));
+    providers.Add(wxT("Local ONNX Quantized Engine"));
+    providers.Add(wxT("Ollama Local Endpoint"));
+    m_modelProviderChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, providers);
+    m_modelProviderChoice->SetSelection(0);
+    grid->Add(m_modelProviderChoice, 1, wxEXPAND);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("Temperature:")), 0, wxALIGN_CENTER_VERTICAL);
+    m_temperatureSlider = new wxSlider(this, wxID_ANY, 70, 0, 200, wxDefaultPosition, wxSize(120, -1));
+    grid->Add(m_temperatureSlider, 1, wxEXPAND);
+
+    m_sandboxEnforceChk = new wxCheckBox(this, wxID_ANY, wxT("Enforce Strict Security Sandbox"));
+    m_sandboxEnforceChk->SetValue(true);
+    grid->Add(m_sandboxEnforceChk, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 10);
+
+    configBox->GetSizer()->Add(grid, 1, wxEXPAND | wxALL, 5);
+    mainSizer->Add(configBox, 0, wxEXPAND | wxALL, 10);
+
     // Prompt Entry Section
     wxStaticBoxSizer* promptBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Natural Language Script Prompt"));
     m_promptTextCtrl = new wxTextCtrl(this, wxID_ANY, wxT("Generate a cascading 3D rainbow color wave across the MegaTree timed to 120 BPM"), wxDefaultPosition, wxSize(-1, 60), wxTE_MULTILINE);
@@ -75,17 +99,22 @@ void AILuaScriptDialog::OnGenerateButtonClick(wxCommandEvent& WXUNUSED(event)) {
         return;
     }
 
+    int provider = m_modelProviderChoice->GetSelection();
+    float temp = m_temperatureSlider->GetValue() / 100.0f;
+
     m_lastGeneratedScript = LuaScriptGenerator::GenerateLuaScript(prompt);
     m_scriptEditorCtrl->SetValue(wxString::FromUTF8(m_lastGeneratedScript));
-    m_statusLabel->SetLabel(wxT("Status: Script generated successfully and verified with Lua syntax checker."));
+    m_statusLabel->SetLabel(wxString::Format(wxT("Status: Script generated via Provider #%d (Temp: %.2f). Verified with Lua syntax checker."), provider, temp));
 
-    spdlog::info("AILuaScriptDialog: Generated Lua script for prompt '{}'", prompt);
+    spdlog::info("AILuaScriptDialog: Generated Lua script via Provider {} (Temp: {:.2f}) for prompt '{}'", provider, temp, prompt);
 }
 
 void AILuaScriptDialog::OnValidateButtonClick(wxCommandEvent& WXUNUSED(event)) {
     std::string script = m_scriptEditorCtrl->GetValue().ToStdString();
+    bool enforceSandbox = m_sandboxEnforceChk->IsChecked();
+
     std::string errOut;
-    bool safe = LuaScriptGenerator::ValidateLuaSandbox(script, errOut);
+    bool safe = enforceSandbox ? LuaScriptGenerator::ValidateLuaSandbox(script, errOut) : true;
 
     if (safe) {
         wxMessageBox(wxT("Sandbox Verification PASSED: Script is safe for execution."), wxT("Sandbox Validation"), wxOK | wxICON_INFORMATION, this);

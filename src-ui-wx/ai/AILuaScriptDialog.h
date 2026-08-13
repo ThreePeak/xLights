@@ -10,8 +10,11 @@
 
 #include <wx/dialog.h>
 #include <wx/button.h>
+#include <wx/choice.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
+#include <wx/slider.h>
+#include <wx/checkbox.h>
 #include <wx/sizer.h>
 #include <wx/msgdlg.h>
 
@@ -21,7 +24,7 @@ namespace xLights::AI {
 
 class AILuaScriptDialog : public wxDialog {
 public:
-    AILuaScriptDialog(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("AI Natural Language Lua Script Assistant"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(700, 500), long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+    AILuaScriptDialog(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("AI Natural Language Lua Script Assistant"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(750, 560), long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~AILuaScriptDialog() = default;
 
     [[nodiscard]] std::string GetGeneratedScript() const { return m_lastGeneratedScript; }
@@ -38,6 +41,10 @@ private:
     std::string m_lastGeneratedScript;
 
     // Controls
+    wxChoice* m_modelProviderChoice = nullptr;
+    wxSlider* m_temperatureSlider = nullptr;
+    wxCheckBox* m_sandboxEnforceChk = nullptr;
+
     wxTextCtrl* m_promptTextCtrl = nullptr;
     wxTextCtrl* m_scriptEditorCtrl = nullptr;
     wxStaticText* m_statusLabel = nullptr;
