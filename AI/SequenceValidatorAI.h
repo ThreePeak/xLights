@@ -80,6 +80,7 @@ struct SequenceValidationConfig {
     int activeEffectCount = 0;
     std::vector<std::string> activeModelNames;
     std::vector<std::string> targetPropNames;   // Empty = All props
+    std::vector<std::string> ignorePropNames;   // Ignored props/directories
     bool checkTimingGaps = true;
     bool checkChannelOverlaps = true;
     bool checkPerformanceBottlenecks = true;
