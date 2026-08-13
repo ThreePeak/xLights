@@ -13,6 +13,7 @@
 #include "AISubsystemBase.h"
 #include <string>
 #include <vector>
+#include <map>
 #include <future>
 #include <cstdint>
 
