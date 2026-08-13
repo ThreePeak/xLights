@@ -65,7 +65,30 @@ void AISequenceValidatorDialog::InitUI() {
     m_personaChoice->SetSelection(0);
     topBoxSizer->GetSizer()->Add(m_personaChoice, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
+    topBoxSizer->GetSizer()->Add(new wxStaticText(this, wxID_ANY, wxT("Severity Filter:")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    wxArrayString severities;
+    severities.Add(wxT("All Severities"));
+    severities.Add(wxT("Errors Only"));
+    severities.Add(wxT("Warnings & Errors"));
+    m_severityFilterChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, severities);
+    m_severityFilterChoice->SetSelection(0);
+    topBoxSizer->GetSizer()->Add(m_severityFilterChoice, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+
+    // Rule Masks Box
+    wxStaticBoxSizer* ruleMaskBox = new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("Rule Mask Filters"));
+    m_checkTimingChk = new wxCheckBox(this, wxID_ANY, wxT("Timing Grid"));
+    m_checkTimingChk->SetValue(true);
+    m_checkOverlapChk = new wxCheckBox(this, wxID_ANY, wxT("Channel Overlaps"));
+    m_checkOverlapChk->SetValue(true);
+    m_checkVoltageChk = new wxCheckBox(this, wxID_ANY, wxT("Voltage Drop / Power"));
+    m_checkVoltageChk->SetValue(true);
+
+    ruleMaskBox->GetSizer()->Add(m_checkTimingChk, 0, wxALL, 5);
+    ruleMaskBox->GetSizer()->Add(m_checkOverlapChk, 0, wxALL, 5);
+    ruleMaskBox->GetSizer()->Add(m_checkVoltageChk, 0, wxALL, 5);
+
     mainSizer->Add(topBoxSizer, 0, wxEXPAND | wxALL, 10);
+    mainSizer->Add(ruleMaskBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     // Scorecard Section
     wxStaticBoxSizer* scorecardBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Sequence Health Scorecard"));
@@ -187,6 +210,10 @@ void AISequenceValidatorDialog::UpdateCritiquePanel() {
 
 void AISequenceValidatorDialog::OnRunAuditButtonClick(wxCommandEvent& WXUNUSED(event)) {
     // Determine selected persona mode
+    m_config.checkTimingGrid = m_checkTimingChk->IsChecked();
+    m_config.checkChannelOverlaps = m_checkOverlapChk->IsChecked();
+    m_config.checkHardwareLimits = m_checkVoltageChk->IsChecked();
+
     int personaSel = m_personaChoice->GetSelection();
     if (personaSel == 0) {
         m_config.personaMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS;

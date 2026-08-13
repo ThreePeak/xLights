@@ -11,6 +11,7 @@
 #include <wx/dialog.h>
 #include <wx/button.h>
 #include <wx/choice.h>
+#include <wx/checkbox.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/gauge.h>
@@ -52,6 +53,12 @@ private:
     // UI Controls
     wxChoice* m_categoryChoice = nullptr;
     wxChoice* m_personaChoice = nullptr;
+    wxChoice* m_severityFilterChoice = nullptr;
+
+    wxCheckBox* m_checkTimingChk = nullptr;
+    wxCheckBox* m_checkOverlapChk = nullptr;
+    wxCheckBox* m_checkVoltageChk = nullptr;
+
     wxGauge* m_overallHealthGauge = nullptr;
     wxStaticText* m_healthScoreText = nullptr;
 
