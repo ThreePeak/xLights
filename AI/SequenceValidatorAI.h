@@ -50,7 +50,8 @@ enum AuditCategoryFlags {
     AUDIT_TIMING             = 1 << 1,
     AUDIT_OVERLAP            = 1 << 2,
     AUDIT_PERFORMANCE        = 1 << 3,
-    AUDIT_BOUNDS             = 1 << 4,
+    AUDIT_HARDWARE_SAFETY    = 1 << 4, // Over-current risks, high-density white clipping
+    AUDIT_BOUNDS             = 1 << 5,
     AUDIT_ALL                = 0xFFFFFFFF
 };
 
