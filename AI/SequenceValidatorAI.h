@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <future>
+#include <cstdint>
 
 namespace xLights::AI {
 
