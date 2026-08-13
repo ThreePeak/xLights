@@ -72,6 +72,13 @@ enum class PersonaReviewMode {
     ENTHUSIAST_COACH
 };
 
+struct TargetScopeFilter {
+    int startMs = 0;
+    int endMs = -1;                            // -1 = Full duration
+    std::vector<std::string> targetPropNames;  // Empty = All props
+    std::vector<std::string> ignorePropNames;  // Ignored props/directories
+};
+
 struct SequenceValidationConfig {
     std::string sequenceFilePath;
     std::string layoutXmlContent;      // Raw layout XML string for direct structural auditing
@@ -83,6 +90,7 @@ struct SequenceValidationConfig {
     std::vector<std::string> activeModelNames;
     std::vector<std::string> targetPropNames;   // Empty = All props
     std::vector<std::string> ignorePropNames;   // Ignored props/directories
+    TargetScopeFilter scopeFilter;             // Target scope filtering configuration
     bool checkTimingGaps = true;
     bool checkChannelOverlaps = true;
     bool checkPerformanceBottlenecks = true;
