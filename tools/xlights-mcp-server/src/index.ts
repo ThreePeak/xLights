@@ -373,6 +373,24 @@ const MCP_TOOLS = [
             },
             required: ["total_pixel_count"]
         }
+    },
+    {
+        name: "map_vendor_sequence_models",
+        description: "Executes 4-Pass LLM model mapping to auto-align imported vendor sequence channels with target layout models.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                source_channels: {
+                    type: "array",
+                    description: "List of vendor source channel objects ({channelName, propTypeHint, nodeCount, strandCount})"
+                },
+                target_models: {
+                    type: "array",
+                    description: "List of target show layout model objects ({modelName, modelType, nodeCount, strandCount, submodels})"
+                }
+            },
+            required: ["source_channels", "target_models"]
+        }
     }
 ];
 
@@ -413,6 +431,7 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "detect_submodels_sam":   return await httpPost("/api/detect-submodels", args);
         case "calculate_power_injection": return await httpPost("/api/power-injection", args);
         case "analyze_power_injection":   return await httpPost("/api/power-analysis", args);
+        case "map_vendor_sequence_models": return await httpPost("/api/ai/map-models", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }

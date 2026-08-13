@@ -305,6 +305,18 @@ MCP_TOOLS = [
             },
             "required": ["total_pixel_count"]
         }
+    },
+    {
+        "name": "map_vendor_sequence_models",
+        "description": "Executes 4-Pass LLM model mapping to auto-align imported vendor sequence channels with target layout models.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source_channels": {"type": "array", "description": "List of vendor source channel objects ({channelName, propTypeHint, nodeCount, strandCount})"},
+                "target_models": {"type": "array", "description": "List of target show layout model objects ({modelName, modelType, nodeCount, strandCount, submodels})"}
+            },
+            "required": ["source_channels", "target_models"]
+        }
     }
 ]
 
@@ -345,6 +357,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/power-injection", arguments)
     elif name == "analyze_power_injection":
         return http_post("/api/power-analysis", arguments)
+    elif name == "map_vendor_sequence_models":
+        return http_post("/api/ai/map-models", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 
