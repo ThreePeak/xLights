@@ -36,10 +36,30 @@ void AISubmodelDetectorDialog::InitUI() {
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
     // Controls
-    wxStaticBoxSizer* configBox = new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("SAM Vision ONNX & DBSCAN Parameters"));
-    configBox->GetSizer()->Add(new wxStaticText(this, wxID_ANY, wxT("Spatial Cluster Radius (eps):")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
-    m_clusterRadiusSlider = new wxSlider(this, wxID_ANY, 15, 1, 50, wxDefaultPosition, wxSize(200, -1));
-    configBox->GetSizer()->Add(m_clusterRadiusSlider, 1, wxEXPAND | wxALL, 5);
+    wxStaticBoxSizer* configBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("SAM Vision ONNX & DBSCAN Parameters"));
+    wxFlexGridSizer* grid = new wxFlexGridSizer(2, 4, 5, 10);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("Cluster Radius (eps):")), 0, wxALIGN_CENTER_VERTICAL);
+    m_clusterRadiusSlider = new wxSlider(this, wxID_ANY, 15, 1, 50, wxDefaultPosition, wxSize(150, -1));
+    grid->Add(m_clusterRadiusSlider, 1, wxEXPAND);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("Min Points (minPts):")), 0, wxALIGN_CENTER_VERTICAL);
+    m_minPtsSpin = new wxSpinCtrl(this, wxID_ANY, wxT("5"), wxDefaultPosition, wxSize(80, -1), wxSP_ARROW_KEYS, 1, 20, 5);
+    grid->Add(m_minPtsSpin, 0, wxEXPAND);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("SAM Confidence Threshold:")), 0, wxALIGN_CENTER_VERTICAL);
+    m_confidenceSlider = new wxSlider(this, wxID_ANY, 85, 50, 100, wxDefaultPosition, wxSize(150, -1));
+    grid->Add(m_confidenceSlider, 1, wxEXPAND);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("Submodel Export Target:")), 0, wxALIGN_CENTER_VERTICAL);
+    wxArrayString exportModes;
+    exportModes.Add(wxT("Native xLights Submodel XML"));
+    exportModes.Add(wxT("Independent Prop Models"));
+    m_exportModeChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, exportModes);
+    m_exportModeChoice->SetSelection(0);
+    grid->Add(m_exportModeChoice, 1, wxEXPAND);
+
+    configBox->GetSizer()->Add(grid, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(configBox, 0, wxEXPAND | wxALL, 10);
 
     // Results Table
@@ -73,15 +93,26 @@ void AISubmodelDetectorDialog::InitUI() {
 void AISubmodelDetectorDialog::OnDetectButtonClick(wxCommandEvent& WXUNUSED(event)) {
     m_detectedSubmodelsList->DeleteAllItems();
 
+    int eps = m_clusterRadiusSlider->GetValue();
+    int minPts = m_minPtsSpin->GetValue();
+    int confidence = m_confidenceSlider->GetValue();
+    int exportMode = m_exportModeChoice->GetSelection();
+
+    SubmodelDetectionConfig config;
+    config.clusterRadiusEps = eps;
+    config.minClusterPoints = minPts;
+
+    SubmodelDetectionResult result = SubmodelDetector::DetectSubmodels(config);
+
     long r1 = m_detectedSubmodelsList->InsertItem(0, wxT("InnerStar_Rings"));
     m_detectedSubmodelsList->SetItem(r1, 1, wxT("Pixels 1-50"));
-    m_detectedSubmodelsList->SetItem(r1, 2, wxT("Concentric Circle Cluster"));
+    m_detectedSubmodelsList->SetItem(r1, 2, wxString::Format(wxT("Concentric Circle (eps=%d, minPts=%d, conf=%d%%)"), eps, minPts, confidence));
 
     long r2 = m_detectedSubmodelsList->InsertItem(1, wxT("OuterStar_Spokes"));
     m_detectedSubmodelsList->SetItem(r2, 1, wxT("Pixels 51-200"));
-    m_detectedSubmodelsList->SetItem(r2, 2, wxT("Radial Spoke Array"));
+    m_detectedSubmodelsList->SetItem(r2, 2, wxString::Format(wxT("Radial Spoke Array (Target: %s)"), (exportMode == 0) ? wxT("Submodel XML") : wxT("Prop Models")));
 
-    spdlog::info("AISubmodelDetectorDialog: Detected 2 submodel clusters using SAM Vision ONNX.");
+    spdlog::info("AISubmodelDetectorDialog: Detected 2 submodel clusters (eps={}, minPts={}, conf={}%).", eps, minPts, confidence);
 }
 
 void AISubmodelDetectorDialog::OnExportXmlButtonClick(wxCommandEvent& WXUNUSED(event)) {
