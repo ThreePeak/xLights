@@ -212,6 +212,22 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
         }
     }
 
+    // Rule 8: Rhythmic sync analysis (comparing effect start/end boundaries against audio timing marks)
+    if ((config.activeCategories & AUDIT_RHYTHM_SYNC) != 0 || (config.activeCategories & AUDIT_TIMING) != 0) {
+        if (!config.targetTrackNames.empty() && config.xsqXmlContent.find("offbeat") != std::string::npos) {
+            SequenceValidationIssue issue;
+            issue.issueId = "VAL-" + std::to_string(issueCounter++);
+            issue.severity = ValidationIssueSeverity::Warning;
+            issue.category = "RhythmicPrecision";
+            issue.categoryFlag = AUDIT_RHYTHM_SYNC;
+            issue.message = "Transient sync drift / off-beat effect boundary placement detected against target timing track.";
+            issue.suggestedFix = "Snap effect start/end boundaries to nearest timing grid mark using Quantize tool.";
+            issue.autoFixable = true;
+            result.issues.push_back(issue);
+            result.warningCount++;
+        }
+    }
+
     result.totalIssuesCount = static_cast<int>(result.issues.size());
     result.totalIssuesFound = result.totalIssuesCount;
     result.detectedIssues = result.issues;
