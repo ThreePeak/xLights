@@ -76,6 +76,8 @@ struct SequenceValidationConfig {
     PersonaReviewMode reviewMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS;
 };
 
+using DiagnosticConfigSpec = SequenceValidationConfig;
+
 using SequenceIssue = SequenceValidationIssue;
 
 struct CategoryScorecard {
