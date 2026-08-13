@@ -181,6 +181,7 @@ public:
 
     // Apply specific remediation fixes to sequence XML
     [[nodiscard]] static bool RemediateSequenceIssues(const std::string& sequencePath, const std::vector<std::string>& targetIssueIds, std::string& errorOut);
+    [[nodiscard]] static std::string AutoRemediateSequence(const std::string& rawXmlContent, const std::vector<SequenceIssue>& targetIssues);
 
     // Formats a no-fluff, direct Master Sequencer Boss critique detailing timing errors, sloppy transitions, and visual clutter
     [[nodiscard]] static std::string GenerateBossCritique(const SequenceValidationResult& result);

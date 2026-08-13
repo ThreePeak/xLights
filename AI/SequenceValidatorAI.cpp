@@ -286,6 +286,25 @@ bool SequenceValidatorAI::RemediateSequenceIssues(const std::string& sequencePat
     return true;
 }
 
+std::string SequenceValidatorAI::AutoRemediateSequence(const std::string& rawXmlContent, const std::vector<SequenceIssue>& targetIssues) {
+    std::string remediatedXml = rawXmlContent;
+    for (const auto& issue : targetIssues) {
+        if (!issue.autoFixable) continue;
+        if (issue.category == "ChannelOverlap") {
+            size_t pos = remediatedXml.find("overlap=\"true\"");
+            if (pos != std::string::npos) {
+                remediatedXml.replace(pos, 14, "overlap=\"false\"");
+            }
+        } else if (issue.category == "HardwareSafety") {
+            size_t pos = remediatedXml.find("255,255,255");
+            if (pos != std::string::npos) {
+                remediatedXml.replace(pos, 11, "200,200,200");
+            }
+        }
+    }
+    return remediatedXml;
+}
+
 std::string SequenceValidatorAI::GenerateBossCritique(const SequenceValidationResult& result) {
     return GenerateBossCritique(result.scorecard, result.detectedIssues.empty() ? result.issues : result.detectedIssues);
 }
