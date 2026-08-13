@@ -102,7 +102,7 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
             issue.message = "Model '" + model + "' has low effect coverage.";
             issue.affectedModelName = model;
             issue.suggestedFix = "Apply a 3D Spiral or Bars effect preset to " + model + ".";
-            issue.autoFixable = (config.actionMode == ExecutionActionMode::AUTO_REPAIR);
+            issue.autoFixable = (config.actionMode == ExecutionActionMode::AUTO_REPAIR || config.actionMode == ExecutionActionMode::AUTO_REMEDIATE);
             result.issues.push_back(issue);
         }
     }

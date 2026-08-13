@@ -40,7 +40,8 @@ struct SequenceValidationIssue {
 
 enum class ExecutionActionMode {
     REPORT_ONLY,
-    AUTO_REPAIR
+    AUTO_REPAIR,
+    AUTO_REMEDIATE       // Automatically fix all safe technical issues in XML
 };
 
 enum class PersonaReviewMode {
