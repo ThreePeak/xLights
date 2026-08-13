@@ -191,6 +191,7 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
         iss["categoryFlag"] = issue.categoryFlag;
         iss["message"] = issue.message;
         iss["affectedModelName"] = issue.affectedModelName;
+        iss["effectName"] = issue.effectName;
         iss["timeMs"] = issue.timeMs;
         iss["suggestedFix"] = issue.suggestedFix;
         iss["autoFixable"] = issue.autoFixable;

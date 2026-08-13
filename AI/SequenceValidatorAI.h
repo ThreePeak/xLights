@@ -34,6 +34,7 @@ struct SequenceValidationIssue {
     uint32_t categoryFlag = 0;         // AuditCategoryFlags enum flag e.g. AUDIT_TIMING, AUDIT_OVERLAP
     std::string message;
     std::string affectedModelName;
+    std::string effectName;            // Target effect name e.g. "Bars", "Shimmer", "SingleStrand"
     int timeMs = -1;
     std::string suggestedFix;
     bool autoFixable = false;          // Whether AI engine can automatically resolve this issue
