@@ -24,6 +24,8 @@ enum class ValidationIssueSeverity {
     Critical
 };
 
+using IssueSeverity = ValidationIssueSeverity;
+
 struct SequenceValidationIssue {
     std::string issueId;
     ValidationIssueSeverity severity = ValidationIssueSeverity::Warning;
