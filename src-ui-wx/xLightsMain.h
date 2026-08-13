@@ -578,6 +578,13 @@ public:
     void OnmExportModelsMenuItemSelected(wxCommandEvent& event);
     void OnMenuItem_ViewLogSelected(wxCommandEvent& event);
     void OnMenuItemCheckSequenceSelected(wxCommandEvent& event);
+    void OnMenuAISequenceValidatorSelected(wxCommandEvent& event);
+    void OnMenuAILuaGeneratorSelected(wxCommandEvent& event);
+    void OnMenuAIPowerInspectorSelected(wxCommandEvent& event);
+    void OnMenuAIModelMapperSelected(wxCommandEvent& event);
+    void OnMenuAISubmodelDetectorSelected(wxCommandEvent& event);
+    void OnMenuAICameraMapperSelected(wxCommandEvent& event);
+    void OnMenuAIAudioStemsSelected(wxCommandEvent& event);
     void OnMenuItem_Help_ForumSelected(wxCommandEvent& event);
     void OnMenuItem_Help_DownloadSelected(wxCommandEvent& event);
     void OnMenuItem_Help_ReleaseNotesSelected(wxCommandEvent& event);
@@ -798,6 +805,13 @@ public:
     static const wxWindowID ID_MENUITEM_GenerateCustomModel;
     static const wxWindowID ID_MNU_REMAPCUSTOM;
     static const wxWindowID ID_MENUITEM_GenerateAIImage;
+    static const wxWindowID ID_MENUITEM_AI_SEQUENCE_VALIDATOR;
+    static const wxWindowID ID_MENUITEM_AI_LUA_GENERATOR;
+    static const wxWindowID ID_MENUITEM_AI_POWER_INSPECTOR;
+    static const wxWindowID ID_MENUITEM_AI_MODEL_MAPPER;
+    static const wxWindowID ID_MENUITEM_AI_SUBMODEL_DETECTOR;
+    static const wxWindowID ID_MENUITEM_AI_CAMERA_MAPPER;
+    static const wxWindowID ID_MENUITEM_AI_AUDIO_STEMS;
     static const wxWindowID ID_MNU_GENERATELYRICS;
     static const wxWindowID ID_MENUITEM_CONVERT;
     static const wxWindowID ID_MNU_PREPAREAUDIO;

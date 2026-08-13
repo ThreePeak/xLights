@@ -105,6 +105,13 @@
 #include "utils/SpecialOptions.h"
 #include "app-shell/SplashDialog.h"
 #include "diagnostics/SequenceChecker.h"
+#include "src-ui-wx/ai/AISequenceValidatorDialog.h"
+#include "src-ui-wx/ai/AILuaScriptDialog.h"
+#include "src-ui-wx/ai/AIPowerInjectionDialog.h"
+#include "src-ui-wx/ai/AIModelMappingWizard.h"
+#include "src-ui-wx/ai/AISubmodelDetectorDialog.h"
+#include "src-ui-wx/ai/AIGrayCodePixelMapperDialog.h"
+#include "src-ui-wx/ai/AIAudioStemExtractorDialog.h"
 #include "diagnostics/ShowFolderSearchDialog.h"
 #include "sequencer/TopEffectsPanel.h"
 #include "utils/TraceLog.h"
@@ -5982,6 +5989,41 @@ void xLightsFrame::OnMenuItemShiftEffectsSelected(wxCommandEvent& event)
         }
         mainSequencer->PanelEffectGrid->Refresh();
     }
+}
+
+void xLightsFrame::OnMenuAISequenceValidatorSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AISequenceValidatorDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAILuaGeneratorSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AILuaScriptDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAIPowerInspectorSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIPowerInjectionDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAIModelMapperSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIModelMappingWizard dlg(this);
+    dlg.RunWizardUI();
+}
+
+void xLightsFrame::OnMenuAISubmodelDetectorSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AISubmodelDetectorDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAICameraMapperSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIGrayCodePixelMapperDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAIAudioStemsSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIAudioStemExtractorDialog dlg(this);
+    dlg.ShowModal();
 }
 
 void xLightsFrame::ShiftEffectsOnLayer(EffectLayer* el, int milliseconds)
