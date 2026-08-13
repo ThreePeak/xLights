@@ -33,6 +33,8 @@ struct LuaScriptGeneratorResult {
     bool passesSandboxValidation = false;
 };
 
+using LuaScriptSpec = LuaScriptGeneratorResult;
+
 class LuaScriptGenerator : public AISubsystemBase {
 public:
     LuaScriptGenerator(ServiceManager* sm = nullptr) : AISubsystemBase(sm) {}
@@ -58,6 +60,7 @@ public:
 
     // Translate a natural language prompt into an executable xLights Lua automation script
     [[nodiscard]] static LuaScriptGeneratorResult GenerateLuaScript(const LuaScriptGeneratorConfig& config);
+    [[nodiscard]] static LuaScriptSpec GenerateScriptFromPrompt(const std::string& userPrompt);
 
     // Construct a structured prompt instructing the LLM engine to output safe Lua scripts targeting xLights' exposed automation functions
     [[nodiscard]] static std::string ConstructStructuredLLMPrompt(const LuaScriptGeneratorConfig& config);

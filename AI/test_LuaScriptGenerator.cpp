@@ -49,4 +49,10 @@ TEST_CASE("LuaScriptGenerator: Interpreter Bindings & Script Generation", "[LuaS
         REQUIRE(prompt.find("xlights.get_model") != std::string::npos);
         REQUIRE(prompt.find("Create a marquee chase effect") != std::string::npos);
     }
+
+    SECTION("GenerateScriptFromPrompt string overload works") {
+        LuaScriptSpec spec = LuaScriptGenerator::GenerateScriptFromPrompt("Create a shimmer effect on Star");
+        REQUIRE(spec.success == true);
+        REQUIRE(!spec.generatedLuaCode.empty());
+    }
 }

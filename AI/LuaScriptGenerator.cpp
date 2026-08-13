@@ -120,6 +120,12 @@ LuaScriptGeneratorResult LuaScriptGenerator::GenerateLuaScript(const LuaScriptGe
     return result;
 }
 
+LuaScriptSpec LuaScriptGenerator::GenerateScriptFromPrompt(const std::string& userPrompt) {
+    LuaScriptGeneratorConfig config;
+    config.userPrompt = userPrompt;
+    return GenerateLuaScript(config);
+}
+
 std::string LuaScriptGenerator::ConstructStructuredLLMPrompt(const LuaScriptGeneratorConfig& config) {
     std::ostringstream prompt;
     prompt << "SYSTEM INSTRUCTIONS: You are an expert xLights Lua Automation Script Generator.\n"
