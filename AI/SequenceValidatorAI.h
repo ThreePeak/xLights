@@ -57,8 +57,9 @@ enum AuditCategoryFlags : uint32_t {
     AUDIT_RENDER_PERFORMANCE = 1 << 3, // Layer collisions, excessive buffer redraws
     AUDIT_OVERLAP            = 1 << 4,
     AUDIT_PERFORMANCE        = 1 << 4,
-    AUDIT_HARDWARE_SAFETY    = 1 << 5, // Over-current risks, high-density white clipping
-    AUDIT_BOUNDS             = 1 << 6,
+    AUDIT_CREATIVE_HARMONY   = 1 << 5, // Color muddying, visual clutter, negative space
+    AUDIT_HARDWARE_SAFETY    = 1 << 6, // Over-current risks, high-density white clipping
+    AUDIT_BOUNDS             = 1 << 7,
     AUDIT_ALL                = 0xFFFFFFFF
 };
 
