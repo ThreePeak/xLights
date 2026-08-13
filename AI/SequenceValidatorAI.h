@@ -31,6 +31,7 @@ struct SequenceValidationIssue {
     std::string issueId;
     ValidationIssueSeverity severity = ValidationIssueSeverity::Warning;
     std::string category;              // "TimingGrid", "ChannelOverlap", "UnassignedModel", "Performance", "ChannelBound"
+    uint32_t categoryFlag = 0;         // AuditCategoryFlags enum flag e.g. AUDIT_TIMING, AUDIT_OVERLAP
     std::string message;
     std::string affectedModelName;
     int timeMs = -1;

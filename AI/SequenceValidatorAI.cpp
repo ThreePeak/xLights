@@ -178,6 +178,7 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
         iss["issueId"] = issue.issueId;
         iss["severity"] = static_cast<int>(issue.severity);
         iss["category"] = issue.category;
+        iss["categoryFlag"] = issue.categoryFlag;
         iss["message"] = issue.message;
         iss["affectedModelName"] = issue.affectedModelName;
         iss["timeMs"] = issue.timeMs;
