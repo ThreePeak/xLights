@@ -119,10 +119,13 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
     if (config.reviewMode == PersonaReviewMode::MASTER_SEQUENCER_BOSS) {
         result.personaCritiqueTitle = "Master Sequencer Boss Review";
         result.personaCritiqueBody = GenerateBossCritique(result);
+    } else if (config.reviewMode == PersonaReviewMode::LIGHT_SHOW_JOURNALIST) {
+        result.personaCritiqueTitle = "Light Show Journalist Review";
+        result.personaCritiqueBody = GenerateJournalistReview(result.scorecard, result.detectedIssues);
     } else {
-        result.personaCritiqueTitle = "Light Show Review";
+        result.personaCritiqueTitle = "Enthusiast Coach Review";
         std::ostringstream critique;
-        critique << "### Light Show Review\n"
+        critique << "### Enthusiast Coach Review\n"
                  << "Your sequence currently has " << config.activeEffectCount << " active effect(s) across "
                  << config.activeModelNames.size() << " model(s). ";
         if (result.errorCount > 0) {
@@ -169,6 +172,22 @@ std::string SequenceValidatorAI::GenerateBossCritique(const SequenceValidationRe
     }
     boss << "\nRECOMMENDATION: Clean up timing marks and remove visual clutter before exporting to controller.";
     return boss.str();
+}
+
+std::string SequenceValidatorAI::GenerateJournalistReview(const CategoryScorecard& scores, const std::vector<SequenceIssue>& issues) {
+    std::ostringstream journo;
+    int starRating = std::max(1, std::min(5, static_cast<int>(scores.overallHealthScore / 20.0f)));
+    journo << "### [LIGHT SHOW CHRONICLE REVIEW]\n"
+           << "Rating: " << std::string(starRating, '*') << " (" << scores.overallHealthScore << "/100)\n\n"
+           << "CRITIQUE OVERVIEW:\n"
+           << "This sequence displays an overall health score of " << scores.overallHealthScore << "%. ";
+
+    if (issues.empty()) {
+        journo << "A flawless musical sync with pristine layer transitions and zero structural faults.";
+    } else {
+        journo << "While visually engaging, the sequence exhibits " << issues.size() << " structural notice(s) requiring refinement across timing and channel layering.";
+    }
+    return journo.str();
 }
 
 std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValidationResult& result) {

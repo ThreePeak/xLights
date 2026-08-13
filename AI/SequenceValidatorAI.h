@@ -144,6 +144,9 @@ public:
     // Formats a no-fluff, direct Master Sequencer Boss critique detailing timing errors, sloppy transitions, and visual clutter
     [[nodiscard]] static std::string GenerateBossCritique(const SequenceValidationResult& result);
 
+    // Formats a published light show journalist style review with star rating and structural analysis
+    [[nodiscard]] static std::string GenerateJournalistReview(const CategoryScorecard& scores, const std::vector<SequenceIssue>& issues);
+
     // Export validation report to structured JSON format
     [[nodiscard]] static std::string ExportValidationReportJSON(const SequenceValidationResult& result);
 };

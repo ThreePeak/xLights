@@ -62,4 +62,13 @@ TEST_CASE("SequenceValidatorAI: Sequence Quality & Diagnostic Audit", "[Sequence
         bool ok = SequenceValidatorAI::RemediateSequenceIssues("test_seq.xml", targetIds, err);
         REQUIRE(ok == true);
     }
+
+    SECTION("Generates Light Show Journalist review") {
+        CategoryScorecard card;
+        card.overallHealthScore = 95.0f;
+        std::vector<SequenceIssue> issues;
+        std::string review = SequenceValidatorAI::GenerateJournalistReview(card, issues);
+        REQUIRE(!review.empty());
+        REQUIRE(review.find("LIGHT SHOW CHRONICLE REVIEW") != std::string::npos);
+    }
 }
