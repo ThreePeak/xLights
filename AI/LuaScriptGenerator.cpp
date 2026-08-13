@@ -55,14 +55,16 @@ bool LuaScriptGenerator::ValidateLuaSyntax(const std::string& luaCode) {
 LuaScriptGeneratorResult LuaScriptGenerator::GenerateLuaScript(const LuaScriptGeneratorConfig& config) {
     LuaScriptGeneratorResult result;
 
-    if (config.userPrompt.empty()) {
+    std::string activePrompt = !config.userPrompt.empty() ? config.userPrompt : config.promptDescription;
+
+    if (activePrompt.empty()) {
         result.success = false;
-        result.errorMessage = "userPrompt cannot be empty.";
+        result.errorMessage = "userPrompt or promptDescription cannot be empty.";
         spdlog::error("LuaScriptGenerator: {}", result.errorMessage);
         return result;
     }
 
-    std::string lowerPrompt = ToLower(config.userPrompt);
+    std::string lowerPrompt = ToLower(activePrompt);
     std::string model = config.targetModelName.empty() ? "SelectedModel" : config.targetModelName;
 
     std::string effectType = "Bars";

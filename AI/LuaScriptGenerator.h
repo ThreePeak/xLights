@@ -19,6 +19,7 @@ namespace xLights::AI {
 
 struct LuaScriptGeneratorConfig {
     std::string userPrompt;            // e.g. "Create a spiral rainbow effect on MegaTree"
+    std::string promptDescription;     // Alias for natural language prompt description
     std::string targetModelName;       // e.g. "MegaTree"
     int durationMs = 5000;             // Duration in milliseconds
     std::string currentPalette;        // e.g. "#FF0000,#00FF00,#0000FF"
