@@ -40,6 +40,7 @@ CategoryScorecard SequenceValidatorAI::CalculateScorecard(const std::vector<Sequ
         }
     }
     card.overallSequenceHealthScore = (card.timingGridScore + card.channelOverlapScore + card.modelAssignmentScore + card.performanceScore + card.rhythmicPrecisionScore) / 5.0f;
+    card.overallHealthScore = card.overallSequenceHealthScore;
     return card;
 }
 
