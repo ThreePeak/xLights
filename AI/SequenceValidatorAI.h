@@ -47,7 +47,7 @@ struct SequenceValidationIssue {
     bool autoFixable = false;          // Whether AI engine can automatically resolve this issue
 };
 
-enum AuditCategoryFlags {
+enum AuditCategoryFlags : uint32_t {
     AUDIT_NONE               = 0,
     AUDIT_XML_INTEGRITY      = 1 << 0, // Corrupted XML, invalid tags, missing schemas
     AUDIT_CHANNEL_BOUNDS     = 1 << 1, // Channel overlaps, unmapped universe bounds
