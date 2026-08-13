@@ -92,6 +92,19 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
             << result.errorCount << " Error, " << result.warningCount << " Warning).";
     result.validationSummary = summary.str();
 
+    std::ostringstream critique;
+    critique << "### Master Sequencer Review & Critique\n"
+             << "Your sequence currently has " << config.activeEffectCount << " active effect(s) across "
+             << config.activeModelNames.size() << " model(s). ";
+    if (result.errorCount > 0) {
+        critique << "CRITICAL: Fix layout channel assignments before rendering to avoid dark props.";
+    } else if (result.warningCount > 0) {
+        critique << "RECOMMENDATION: Address timing gaps and effect density to optimize visual impact.";
+    } else {
+        critique << "EXCELLENT: Sequence structure passes quality audit with clean effect transitions.";
+    }
+    result.personaCritiqueBody = critique.str();
+
     result.success = true;
     spdlog::info("SequenceValidatorAI: {}", result.validationSummary);
     return result;
@@ -105,6 +118,7 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
     root["errorCount"] = result.errorCount;
     root["warningCount"] = result.warningCount;
     root["validationSummary"] = result.validationSummary;
+    root["personaCritiqueBody"] = result.personaCritiqueBody;
 
     nlohmann::json issuesArr = nlohmann::json::array();
     for (const auto& issue : result.issues) {

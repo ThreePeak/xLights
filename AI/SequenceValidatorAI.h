@@ -53,6 +53,7 @@ struct SequenceValidationResult {
     int warningCount = 0;
     std::vector<SequenceValidationIssue> issues;
     std::string validationSummary;
+    std::string personaCritiqueBody;   // Contains Master Sequencer or Journalist critique
 };
 
 class SequenceValidatorAI : public AISubsystemBase {
