@@ -103,6 +103,7 @@ struct SequenceValidationConfig {
     bool checkChannelOverlaps = true;
     bool checkPerformanceBottlenecks = true;
     bool checkChannelBounds = true;
+    float currentPowerCapPercent = 0.30f;       // Hardware safety power threshold
     ExecutionActionMode actionMode = ExecutionActionMode::REPORT_ONLY;
     PersonaReviewMode reviewMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS;
     PersonaReviewMode personaMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS; // Alias for reviewMode
