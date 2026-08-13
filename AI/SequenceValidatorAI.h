@@ -48,7 +48,7 @@ enum AuditCategoryFlags {
     AUDIT_OVERLAP            = 1 << 1,
     AUDIT_PERFORMANCE        = 1 << 2,
     AUDIT_BOUNDS             = 1 << 3,
-    AUDIT_ALL                = 0xFF
+    AUDIT_ALL                = 0xFFFFFFFF
 };
 
 enum class ExecutionActionMode {
