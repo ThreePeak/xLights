@@ -2,6 +2,7 @@ build
 .clangd
 node_modules/
 tools/xlights-mcp-server/dist/
+__pycache__/
 bin/xCapture
 bin/xFade
 bin/xLights
