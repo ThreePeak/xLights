@@ -9,6 +9,7 @@
 // Feature #14: Sequence Diagnostic & Audit AI Validator (xLights/AI/SequenceValidatorAI.cpp)
 
 #include "SequenceValidatorAI.h"
+#include "AI/AIConfigurationManager.h"
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 #include <algorithm>

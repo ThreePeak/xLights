@@ -9,6 +9,7 @@
 // STEP 2: LUA INTERPRETER BINDINGS (xLights/AI/LuaScriptGenerator.cpp)
 
 #include "LuaScriptGenerator.h"
+#include "AI/AIConfigurationManager.h"
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 #include <algorithm>
