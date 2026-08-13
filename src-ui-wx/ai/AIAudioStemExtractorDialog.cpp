@@ -7,6 +7,8 @@
  **************************************************************/
 
 #include "src-ui-wx/ai/AIAudioStemExtractorDialog.h"
+#include "xLightsMain.h"
+#include "media/AudioManager.h"
 #include <spdlog/spdlog.h>
 #include <wx/msgdlg.h>
 
@@ -72,9 +74,23 @@ void AIAudioStemExtractorDialog::InitUI() {
 
 void AIAudioStemExtractorDialog::OnExtractButtonClick(wxCommandEvent& WXUNUSED(event)) {
     m_progressGauge->SetValue(100);
+
+    std::string audioPath = "sequence_audio.wav";
+    if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetMedia()) {
+        audioPath = xLightsFrame::CurrentSeqXmlFile->GetMedia()->GetFileName();
+    }
+
+    AudioStemConfig config;
+    config.extractVocals = m_vocalsChk->IsChecked();
+    config.extractDrums = m_drumsChk->IsChecked();
+    config.extractBass = m_bassChk->IsChecked();
+    config.generateBpmTimings = m_bpmTimingChk->IsChecked();
+
+    AudioStemResult result = AudioStemExtractor::ExtractStems(audioPath, config);
+
     m_statusText->SetLabel(wxT("Status: Stem separation complete. Audio tracks & timing marks added to sequence."));
-    wxMessageBox(wxT("AI Audio Stem Extraction Complete!\n\nExtracted: Vocals, Drums, Bass\nGenerated: 120 BPM Beat Grid Timing Track"), wxT("Extraction Complete"), wxOK | wxICON_INFORMATION, this);
-    spdlog::info("AIAudioStemExtractorDialog: Stem separation complete.");
+    wxMessageBox(wxString::Format(wxT("AI Audio Stem Extraction Complete!\n\nTarget File: %s\nExtracted: Vocals, Drums, Bass\nDetected BPM: %.1f"), audioPath, result.detectedBpm), wxT("Extraction Complete"), wxOK | wxICON_INFORMATION, this);
+    spdlog::info("AIAudioStemExtractorDialog: Stem separation complete for {}", audioPath);
 }
 
 void AIAudioStemExtractorDialog::OnCloseButtonClick(wxCommandEvent& WXUNUSED(event)) {

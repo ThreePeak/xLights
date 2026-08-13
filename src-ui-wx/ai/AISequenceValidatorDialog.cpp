@@ -7,8 +7,11 @@
  **************************************************************/
 
 #include "src-ui-wx/ai/AISequenceValidatorDialog.h"
+#include "xLightsMain.h"
+#include "xLightsApp.h"
 #include <spdlog/spdlog.h>
 #include <fstream>
+#include <wx/msgdlg.h>
 
 namespace xLights::AI {
 
@@ -196,9 +199,16 @@ void AISequenceValidatorDialog::OnRunAuditButtonClick(wxCommandEvent& WXUNUSED(e
         m_config.reviewMode = PersonaReviewMode::ENTHUSIAST_COACH;
     }
 
-    // Default configuration fallback if empty
-    if (m_config.totalDurationMs <= 0) m_config.totalDurationMs = 60000;
-    if (m_config.activeEffectCount <= 0) m_config.activeEffectCount = 50;
+    // Live Sequence Data Binding: Populate configuration from active xLights sequence
+    if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetSequenceLoaded()) {
+        m_config.sequenceFilePath = xLightsFrame::CurrentSeqXmlFile->GetFullPath().ToStdString();
+        m_config.totalDurationMs = xLightsFrame::CurrentSeqXmlFile->GetSequenceLengthMS();
+        m_config.activeEffectCount = xLightsFrame::CurrentSeqXmlFile->GetTotalEffectCount();
+        m_config.xsqXmlContent = xLightsFrame::CurrentSeqXmlFile->GetRawXMLContent();
+    } else {
+        if (m_config.totalDurationMs <= 0) m_config.totalDurationMs = 60000;
+        if (m_config.activeEffectCount <= 0) m_config.activeEffectCount = 50;
+    }
 
     m_lastResult = SequenceValidatorAI::ValidateSequenceDiagnostics(m_config);
 
