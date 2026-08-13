@@ -109,7 +109,7 @@ struct SequenceValidationConfig {
     PersonaReviewMode personaMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS; // Alias for reviewMode
 };
 
-using DiagnosticConfigSpec = SequenceValidationConfig;
+struct DiagnosticConfigSpec : public SequenceValidationConfig {};
 
 struct SequenceIssue : public SequenceValidationIssue {};
 
