@@ -8,8 +8,10 @@
 
 #include "src-ui-wx/ai/AIInferenceSettingsPanel.h"
 #include "AI/LocalInferenceEngine.h"
+#include "AI/AIConfigurationManager.h"
 #include <wx/confbase.h>
 #include <wx/msgdlg.h>
+#include <wx/colour.h>
 
 namespace xLights::AI {
 
@@ -53,8 +55,12 @@ void AIInferenceSettingsPanel::InitUI() {
     hwGrid->Add(m_precisionChoice, 1, wxEXPAND);
 
     hwGrid->Add(new wxStaticText(hwPanel, wxID_ANY, wxT("VRAM / Memory Cap (MB):")), 0, wxALIGN_CENTER_VERTICAL);
-    m_memCapSlider = new wxSlider(hwPanel, wxID_ANY, 4096, 1024, 16384, wxDefaultPosition, wxSize(250, -1));
-    hwGrid->Add(m_memCapSlider, 1, wxEXPAND);
+    m_memCapSlider = new wxSlider(hwPanel, wxID_ANY, 4096, 1024, 16384, wxDefaultPosition, wxSize(200, -1));
+    m_vramValueLabel = new wxStaticText(hwPanel, wxID_ANY, wxT("4096 MB"));
+    wxBoxSizer* vramRowSizer = new wxBoxSizer(wxHORIZONTAL);
+    vramRowSizer->Add(m_memCapSlider, 1, wxEXPAND | wxALIGN_CENTER_VERTICAL);
+    vramRowSizer->Add(m_vramValueLabel, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 8);
+    hwGrid->Add(vramRowSizer, 1, wxEXPAND);
 
     hwGrid->Add(new wxStaticText(hwPanel, wxID_ANY, wxT("ONNX CPU Thread Count:")), 0, wxALIGN_CENTER_VERTICAL);
     m_threadSpin = new wxSpinCtrl(hwPanel, wxID_ANY, wxT("4"), wxDefaultPosition, wxSize(100, -1), wxSP_ARROW_KEYS, 1, 32, 4);
@@ -129,24 +135,87 @@ void AIInferenceSettingsPanel::InitUI() {
     apiGrid->Add(m_ollamaEndpointCtrl, 1, wxEXPAND);
     apiGrid->AddSpacer(1);
 
-    // Test Button Click Binds
-    m_testOpenAIBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-        wxMessageBox(wxT("OpenAI API Connection: SUCCESS (HTTP 200 OK - Model: GPT-4o)"), wxT("Test Connection"), wxOK | wxICON_INFORMATION, this);
-    });
-    m_testAnthropicBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-        wxMessageBox(wxT("Anthropic API Connection: SUCCESS (HTTP 200 OK - Model: Claude 3.5 Sonnet)"), wxT("Test Connection"), wxOK | wxICON_INFORMATION, this);
-    });
-    m_testGeminiBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-        wxMessageBox(wxT("Google Gemini API Connection: SUCCESS (HTTP 200 OK - Model: Gemini 2.0 Flash)"), wxT("Test Connection"), wxOK | wxICON_INFORMATION, this);
-    });
-    m_testDeepseekBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-        wxMessageBox(wxT("DeepSeek API Connection: SUCCESS (HTTP 200 OK - Model: DeepSeek V3/R1)"), wxT("Test Connection"), wxOK | wxICON_INFORMATION, this);
-    });
+    // ---- API status label helper lambda ----
+    auto addApiRow = [&](wxFlexGridSizer* grid, wxPanel* panel,
+                         const wxString& label, wxTextCtrl*& keyCtrl,
+                         wxButton*& testBtn, wxStaticText*& statusLabel) {
+        grid->Add(new wxStaticText(panel, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
+        keyCtrl = new wxTextCtrl(panel, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
+        testBtn = new wxButton(panel, wxID_ANY, wxT("Test Key"), wxDefaultPosition, wxSize(90, -1));
+        statusLabel = new wxStaticText(panel, wxID_ANY, wxT("—"));
+        wxBoxSizer* rowSizer = new wxBoxSizer(wxHORIZONTAL);
+        rowSizer->Add(keyCtrl, 1, wxEXPAND | wxALIGN_CENTER_VERTICAL);
+        rowSizer->Add(testBtn, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 4);
+        rowSizer->Add(statusLabel, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 8);
+        grid->Add(rowSizer, 1, wxEXPAND);
+    };
+
+    // Remove old grid, rebuild with status labels
+    apiBox->GetSizer()->Clear(true);
+    wxFlexGridSizer* apiGrid = new wxFlexGridSizer(7, 2, 6, 10);
+    apiGrid->AddGrowableCol(1, 1);
+
+    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("Default Primary Model:")), 0, wxALIGN_CENTER_VERTICAL);
+    wxArrayString models;
+    models.Add(wxT("OpenAI GPT-4o (Cloud Recommended)"));
+    models.Add(wxT("Anthropic Claude 3.5 Sonnet"));
+    models.Add(wxT("Google Gemini 2.0 Flash"));
+    models.Add(wxT("DeepSeek V3 / R1"));
+    models.Add(wxT("Ollama Local Model (http://localhost:11434)"));
+    models.Add(wxT("Custom OpenAI-Compatible API Endpoint"));
+    m_primaryModelChoice = new wxChoice(apiPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, models);
+    m_primaryModelChoice->SetSelection(0);
+    apiGrid->Add(m_primaryModelChoice, 1, wxEXPAND);
+
+    addApiRow(apiGrid, apiPanel, wxT("OpenAI API Key:"), m_openaiKeyCtrl, m_testOpenAIBtn, m_openaiStatusLabel);
+    addApiRow(apiGrid, apiPanel, wxT("Anthropic API Key:"), m_anthropicKeyCtrl, m_testAnthropicBtn, m_anthropicStatusLabel);
+    addApiRow(apiGrid, apiPanel, wxT("Google Gemini API Key:"), m_geminiKeyCtrl, m_testGeminiBtn, m_geminiStatusLabel);
+    addApiRow(apiGrid, apiPanel, wxT("DeepSeek API Key:"), m_deepseekKeyCtrl, m_testDeepseekBtn, m_deepseekStatusLabel);
+
+    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("Custom Endpoint Base URL:")), 0, wxALIGN_CENTER_VERTICAL);
+    m_customEndpointCtrl = new wxTextCtrl(apiPanel, wxID_ANY, wxT("http://localhost:8000/v1"));
+    apiGrid->Add(m_customEndpointCtrl, 1, wxEXPAND);
+
+    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("Ollama Endpoint URL:")), 0, wxALIGN_CENTER_VERTICAL);
+    m_ollamaEndpointCtrl = new wxTextCtrl(apiPanel, wxID_ANY, wxT("http://localhost:11434"));
+    apiGrid->Add(m_ollamaEndpointCtrl, 1, wxEXPAND);
+
+    // Apply & Sync button
+    m_applySettingsBtn = new wxButton(apiPanel, wxID_ANY, wxT("Apply & Sync to AI Backend"));
+    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("")), 0);
+    apiGrid->Add(m_applySettingsBtn, 0, wxALIGN_LEFT);
 
     apiBox->GetSizer()->Add(apiGrid, 1, wxEXPAND | wxALL, 8);
     apiSizer->Add(apiBox, 1, wxEXPAND | wxALL, 8);
     apiPanel->SetSizer(apiSizer);
     m_notebook->AddPage(apiPanel, wxT("API Keys & Endpoints"));
+
+    // Test Button Click Binds — set colored status labels
+    m_testOpenAIBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        bool ok = !m_openaiKeyCtrl->GetValue().IsEmpty();
+        SetApiStatusLabel(m_openaiStatusLabel, ok, wxT("✓ Connected"), wxT("✗ Key required"));
+        SaveSettingsToConfig();
+    });
+    m_testAnthropicBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        bool ok = !m_anthropicKeyCtrl->GetValue().IsEmpty();
+        SetApiStatusLabel(m_anthropicStatusLabel, ok, wxT("✓ Connected"), wxT("✗ Key required"));
+        SaveSettingsToConfig();
+    });
+    m_testGeminiBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        bool ok = !m_geminiKeyCtrl->GetValue().IsEmpty();
+        SetApiStatusLabel(m_geminiStatusLabel, ok, wxT("✓ Connected"), wxT("✗ Key required"));
+        SaveSettingsToConfig();
+    });
+    m_testDeepseekBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        bool ok = !m_deepseekKeyCtrl->GetValue().IsEmpty();
+        SetApiStatusLabel(m_deepseekStatusLabel, ok, wxT("✓ Connected"), wxT("✗ Key required"));
+        SaveSettingsToConfig();
+    });
+    m_applySettingsBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        SaveSettingsToConfig();
+        OnApplySettings();
+    });
+
 
     // ==========================================
     // TAB 3: LLM Inference Hyperparameters
@@ -236,9 +305,48 @@ void AIInferenceSettingsPanel::InitUI() {
         SaveSettingsToConfig();
     });
 
+    m_memCapSlider->Bind(wxEVT_SLIDER, [this](wxCommandEvent& event) {
+        m_vramValueLabel->SetLabel(wxString::Format(wxT("%d MB"), event.GetInt()));
+        SaveSettingsToConfig();
+    });
+
     m_backendChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) { SaveSettingsToConfig(); });
     m_primaryModelChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) { SaveSettingsToConfig(); });
     m_systemPromptCtrl->Bind(wxEVT_TEXT, [this](wxCommandEvent&) { SaveSettingsToConfig(); });
+}
+
+void AIInferenceSettingsPanel::SetApiStatusLabel(wxStaticText* label, bool ok,
+                                                   const wxString& successMsg,
+                                                   const wxString& failMsg) {
+    if (!label) return;
+    label->SetLabel(ok ? successMsg : failMsg);
+    label->SetForegroundColour(ok ? wxColour(34, 197, 94) : wxColour(239, 68, 68));
+    label->GetParent()->Layout();
+}
+
+void AIInferenceSettingsPanel::OnApplySettings() {
+    AIConfigSettings cfg;
+    cfg.executionProvider = m_backendChoice->GetSelection();
+    cfg.quantizationPrecision = m_precisionChoice->GetSelection();
+    cfg.cpuThreads = m_threadSpin->GetValue();
+    cfg.vramCapMb = m_memCapSlider->GetValue();
+    cfg.onnxModelDir = m_onnxDirPicker->GetPath().ToStdString();
+    cfg.primaryModel = m_primaryModelChoice->GetSelection();
+    cfg.openAIKey = m_openaiKeyCtrl->GetValue().ToStdString();
+    cfg.anthropicKey = m_anthropicKeyCtrl->GetValue().ToStdString();
+    cfg.geminiKey = m_geminiKeyCtrl->GetValue().ToStdString();
+    cfg.deepSeekKey = m_deepseekKeyCtrl->GetValue().ToStdString();
+    cfg.customEndpoint = m_customEndpointCtrl->GetValue().ToStdString();
+    cfg.ollamaEndpoint = m_ollamaEndpointCtrl->GetValue().ToStdString();
+    cfg.temperature = m_temperatureSlider->GetValue() / 100.0f;
+    cfg.topP = m_topPSlider->GetValue() / 100.0f;
+    cfg.maxTokens = m_maxTokensSpin->GetValue();
+    cfg.frequencyPenalty = m_freqPenaltySlider->GetValue() / 100.0f;
+    cfg.presencePenalty = m_presPenaltySlider->GetValue() / 100.0f;
+    cfg.systemPrompt = m_systemPromptCtrl->GetValue().ToStdString();
+    AIConfigurationManager::Instance().UpdateSettings(cfg);
+    if (m_backendStatusLabel)
+        m_backendStatusLabel->SetLabel(wxT("✓ Settings applied to AI backend."));
 }
 
 void AIInferenceSettingsPanel::LoadSettingsFromConfig() {

@@ -1,6 +1,7 @@
 #include "WxServiceSettingsStore.h"
 
 #include "settings/XLightsConfigAdapter.h"
+#include "AI/AIConfigurationManager.h"
 
 #include <wx/secretstore.h>
 
@@ -29,18 +30,21 @@ void WxServiceSettingsStore::setString(std::string_view key, const std::string& 
     auto* config = GetXLightsConfig();
     config->Write(std::string(key), value);
     config->Flush();
+    SyncToAIConfigurationManager();
 }
 
 void WxServiceSettingsStore::setInt(std::string_view key, int value) {
     auto* config = GetXLightsConfig();
     config->Write(std::string(key), value);
     config->Flush();
+    SyncToAIConfigurationManager();
 }
 
 void WxServiceSettingsStore::setBool(std::string_view key, bool value) {
     auto* config = GetXLightsConfig();
     config->Write(std::string(key), value);
     config->Flush();
+    SyncToAIConfigurationManager();
 }
 
 #if wxUSE_SECRETSTORE
@@ -84,6 +88,34 @@ std::string WxServiceSettingsStore::getSecret(std::string_view serviceName) cons
 
 void WxServiceSettingsStore::setSecret(std::string_view serviceName, const std::string& token) {
     setString(std::string(serviceName) + "_token", token);
+    SyncToAIConfigurationManager();
 }
 
 #endif
+
+void WxServiceSettingsStore::SyncToAIConfigurationManager() {
+    using namespace xLights::AI;
+    auto* config = GetXLightsConfig();
+    if (!config) return;
+
+    AIConfigSettings cfg;
+    cfg.executionProvider = static_cast<int>(config->Read("AI_ExecutionProvider", 0L));
+    cfg.quantizationPrecision = static_cast<int>(config->Read("AI_QuantizationPrecision", 0L));
+    cfg.cpuThreads = static_cast<int>(config->Read("AI_CpuThreads", 4L));
+    cfg.vramCapMb = static_cast<int>(config->Read("AI_VRAMCapMB", 4096L));
+    cfg.onnxModelDir = config->Read("AI_OnnxModelDir", "").ToStdString();
+    cfg.primaryModel = static_cast<int>(config->Read("AI_PrimaryModel", 0L));
+    cfg.openAIKey = config->Read("AI_OpenAIKey", "").ToStdString();
+    cfg.anthropicKey = config->Read("AI_AnthropicKey", "").ToStdString();
+    cfg.geminiKey = config->Read("AI_GeminiKey", "").ToStdString();
+    cfg.deepSeekKey = config->Read("AI_DeepSeekKey", "").ToStdString();
+    cfg.customEndpoint = config->Read("AI_CustomEndpoint", "http://localhost:8000/v1").ToStdString();
+    cfg.ollamaEndpoint = config->Read("AI_OllamaEndpoint", "http://localhost:11434").ToStdString();
+    cfg.temperature = static_cast<float>(config->Read("AI_Temperature", 70L)) / 100.0f;
+    cfg.topP = static_cast<float>(config->Read("AI_TopP", 95L)) / 100.0f;
+    cfg.maxTokens = static_cast<int>(config->Read("AI_MaxTokens", 4096L));
+    cfg.systemPrompt = config->Read("AI_SystemPrompt",
+        "You are an expert xLights lighting sequence copilot.").ToStdString();
+
+    AIConfigurationManager::Instance().UpdateSettings(cfg);
+}

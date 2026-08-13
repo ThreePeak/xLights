@@ -34,4 +34,7 @@ public:
 
     [[nodiscard]] std::string getSecret(std::string_view serviceName) const override;
     void                      setSecret(std::string_view serviceName, const std::string& token) override;
+
+private:
+    void SyncToAIConfigurationManager();
 };

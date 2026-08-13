@@ -32,6 +32,8 @@ private:
     void InitUI();
     void LoadSettingsFromConfig();
     void SaveSettingsToConfig();
+    void OnApplySettings();
+    void SetApiStatusLabel(wxStaticText* label, bool ok, const wxString& successMsg, const wxString& failMsg);
 
     // Notebook & Tabs
     wxNotebook* m_notebook = nullptr;
@@ -39,23 +41,29 @@ private:
     // Hardware & Local Execution Controls
     wxChoice* m_backendChoice = nullptr;
     wxSlider* m_memCapSlider = nullptr;
+    wxStaticText* m_vramValueLabel = nullptr;
     wxChoice* m_precisionChoice = nullptr;
     wxSpinCtrl* m_threadSpin = nullptr;
     wxDirPickerCtrl* m_onnxDirPicker = nullptr;
     wxStaticText* m_backendStatusLabel = nullptr;
+    wxButton* m_applySettingsBtn = nullptr;
 
     // Cloud API Credentials & Test Buttons
     wxTextCtrl* m_openaiKeyCtrl = nullptr;
     wxButton* m_testOpenAIBtn = nullptr;
+    wxStaticText* m_openaiStatusLabel = nullptr;
 
     wxTextCtrl* m_anthropicKeyCtrl = nullptr;
     wxButton* m_testAnthropicBtn = nullptr;
+    wxStaticText* m_anthropicStatusLabel = nullptr;
 
     wxTextCtrl* m_geminiKeyCtrl = nullptr;
     wxButton* m_testGeminiBtn = nullptr;
+    wxStaticText* m_geminiStatusLabel = nullptr;
 
     wxTextCtrl* m_deepseekKeyCtrl = nullptr;
     wxButton* m_testDeepseekBtn = nullptr;
+    wxStaticText* m_deepseekStatusLabel = nullptr;
 
     wxTextCtrl* m_customEndpointCtrl = nullptr;
     wxTextCtrl* m_ollamaEndpointCtrl = nullptr;
