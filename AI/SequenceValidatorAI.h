@@ -21,7 +21,8 @@ enum class ValidationIssueSeverity {
     Info,
     Warning,
     Error,
-    Critical
+    Critical,
+    CRITICAL_ERROR
 };
 
 using IssueSeverity = ValidationIssueSeverity;
