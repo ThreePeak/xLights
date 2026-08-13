@@ -48,6 +48,7 @@ struct SequenceValidationIssue {
     bool autoFixable = false;          // Whether AI engine can automatically resolve this issue
 };
 
+// Bitmask flags for pre-run category selection
 enum AuditCategoryFlags : uint32_t {
     AUDIT_NONE               = 0,
     AUDIT_XML_INTEGRITY      = 1 << 0, // Corrupted XML, invalid tags, missing schemas
