@@ -61,6 +61,7 @@ enum class PersonaReviewMode {
 
 struct SequenceValidationConfig {
     std::string sequenceFilePath;
+    std::string layoutXmlContent;      // Raw layout XML string for direct structural auditing
     int totalDurationMs = 0;
     int activeEffectCount = 0;
     std::vector<std::string> activeModelNames;

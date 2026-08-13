@@ -47,7 +47,7 @@ CategoryScorecard SequenceValidatorAI::CalculateScorecard(const std::vector<Sequ
 SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const SequenceValidationConfig& config) {
     SequenceValidationResult result;
 
-    if (config.totalDurationMs <= 0 && config.activeEffectCount <= 0 && config.activeModelNames.empty()) {
+    if (config.totalDurationMs <= 0 && config.activeEffectCount <= 0 && config.activeModelNames.empty() && config.layoutXmlContent.empty()) {
         result.success = false;
         result.errorMessage = "SequenceValidationConfig parameters are empty.";
         spdlog::error("SequenceValidatorAI: {}", result.errorMessage);
