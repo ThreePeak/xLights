@@ -110,7 +110,7 @@ struct SequenceValidationConfig {
 
 using DiagnosticConfigSpec = SequenceValidationConfig;
 
-using SequenceIssue = SequenceValidationIssue;
+struct SequenceIssue : public SequenceValidationIssue {};
 
 struct CategoryScorecard {
     float timingGridScore = 100.0f;
