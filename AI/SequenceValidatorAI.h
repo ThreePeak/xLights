@@ -190,6 +190,9 @@ public:
 
     // Export validation report to structured JSON format
     [[nodiscard]] static std::string ExportValidationReportJSON(const SequenceValidationResult& result);
+
+private:
+    // Internal helper methods for rule processing
 };
 
 } // namespace xLights::AI
