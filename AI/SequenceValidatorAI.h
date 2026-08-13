@@ -72,6 +72,8 @@ struct SequenceValidationConfig {
     std::string layoutXmlContent;      // Raw layout XML string for direct structural auditing
     std::string xsqXmlContent;         // Raw .xsq sequence XML string for direct XML sequence auditing
     int totalDurationMs = 0;
+    int startMs = 0;                   // Start time range in milliseconds
+    int endMs = -1;                    // -1 = Full duration
     int activeEffectCount = 0;
     std::vector<std::string> activeModelNames;
     bool checkTimingGaps = true;
