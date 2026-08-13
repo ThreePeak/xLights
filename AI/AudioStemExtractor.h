@@ -137,8 +137,13 @@ public:
      */
     [[nodiscard]] static std::string GenerateTransientTimingXML(
         const std::vector<float>& pcmBuffer,
-        int sampleRate,
-        const std::string& trackName
+        int sampleRate = 44100,
+        const std::string& trackName = "AI Transient Onsets"
+    );
+
+    [[nodiscard]] static std::string GenerateVocalLipSyncPhonemesXML(
+        const std::vector<float>& vocalBuffer,
+        int sampleRate = 44100
     );
 };
 

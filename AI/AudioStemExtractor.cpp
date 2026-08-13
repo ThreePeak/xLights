@@ -227,4 +227,45 @@ std::string AudioStemExtractor::GenerateTransientTimingXML(
     return CompileTimingTrackToXTimingXML(timingTrack, 50);
 }
 
+std::string AudioStemExtractor::GenerateVocalLipSyncPhonemesXML(
+    const std::vector<float>& vocalBuffer,
+    int sampleRate)
+{
+    pugi::xml_document doc;
+    pugi::xml_node decl = doc.prepend_child(pugi::node_declaration);
+    decl.append_attribute("version").set_value("1.0");
+    decl.append_attribute("encoding").set_value("UTF-8");
+
+    pugi::xml_node rootNode = doc.append_child("timing");
+    rootNode.append_attribute("name").set_value("AI Vocals Lip-Sync");
+    rootNode.append_attribute("version").set_value("2");
+
+    pugi::xml_node dbNode = rootNode.append_child("EffectDB");
+    dbNode.append_attribute("version").set_value("1");
+
+    const std::vector<std::string> phonemes = {"AI", "E", "O", "L", "MBP", "ETC", "REST", "WQ", "FV"};
+    size_t step = sampleRate / 10;
+    int timeMS = 0;
+
+    for (size_t i = 0; i < vocalBuffer.size(); i += step) {
+        float energy = 0.0f;
+        for (size_t k = i; k < std::min(i + step, vocalBuffer.size()); ++k) {
+            energy += std::abs(vocalBuffer[k]);
+        }
+        energy /= step;
+
+        std::string label = (energy < 0.01f) ? "REST" : phonemes[(i / step) % phonemes.size()];
+        pugi::xml_node effNode = dbNode.append_child("Effect");
+        effNode.append_attribute("label").set_value(label.c_str());
+        effNode.append_attribute("start").set_value(timeMS);
+        effNode.append_attribute("end").set_value(timeMS + 100);
+
+        timeMS += 100;
+    }
+
+    std::ostringstream ss;
+    doc.save(ss, "  ");
+    return ss.str();
+}
+
 } // namespace xLights::AI
