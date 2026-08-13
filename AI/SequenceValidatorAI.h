@@ -84,6 +84,7 @@ struct SequenceValidationResult {
     std::vector<SequenceIssue> detectedIssues; // Alias vector for detected issues
     CategoryScorecard scorecard;
     std::string validationSummary;
+    std::string personaCritiqueTitle;  // Title of persona critique e.g. "Master Sequencer Boss Review"
     std::string personaCritiqueBody;   // Contains Master Sequencer or Journalist critique
 };
 

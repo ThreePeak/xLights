@@ -117,8 +117,10 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
     result.validationSummary = summary.str();
 
     if (config.reviewMode == PersonaReviewMode::MASTER_SEQUENCER_BOSS) {
+        result.personaCritiqueTitle = "Master Sequencer Boss Review";
         result.personaCritiqueBody = GenerateBossCritique(result);
     } else {
+        result.personaCritiqueTitle = "Light Show Review";
         std::ostringstream critique;
         critique << "### Light Show Review\n"
                  << "Your sequence currently has " << config.activeEffectCount << " active effect(s) across "
@@ -163,6 +165,7 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
     root["errorCount"] = result.errorCount;
     root["warningCount"] = result.warningCount;
     root["validationSummary"] = result.validationSummary;
+    root["personaCritiqueTitle"] = result.personaCritiqueTitle;
     root["personaCritiqueBody"] = result.personaCritiqueBody;
 
     nlohmann::json issuesArr = nlohmann::json::array();
