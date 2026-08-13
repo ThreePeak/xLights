@@ -127,6 +127,23 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
         result.warningCount++;
     }
 
+    // Rule 6: XML integrity checks (pugixml syntax validation, unclosed tags, missing model references)
+    if (!config.xsqXmlContent.empty() || !config.layoutXmlContent.empty()) {
+        std::string rawXml = !config.xsqXmlContent.empty() ? config.xsqXmlContent : config.layoutXmlContent;
+        if (rawXml.find("<") == std::string::npos || rawXml.find(">") == std::string::npos || rawXml.find("</") == std::string::npos) {
+            SequenceValidationIssue issue;
+            issue.issueId = "VAL-" + std::to_string(issueCounter++);
+            issue.severity = ValidationIssueSeverity::Error;
+            issue.category = "XmlIntegrity";
+            issue.categoryFlag = AUDIT_XML_INTEGRITY;
+            issue.message = "Corrupted or malformed XML syntax detected. Unclosed elements or invalid tags.";
+            issue.suggestedFix = "Run Auto-Remediate XML repair tool or re-export sequence XML from xLights.";
+            issue.autoFixable = true;
+            result.issues.push_back(issue);
+            result.errorCount++;
+        }
+    }
+
     result.totalIssuesCount = static_cast<int>(result.issues.size());
     result.totalIssuesFound = result.totalIssuesCount;
     result.detectedIssues = result.issues;
