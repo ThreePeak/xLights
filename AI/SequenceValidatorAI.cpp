@@ -23,6 +23,24 @@ static std::string ToLower(std::string_view str) {
     return lower;
 }
 
+CategoryScorecard SequenceValidatorAI::CalculateScorecard(const std::vector<SequenceIssue>& issues) {
+    CategoryScorecard card;
+    for (const auto& issue : issues) {
+        float penalty = (issue.severity == ValidationIssueSeverity::Error || issue.severity == ValidationIssueSeverity::Critical) ? 25.0f : 10.0f;
+        if (issue.category == "TimingGrid") {
+            card.timingGridScore = std::max(0.0f, card.timingGridScore - penalty);
+        } else if (issue.category == "ChannelOverlap") {
+            card.channelOverlapScore = std::max(0.0f, card.channelOverlapScore - penalty);
+        } else if (issue.category == "UnassignedModel") {
+            card.modelAssignmentScore = std::max(0.0f, card.modelAssignmentScore - penalty);
+        } else if (issue.category == "Performance") {
+            card.performanceScore = std::max(0.0f, card.performanceScore - penalty);
+        }
+    }
+    card.overallSequenceHealthScore = (card.timingGridScore + card.channelOverlapScore + card.modelAssignmentScore + card.performanceScore) / 4.0f;
+    return card;
+}
+
 SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const SequenceValidationConfig& config) {
     SequenceValidationResult result;
 
@@ -88,6 +106,7 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
 
     result.totalIssuesCount = static_cast<int>(result.issues.size());
     result.detectedIssues = result.issues;
+    result.scorecard = CalculateScorecard(result.detectedIssues);
 
     std::ostringstream summary;
     summary << "Sequence Validation Complete: Found " << result.totalIssuesCount << " issue(s) ("

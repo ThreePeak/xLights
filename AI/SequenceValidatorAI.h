@@ -54,6 +54,14 @@ struct SequenceValidationConfig {
 
 using SequenceIssue = SequenceValidationIssue;
 
+struct CategoryScorecard {
+    float timingGridScore = 100.0f;
+    float channelOverlapScore = 100.0f;
+    float modelAssignmentScore = 100.0f;
+    float performanceScore = 100.0f;
+    float overallSequenceHealthScore = 100.0f;
+};
+
 struct SequenceValidationResult {
     bool success = false;
     std::string errorMessage;
@@ -62,6 +70,7 @@ struct SequenceValidationResult {
     int warningCount = 0;
     std::vector<SequenceValidationIssue> issues;
     std::vector<SequenceIssue> detectedIssues; // Alias vector for detected issues
+    CategoryScorecard scorecard;
     std::string validationSummary;
     std::string personaCritiqueBody;   // Contains Master Sequencer or Journalist critique
 };
@@ -88,6 +97,9 @@ public:
     [[nodiscard]] virtual std::vector<std::string> GetCapabilities() const override {
         return {"sequence_validation", "error_diagnostics", "timing_grid_gap_check", "channel_overlap_audit"};
     }
+
+    // Calculates health category scorecard from detected sequence issues
+    [[nodiscard]] static CategoryScorecard CalculateScorecard(const std::vector<SequenceIssue>& issues);
 
     // Executes an automated sequence quality and diagnostic audit
     [[nodiscard]] static SequenceValidationResult ValidateSequenceDiagnostics(const SequenceValidationConfig& config);
