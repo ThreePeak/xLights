@@ -52,6 +52,8 @@ struct SequenceValidationConfig {
     ExecutionActionMode actionMode = ExecutionActionMode::REPORT_ONLY;
 };
 
+using SequenceIssue = SequenceValidationIssue;
+
 struct SequenceValidationResult {
     bool success = false;
     std::string errorMessage;
@@ -59,6 +61,7 @@ struct SequenceValidationResult {
     int errorCount = 0;
     int warningCount = 0;
     std::vector<SequenceValidationIssue> issues;
+    std::vector<SequenceIssue> detectedIssues; // Alias vector for detected issues
     std::string validationSummary;
     std::string personaCritiqueBody;   // Contains Master Sequencer or Journalist critique
 };

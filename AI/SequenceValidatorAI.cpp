@@ -87,6 +87,7 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
     }
 
     result.totalIssuesCount = static_cast<int>(result.issues.size());
+    result.detectedIssues = result.issues;
 
     std::ostringstream summary;
     summary << "Sequence Validation Complete: Found " << result.totalIssuesCount << " issue(s) ("
