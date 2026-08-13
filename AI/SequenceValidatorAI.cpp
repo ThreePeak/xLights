@@ -186,17 +186,21 @@ bool SequenceValidatorAI::RemediateSequenceIssues(const std::string& sequencePat
 }
 
 std::string SequenceValidatorAI::GenerateBossCritique(const SequenceValidationResult& result) {
+    return GenerateBossCritique(result.scorecard, result.detectedIssues.empty() ? result.issues : result.detectedIssues);
+}
+
+std::string SequenceValidatorAI::GenerateBossCritique(const CategoryScorecard& scores, const std::vector<SequenceIssue>& issues) {
     std::ostringstream boss;
     boss << "### [MASTER SEQUENCER BOSS CRITIQUE]\n"
-         << "Overall Health Score: " << result.scorecard.overallHealthScore << "/100\n\n";
+         << "Overall Health Score: " << scores.overallHealthScore << "/100\n\n";
 
-    if (result.issues.empty()) {
+    if (issues.empty()) {
         boss << "CRITIQUE: Clean sequence structure. No timing grid drift or channel conflicts detected. Good execution.\n";
         return boss.str();
     }
 
-    boss << "DIRECT AUDIT FINDINGS (" << result.totalIssuesCount << " Issue(s)):\n";
-    for (const auto& issue : result.issues) {
+    boss << "DIRECT AUDIT FINDINGS (" << issues.size() << " Issue(s)):\n";
+    for (const auto& issue : issues) {
         boss << "  - [" << issue.category << "] " << issue.message << "\n"
              << "    ACTIONABLE FIX: " << issue.suggestedFix << "\n";
     }

@@ -183,6 +183,7 @@ public:
 
     // Formats a no-fluff, direct Master Sequencer Boss critique detailing timing errors, sloppy transitions, and visual clutter
     [[nodiscard]] static std::string GenerateBossCritique(const SequenceValidationResult& result);
+    [[nodiscard]] static std::string GenerateBossCritique(const CategoryScorecard& scores, const std::vector<SequenceIssue>& issues);
 
     // Formats a published light show journalist style review with star rating and structural analysis
     [[nodiscard]] static std::string GenerateJournalistReview(const CategoryScorecard& scores, const std::vector<SequenceIssue>& issues);
