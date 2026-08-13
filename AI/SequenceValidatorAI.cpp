@@ -215,6 +215,8 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
         iss["propName"] = issue.propName.empty() ? issue.affectedModelName : issue.propName;
         iss["effectName"] = issue.effectName;
         iss["timeMs"] = issue.timeMs;
+        iss["startMs"] = issue.startMs;
+        iss["endMs"] = issue.endMs;
         iss["suggestedFix"] = issue.suggestedFix;
         iss["autoFixable"] = issue.autoFixable;
         issuesArr.push_back(iss);

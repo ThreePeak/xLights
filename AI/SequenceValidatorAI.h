@@ -40,6 +40,8 @@ struct SequenceValidationIssue {
     std::string propName;              // Alias for affected model or prop name
     std::string effectName;            // Target effect name e.g. "Bars", "Shimmer", "SingleStrand"
     int timeMs = -1;
+    int startMs = 0;
+    int endMs = -1;
     std::string suggestedFix;
     bool autoFixable = false;          // Whether AI engine can automatically resolve this issue
 };
