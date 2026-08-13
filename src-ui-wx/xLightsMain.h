@@ -487,6 +487,7 @@ public:
     void DoASAPWork();
     void DoLayoutWork();
     bool DoAllWork();
+    void DoForceSequencerRefresh();
 
     bool readOnlyMode = false;
     void SetReadOnlyMode(bool mode) {

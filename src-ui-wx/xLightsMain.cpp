@@ -6026,6 +6026,13 @@ void xLightsFrame::OnMenuAIAudioStemsSelected(wxCommandEvent& WXUNUSED(event)) {
     dlg.ShowModal();
 }
 
+void xLightsFrame::DoForceSequencerRefresh() {
+    if (mainSequencer) {
+        mainSequencer->Refresh();
+    }
+    Refresh();
+}
+
 void xLightsFrame::ShiftEffectsOnLayer(EffectLayer* el, int milliseconds)
 {
     for (int ef = el->GetEffectCount() - 1; ef >= 0; ef--) { // count backwards so we can delete if needed
