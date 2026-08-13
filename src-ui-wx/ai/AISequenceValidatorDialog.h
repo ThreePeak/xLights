@@ -28,7 +28,7 @@ namespace xLights::AI {
 
 class AISequenceValidatorDialog : public wxDialog {
 public:
-    AISequenceValidatorDialog(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("AI Sequence Health & Diagnostic Copilot"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(800, 600), long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+    AISequenceValidatorDialog(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("AI Sequence Health & Diagnostic Copilot"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(820, 620), long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~AISequenceValidatorDialog() = default;
 
     void SetValidationConfig(const SequenceValidationConfig& config);
@@ -55,9 +55,11 @@ private:
     wxChoice* m_personaChoice = nullptr;
     wxChoice* m_severityFilterChoice = nullptr;
 
-    wxCheckBox* m_checkTimingChk = nullptr;
-    wxCheckBox* m_checkOverlapChk = nullptr;
-    wxCheckBox* m_checkVoltageChk = nullptr;
+    wxCheckBox* m_checkXmlChk = nullptr;
+    wxCheckBox* m_checkBoundsChk = nullptr;
+    wxCheckBox* m_checkRhythmChk = nullptr;
+    wxCheckBox* m_checkHardwareChk = nullptr;
+    wxCheckBox* m_checkHarmonyChk = nullptr;
 
     wxGauge* m_overallHealthGauge = nullptr;
     wxStaticText* m_healthScoreText = nullptr;
