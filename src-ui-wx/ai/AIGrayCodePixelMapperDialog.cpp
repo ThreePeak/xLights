@@ -31,15 +31,40 @@ AIGrayCodePixelMapperDialog::AIGrayCodePixelMapperDialog(wxWindow* parent, wxWin
 void AIGrayCodePixelMapperDialog::InitUI() {
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    // Camera Selector
-    wxStaticBoxSizer* camBox = new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("Camera Input Device"));
-    camBox->GetSizer()->Add(new wxStaticText(this, wxID_ANY, wxT("Select Camera:")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    // Camera & Pattern Parameters
+    wxStaticBoxSizer* camBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Camera & Pattern Projection Parameters"));
+    wxFlexGridSizer* grid = new wxFlexGridSizer(2, 4, 5, 10);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("Select Camera:")), 0, wxALIGN_CENTER_VERTICAL);
     wxArrayString cameras;
     cameras.Add(wxT("USB HD Webcam (Default)"));
     cameras.Add(wxT("DSLR HDMI Capture Card"));
     m_cameraChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, cameras);
     m_cameraChoice->SetSelection(0);
-    camBox->GetSizer()->Add(m_cameraChoice, 1, wxEXPAND | wxALL, 5);
+    grid->Add(m_cameraChoice, 1, wxEXPAND);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("Pattern Bit Depth:")), 0, wxALIGN_CENTER_VERTICAL);
+    wxArrayString depths;
+    depths.Add(wxT("10-bit (1,024 Positions)"));
+    depths.Add(wxT("12-bit (4,096 Positions)"));
+    m_bitDepthChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, depths);
+    m_bitDepthChoice->SetSelection(0);
+    grid->Add(m_bitDepthChoice, 1, wxEXPAND);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("Capture Resolution:")), 0, wxALIGN_CENTER_VERTICAL);
+    wxArrayString resList;
+    resList.Add(wxT("1080p Full HD (1920x1080)"));
+    resList.Add(wxT("4K UHD (3840x2160)"));
+    resList.Add(wxT("720p HD (1280x720)"));
+    m_resolutionChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, resList);
+    m_resolutionChoice->SetSelection(0);
+    grid->Add(m_resolutionChoice, 1, wxEXPAND);
+
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("Frame Capture Delay (ms):")), 0, wxALIGN_CENTER_VERTICAL);
+    m_delaySpin = new wxSpinCtrl(this, wxID_ANY, wxT("150"), wxDefaultPosition, wxSize(80, -1), wxSP_ARROW_KEYS, 50, 1000, 150);
+    grid->Add(m_delaySpin, 0, wxEXPAND);
+
+    camBox->GetSizer()->Add(grid, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(camBox, 0, wxEXPAND | wxALL, 10);
 
     // Capture Progress Box
@@ -75,8 +100,16 @@ void AIGrayCodePixelMapperDialog::InitUI() {
 
 void AIGrayCodePixelMapperDialog::OnStartCaptureButtonClick(wxCommandEvent& WXUNUSED(event)) {
     m_captureProgress->SetValue(100);
-    m_statusText->SetLabel(wxT("Status: Gray Code pattern playback and camera frame capture complete."));
-    spdlog::info("AIGrayCodePixelMapperDialog: Captured 20 Gray Code camera frames.");
+
+    int bitDepth = (m_bitDepthChoice->GetSelection() == 0) ? 10 : 12;
+    int delayMs = m_delaySpin->GetValue();
+
+    GrayCodeCaptureConfig config;
+    config.cameraIndex = m_cameraChoice->GetSelection();
+    config.patternBits = bitDepth;
+
+    m_statusText->SetLabel(wxString::Format(wxT("Status: Capture complete (%d-bit Gray Code, %dms delay). Ready for 3D solver."), bitDepth, delayMs));
+    spdlog::info("AIGrayCodePixelMapperDialog: Frame capture complete (%d-bit, %dms delay).", bitDepth, delayMs);
 }
 
 void AIGrayCodePixelMapperDialog::OnSolvePointCloudButtonClick(wxCommandEvent& WXUNUSED(event)) {

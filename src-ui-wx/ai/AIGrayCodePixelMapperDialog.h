@@ -12,6 +12,8 @@
 #include <wx/button.h>
 #include <wx/choice.h>
 #include <wx/stattext.h>
+#include <wx/spinctrl.h>
+#include <wx/slider.h>
 #include <wx/gauge.h>
 #include <wx/sizer.h>
 
@@ -21,7 +23,7 @@ namespace xLights::AI {
 
 class AIGrayCodePixelMapperDialog : public wxDialog {
 public:
-    AIGrayCodePixelMapperDialog(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("AI 3D Pixel Map Camera Solver"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(700, 500), long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+    AIGrayCodePixelMapperDialog(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("AI 3D Pixel Map Camera Solver"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(750, 560), long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~AIGrayCodePixelMapperDialog() = default;
 
 private:
@@ -33,6 +35,11 @@ private:
     void OnCloseButtonClick(wxCommandEvent& event);
 
     wxChoice* m_cameraChoice = nullptr;
+    wxChoice* m_bitDepthChoice = nullptr;
+    wxChoice* m_resolutionChoice = nullptr;
+    wxSpinCtrl* m_delaySpin = nullptr;
+    wxSlider* m_rmsToleranceSlider = nullptr;
+
     wxGauge* m_captureProgress = nullptr;
     wxStaticText* m_statusText = nullptr;
 
