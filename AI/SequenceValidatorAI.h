@@ -37,6 +37,7 @@ struct SequenceValidationIssue {
     std::string category;              // "TimingGrid", "ChannelOverlap", "UnassignedModel", "Performance", "ChannelBound"
     uint32_t categoryFlag = 0;         // AuditCategoryFlags enum flag e.g. AUDIT_TIMING, AUDIT_OVERLAP
     std::string message;
+    std::string description;          // Alias for issue message
     std::string affectedModelName;
     std::string propName;              // Alias for affected model or prop name
     std::string effectName;            // Target effect name e.g. "Bars", "Shimmer", "SingleStrand"

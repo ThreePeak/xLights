@@ -215,6 +215,7 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
         iss["category"] = issue.category;
         iss["categoryFlag"] = issue.categoryFlag;
         iss["message"] = issue.message;
+        iss["description"] = issue.description.empty() ? issue.message : issue.description;
         iss["affectedModelName"] = issue.affectedModelName;
         iss["propName"] = issue.propName.empty() ? issue.affectedModelName : issue.propName;
         iss["effectName"] = issue.effectName;
