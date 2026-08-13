@@ -108,6 +108,7 @@ struct CategoryScorecard {
 
 struct SequenceValidationResult {
     bool success = false;
+    bool passedAudit = false;           // Alias for audit pass/fail status
     std::string errorMessage;
     int totalIssuesCount = 0;
     int totalIssuesFound = 0;          // Alias for totalIssuesCount

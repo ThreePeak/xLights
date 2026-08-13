@@ -140,6 +140,7 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
     }
 
     result.success = true;
+    result.passedAudit = (result.errorCount == 0);
     spdlog::info("SequenceValidatorAI: {}", result.validationSummary);
     return result;
 }
@@ -196,6 +197,7 @@ std::string SequenceValidatorAI::GenerateJournalistReview(const CategoryScorecar
 std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValidationResult& result) {
     nlohmann::json root;
     root["success"] = result.success;
+    root["passedAudit"] = result.passedAudit;
     root["errorMessage"] = result.errorMessage;
     root["totalIssuesCount"] = result.totalIssuesCount;
     root["totalIssuesFound"] = result.totalIssuesFound;
