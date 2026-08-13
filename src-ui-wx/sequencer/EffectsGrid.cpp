@@ -2726,6 +2726,12 @@ void EffectsGrid::OnAIGenerateEffectForSelection() {
     Draw();
 }
 
+void EffectsGrid::PopulateContextMenu(wxMenu* menu) {
+    if (menu == nullptr) return;
+    menu->Append(ID_MENUITEM_AI_GENERATE_EFFECT_FOR_SELECTION, wxT("AI Generate Effect for Selection..."));
+    Bind(wxEVT_MENU, [this](wxCommandEvent&) { OnAIGenerateEffectForSelection(); }, ID_MENUITEM_AI_GENERATE_EFFECT_FOR_SELECTION);
+}
+
 Effect* EffectsGrid::ACDraw(ACTYPE type, ACSTYLE style, ACMODE mode, int intensity, int a, int b, int startMS, int endMS, int startRow, int endRow) {
     
     Effect* res = nullptr;

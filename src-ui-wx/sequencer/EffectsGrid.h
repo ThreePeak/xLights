@@ -119,6 +119,7 @@ public:
     void MoveSelectedEffectLeft(bool shift, bool control, bool alt);
     void MoveSelectedEffectRight(bool shift, bool control, bool alt);
     void OnAIGenerateEffectForSelection();
+    void PopulateContextMenu(wxMenu* menu);
     void SetEffectStatusText(Effect* eff) const;
     void InsertEffectLayerAbove();
     void InsertEffectLayerBelow();
