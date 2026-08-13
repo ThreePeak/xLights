@@ -149,7 +149,7 @@ public:
     [[nodiscard]] static SequenceValidationResult ValidateSequenceDiagnostics(const SequenceValidationConfig& config);
     [[nodiscard]] static ComprehensiveAuditReport RunComprehensiveAudit(const SequenceValidationConfig& config);
 
-    // Automatically remediates specified sequence issues in XML structure
+    // Apply specific remediation fixes to sequence XML
     [[nodiscard]] static bool RemediateSequenceIssues(const std::string& sequencePath, const std::vector<std::string>& targetIssueIds, std::string& errorOut);
 
     // Formats a no-fluff, direct Master Sequencer Boss critique detailing timing errors, sloppy transitions, and visual clutter
