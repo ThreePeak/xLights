@@ -7,6 +7,7 @@
  **************************************************************/
 
 #include "src-ui-wx/ai/AIPowerInjectionDialog.h"
+#include "xLightsMain.h"
 #include <spdlog/spdlog.h>
 
 namespace xLights::AI {
@@ -52,7 +53,12 @@ void AIPowerInjectionDialog::InitUI() {
     grid->Add(m_awgChoice, 0, wxEXPAND);
 
     grid->Add(new wxStaticText(this, wxID_ANY, wxT("Total Pixel Count:")), 0, wxALIGN_CENTER_VERTICAL);
-    m_pixelCountCtrl = new wxTextCtrl(this, wxID_ANY, wxT("300"));
+    wxString defaultPixels = wxT("300");
+    if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetSequenceLoaded()) {
+        int count = xLightsFrame::CurrentSeqXmlFile->GetTotalEffectCount() * 2;
+        if (count > 0) defaultPixels = wxString::Format(wxT("%d"), count);
+    }
+    m_pixelCountCtrl = new wxTextCtrl(this, wxID_ANY, defaultPixels);
     grid->Add(m_pixelCountCtrl, 0, wxEXPAND);
 
     grid->Add(new wxStaticText(this, wxID_ANY, wxT("Feed Wire Length (ft):")), 0, wxALIGN_CENTER_VERTICAL);
