@@ -102,6 +102,7 @@ struct SequenceValidationConfig {
     std::vector<std::string> ignorePropNames;   // Ignored props/directories
     std::vector<std::string> targetTrackNames;  // e.g., ["Kick Drum", "Vocals"]
     TargetScopeFilter scopeFilter;             // Target scope filtering configuration
+    uint32_t activeCategories = AUDIT_ALL;      // Bitmask flags for active category selection
     bool checkTimingGaps = true;
     bool checkChannelOverlaps = true;
     bool checkPerformanceBottlenecks = true;
