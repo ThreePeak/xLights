@@ -120,6 +120,29 @@ LuaScriptGeneratorResult LuaScriptGenerator::GenerateLuaScript(const LuaScriptGe
     return result;
 }
 
+std::string LuaScriptGenerator::ConstructStructuredLLMPrompt(const LuaScriptGeneratorConfig& config) {
+    std::ostringstream prompt;
+    prompt << "SYSTEM INSTRUCTIONS: You are an expert xLights Lua Automation Script Generator.\n"
+           << "Output ONLY valid, safe, executable Lua code targeting xLights exposed automation functions.\n"
+           << "Exposed xLights Lua Functions:\n"
+           << "  - xlights.get_model(name_string)\n"
+           << "  - xlights.get_active_model()\n"
+           << "  - xlights.create_effect(type_string)\n"
+           << "  - effect:set_duration_ms(ms_integer)\n"
+           << "  - effect:set_palette(palette_string)\n"
+           << "  - effect:set_parameter(name_string, value)\n"
+           << "  - model:apply_effect(effect_object)\n"
+           << "  - xlights.render_sequence()\n"
+           << "  - xlights.log_info(message_string)\n"
+           << "  - xlights.log_warning(message_string)\n"
+           << "SAFETY RULES: Do NOT use os.execute, io.open, require, or external system commands.\n\n"
+           << "USER REQUEST: \"" << config.userPrompt << "\"\n"
+           << "TARGET MODEL: \"" << (config.targetModelName.empty() ? "SelectedModel" : config.targetModelName) << "\"\n"
+           << "DURATION: " << config.durationMs << "ms\n"
+           << "PALETTE: \"" << (config.currentPalette.empty() ? "Default Rainbow" : config.currentPalette) << "\"\n";
+    return prompt.str();
+}
+
 std::string LuaScriptGenerator::ExportLuaScriptJSON(const LuaScriptGeneratorResult& result) {
     nlohmann::json root;
     root["success"] = result.success;

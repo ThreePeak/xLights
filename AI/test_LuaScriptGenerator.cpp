@@ -36,4 +36,17 @@ TEST_CASE("LuaScriptGenerator: Interpreter Bindings & Script Generation", "[LuaS
         REQUIRE(parsed["success"] == true);
         REQUIRE(parsed["passesSandboxValidation"] == true);
     }
+
+    SECTION("Constructs structured LLM prompt targeting exposed xLights automation functions") {
+        LuaScriptGeneratorConfig config;
+        config.userPrompt = "Create a marquee chase effect";
+        config.targetModelName = "Arches";
+        config.durationMs = 4000;
+
+        std::string prompt = LuaScriptGenerator::ConstructStructuredLLMPrompt(config);
+        REQUIRE(!prompt.empty());
+        REQUIRE(prompt.find("SYSTEM INSTRUCTIONS") != std::string::npos);
+        REQUIRE(prompt.find("xlights.get_model") != std::string::npos);
+        REQUIRE(prompt.find("Create a marquee chase effect") != std::string::npos);
+    }
 }

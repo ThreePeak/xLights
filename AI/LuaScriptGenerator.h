@@ -59,6 +59,9 @@ public:
     // Translate a natural language prompt into an executable xLights Lua automation script
     [[nodiscard]] static LuaScriptGeneratorResult GenerateLuaScript(const LuaScriptGeneratorConfig& config);
 
+    // Construct a structured prompt instructing the LLM engine to output safe Lua scripts targeting xLights' exposed automation functions
+    [[nodiscard]] static std::string ConstructStructuredLLMPrompt(const LuaScriptGeneratorConfig& config);
+
     // Validates Lua code against xLights Lua API schema and safety rules
     [[nodiscard]] static bool ValidateLuaSandbox(const std::string& luaCode, std::string& errorOut);
 
