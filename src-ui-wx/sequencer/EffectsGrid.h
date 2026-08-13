@@ -475,6 +475,8 @@ private:
     static const long ID_GRID_MNU_CREATE_SYMBOL;
     static const long ID_GRID_MNU_UNLINK_SYMBOL;
     static const long ID_GRID_MNU_LINK_SYMBOL_BASE;
+    static const long ID_GRID_MNU_AI_GENERATE_EFFECT;
+    static const long ID_MENUITEM_AI_GENERATE_EFFECT_FOR_SELECTION;
     EventPlayEffectArgs* playArgs = nullptr;
 
     const SequenceData *seqData = nullptr;

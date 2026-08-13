@@ -142,6 +142,8 @@ const long EffectsGrid::ID_GRID_MNU_FILL_REGION = wxNewId();
 const long EffectsGrid::ID_GRID_MNU_CREATE_SYMBOL = wxNewId();
 const long EffectsGrid::ID_GRID_MNU_UNLINK_SYMBOL = wxNewId();
 const long EffectsGrid::ID_GRID_MNU_LINK_SYMBOL_BASE = wxNewId();
+const long EffectsGrid::ID_GRID_MNU_AI_GENERATE_EFFECT = wxNewId();
+const long EffectsGrid::ID_MENUITEM_AI_GENERATE_EFFECT_FOR_SELECTION = EffectsGrid::ID_GRID_MNU_AI_GENERATE_EFFECT;
 
 int findDataEffect::GetStrand() const {
     if (nl != nullptr) {
