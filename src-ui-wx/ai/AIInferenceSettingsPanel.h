@@ -67,8 +67,11 @@ private:
     wxSlider* m_topPSlider = nullptr;
     wxStaticText* m_topPValueLabel = nullptr;
     wxSpinCtrl* m_maxTokensSpin = nullptr;
+
     wxSlider* m_freqPenaltySlider = nullptr;
+    wxStaticText* m_freqValueLabel = nullptr;
     wxSlider* m_presPenaltySlider = nullptr;
+    wxStaticText* m_presValueLabel = nullptr;
 
     // Custom System Persona Instructions
     wxTextCtrl* m_systemPromptCtrl = nullptr;

@@ -172,13 +172,15 @@ void AIInferenceSettingsPanel::InitUI() {
 
     hpGrid->Add(new wxStaticText(hpPanel, wxID_ANY, wxT("Frequency Penalty:")), 0, wxALIGN_CENTER_VERTICAL);
     m_freqPenaltySlider = new wxSlider(hpPanel, wxID_ANY, 0, -200, 200, wxDefaultPosition, wxSize(200, -1));
+    m_freqValueLabel = new wxStaticText(hpPanel, wxID_ANY, wxT("0.00"));
     hpGrid->Add(m_freqPenaltySlider, 1, wxEXPAND);
-    hpGrid->Add(new wxStaticText(hpPanel, wxID_ANY, wxT("0.00")), 0, wxALIGN_CENTER_VERTICAL);
+    hpGrid->Add(m_freqValueLabel, 0, wxALIGN_CENTER_VERTICAL);
 
     hpGrid->Add(new wxStaticText(hpPanel, wxID_ANY, wxT("Presence Penalty:")), 0, wxALIGN_CENTER_VERTICAL);
     m_presPenaltySlider = new wxSlider(hpPanel, wxID_ANY, 0, -200, 200, wxDefaultPosition, wxSize(200, -1));
+    m_presValueLabel = new wxStaticText(hpPanel, wxID_ANY, wxT("0.00"));
     hpGrid->Add(m_presPenaltySlider, 1, wxEXPAND);
-    hpGrid->Add(new wxStaticText(hpPanel, wxID_ANY, wxT("0.00")), 0, wxALIGN_CENTER_VERTICAL);
+    hpGrid->Add(m_presValueLabel, 0, wxALIGN_CENTER_VERTICAL);
 
     hpBox->GetSizer()->Add(hpGrid, 1, wxEXPAND | wxALL, 8);
     hpSizer->Add(hpBox, 1, wxEXPAND | wxALL, 8);
@@ -215,6 +217,18 @@ void AIInferenceSettingsPanel::InitUI() {
     m_topPSlider->Bind(wxEVT_SLIDER, [this](wxCommandEvent& event) {
         float val = event.GetInt() / 100.0f;
         m_topPValueLabel->SetLabel(wxString::Format(wxT("%.2f"), val));
+        SaveSettingsToConfig();
+    });
+
+    m_freqPenaltySlider->Bind(wxEVT_SLIDER, [this](wxCommandEvent& event) {
+        float val = event.GetInt() / 100.0f;
+        m_freqValueLabel->SetLabel(wxString::Format(wxT("%.2f"), val));
+        SaveSettingsToConfig();
+    });
+
+    m_presPenaltySlider->Bind(wxEVT_SLIDER, [this](wxCommandEvent& event) {
+        float val = event.GetInt() / 100.0f;
+        m_presValueLabel->SetLabel(wxString::Format(wxT("%.2f"), val));
         SaveSettingsToConfig();
     });
 
