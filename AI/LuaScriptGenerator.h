@@ -67,6 +67,7 @@ public:
 
     // Validates Lua code against xLights Lua API schema and safety rules
     [[nodiscard]] static bool ValidateLuaSandbox(const std::string& luaCode, std::string& errorOut);
+    [[nodiscard]] static bool ValidateLuaSyntax(const std::string& luaCode);
 
     // Exports script generation result to structured JSON for MCP tool consumption
     [[nodiscard]] static std::string ExportLuaScriptJSON(const LuaScriptGeneratorResult& result);

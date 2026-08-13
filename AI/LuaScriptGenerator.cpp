@@ -47,6 +47,11 @@ bool LuaScriptGenerator::ValidateLuaSandbox(const std::string& luaCode, std::str
     return true;
 }
 
+bool LuaScriptGenerator::ValidateLuaSyntax(const std::string& luaCode) {
+    std::string err;
+    return ValidateLuaSandbox(luaCode, err);
+}
+
 LuaScriptGeneratorResult LuaScriptGenerator::GenerateLuaScript(const LuaScriptGeneratorConfig& config) {
     LuaScriptGeneratorResult result;
 
