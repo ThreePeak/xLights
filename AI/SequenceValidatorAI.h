@@ -62,6 +62,7 @@ struct CategoryScorecard {
     float channelOverlapScore = 100.0f;
     float modelAssignmentScore = 100.0f;
     float performanceScore = 100.0f;
+    float rhythmicPrecisionScore = 100.0f; // 0.0 to 100.0
     float overallSequenceHealthScore = 100.0f;
 };
 
