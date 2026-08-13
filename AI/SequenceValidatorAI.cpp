@@ -37,9 +37,11 @@ CategoryScorecard SequenceValidatorAI::CalculateScorecard(const std::vector<Sequ
             card.performanceScore = std::max(0.0f, card.performanceScore - penalty);
         } else if (issue.category == "RhythmicPrecision") {
             card.rhythmicPrecisionScore = std::max(0.0f, card.rhythmicPrecisionScore - penalty);
+        } else if (issue.category == "HardwareSafety") {
+            card.hardwareSafetyScore = std::max(0.0f, card.hardwareSafetyScore - penalty);
         }
     }
-    card.overallSequenceHealthScore = (card.timingGridScore + card.channelOverlapScore + card.modelAssignmentScore + card.performanceScore + card.rhythmicPrecisionScore) / 5.0f;
+    card.overallSequenceHealthScore = (card.timingGridScore + card.channelOverlapScore + card.modelAssignmentScore + card.performanceScore + card.rhythmicPrecisionScore + card.hardwareSafetyScore) / 6.0f;
     card.overallHealthScore = card.overallSequenceHealthScore;
     return card;
 }
