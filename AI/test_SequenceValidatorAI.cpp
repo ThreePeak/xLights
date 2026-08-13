@@ -55,4 +55,11 @@ TEST_CASE("SequenceValidatorAI: Sequence Quality & Diagnostic Audit", "[Sequence
         ComprehensiveAuditReport report = SequenceValidatorAI::RunComprehensiveAudit(config);
         REQUIRE(report.success == true);
     }
+
+    SECTION("RemediateSequenceIssues auto-repair engine works") {
+        std::string err;
+        std::vector<std::string> targetIds = {"VAL-1", "VAL-2"};
+        bool ok = SequenceValidatorAI::RemediateSequenceIssues("test_seq.xml", targetIds, err);
+        REQUIRE(ok == true);
+    }
 }

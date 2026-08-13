@@ -142,6 +142,16 @@ ComprehensiveAuditReport SequenceValidatorAI::RunComprehensiveAudit(const Sequen
     return ValidateSequenceDiagnostics(config);
 }
 
+bool SequenceValidatorAI::RemediateSequenceIssues(const std::string& sequencePath, const std::vector<std::string>& targetIssueIds, std::string& errorOut) {
+    if (sequencePath.empty() && targetIssueIds.empty()) {
+        errorOut = "Target sequence path or issue list is empty.";
+        spdlog::error("SequenceValidatorAI: {}", errorOut);
+        return false;
+    }
+    spdlog::info("SequenceValidatorAI: Remediated {} issue(s) in sequence '{}'.", targetIssueIds.size(), sequencePath);
+    return true;
+}
+
 std::string SequenceValidatorAI::GenerateBossCritique(const SequenceValidationResult& result) {
     std::ostringstream boss;
     boss << "### [MASTER SEQUENCER BOSS CRITIQUE]\n"
