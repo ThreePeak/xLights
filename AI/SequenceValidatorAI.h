@@ -76,6 +76,7 @@ struct SequenceValidationConfig {
     int endMs = -1;                    // -1 = Full duration
     int activeEffectCount = 0;
     std::vector<std::string> activeModelNames;
+    std::vector<std::string> targetPropNames;   // Empty = All props
     bool checkTimingGaps = true;
     bool checkChannelOverlaps = true;
     bool checkPerformanceBottlenecks = true;
