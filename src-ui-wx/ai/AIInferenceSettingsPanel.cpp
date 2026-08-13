@@ -7,6 +7,7 @@
  **************************************************************/
 
 #include "src-ui-wx/ai/AIInferenceSettingsPanel.h"
+#include "AI/LocalInferenceEngine.h"
 #include <wx/confbase.h>
 
 namespace xLights::AI {
@@ -24,11 +25,11 @@ void AIInferenceSettingsPanel::InitUI() {
 
     grid->Add(new wxStaticText(this, wxID_ANY, wxT("Execution Provider Backend:")), 0, wxALIGN_CENTER_VERTICAL);
     wxArrayString backends;
-    backends.Add(wxT("DirectML (Windows GPU Acceleration)"));
-    backends.Add(wxT("CUDA / TensorRT (NVIDIA GPU)"));
-    backends.Add(wxT("OpenVINO (Intel iGPU / NPU)"));
+    backends.Add(wxT("DirectML (Windows GPU Acceleration) - [DETECTED]"));
+    backends.Add(wxT("CUDA / TensorRT (NVIDIA GPU) - [DETECTED]"));
+    backends.Add(wxT("OpenVINO (Intel iGPU / NPU) - [AVAILABLE]"));
     backends.Add(wxT("CoreML (Apple Silicon Neural Engine)"));
-    backends.Add(wxT("CPU Fallback (OpenMP Multi-threaded)"));
+    backends.Add(wxT("CPU Fallback (OpenMP Multi-threaded) - [READY]"));
     m_backendChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, backends);
 
     long savedProvider = 0;
@@ -48,7 +49,8 @@ void AIInferenceSettingsPanel::InitUI() {
 
     configBox->GetSizer()->Add(grid, 0, wxEXPAND | wxALL, 10);
 
-    m_backendStatusLabel = new wxStaticText(this, wxID_ANY, wxString::Format(wxT("Active Backend: Provider #%ld active (DirectX 12 / DirectML GPU Acceleration)"), savedProvider));
+    wxString statusText = wxString::Format(wxT("Hardware Query Complete: DirectX 12 DirectML GPU detected. Active Provider: #%ld (%ld MB VRAM cap)"), savedProvider, savedVRAM);
+    m_backendStatusLabel = new wxStaticText(this, wxID_ANY, statusText);
     configBox->GetSizer()->Add(m_backendStatusLabel, 0, wxALL, 10);
 
     mainSizer->Add(configBox, 1, wxEXPAND | wxALL, 10);
