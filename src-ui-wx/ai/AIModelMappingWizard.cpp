@@ -21,6 +21,38 @@ AIModelMappingWizard::AIModelMappingWizard(wxWindow* parent, wxWindowID id, cons
 
     m_vendorSeqCtrl = new wxTextCtrl(m_page1, wxID_ANY, wxT("vendor_sequence.xsq"), wxDefaultPosition, wxDefaultSize);
     sizer1->Add(m_vendorSeqCtrl, 0, wxEXPAND | wxALL, 10);
+
+    // Fine Control Parameters Section
+    wxStaticBoxSizer* configBox = new wxStaticBoxSizer(wxVERTICAL, m_page1, wxT("4-Pass Alignment & Confidence Thresholds"));
+    wxFlexGridSizer* grid = new wxFlexGridSizer(2, 2, 5, 10);
+
+    grid->Add(new wxStaticText(m_page1, wxID_ANY, wxT("Fuzzy Match Confidence Threshold:")), 0, wxALIGN_CENTER_VERTICAL);
+    m_confidenceThresholdSlider = new wxSlider(m_page1, wxID_ANY, 80, 50, 100, wxDefaultPosition, wxSize(200, -1));
+    grid->Add(m_confidenceThresholdSlider, 1, wxEXPAND);
+
+    grid->Add(new wxStaticText(m_page1, wxID_ANY, wxT("Custom Taxonomy Dictionary:")), 0, wxALIGN_CENTER_VERTICAL);
+    m_taxonomyEditorBtn = new wxButton(m_page1, wxID_ANY, wxT("Edit Taxonomy Rules..."));
+    grid->Add(m_taxonomyEditorBtn, 0, wxEXPAND);
+
+    configBox->GetSizer()->Add(grid, 0, wxEXPAND | wxALL, 5);
+
+    wxStaticBoxSizer* passBox = new wxStaticBoxSizer(wxVERTICAL, m_page1, wxT("Active Matching Passes"));
+    m_pass1ExactChk = new wxCheckBox(m_page1, wxID_ANY, wxT("Pass 1: Exact String Token Matching"));
+    m_pass1ExactChk->SetValue(true);
+    m_pass2FuzzyChk = new wxCheckBox(m_page1, wxID_ANY, wxT("Pass 2: Levenshtein & Jaro-Winkler Distance Matching"));
+    m_pass2FuzzyChk->SetValue(true);
+    m_pass3SemanticChk = new wxCheckBox(m_page1, wxID_ANY, wxT("Pass 3: ONNX Vector Embedding Cosine Similarity"));
+    m_pass3SemanticChk->SetValue(true);
+    m_pass4TaxonomyChk = new wxCheckBox(m_page1, wxID_ANY, wxT("Pass 4: Taxonomy Dictionary Override Matching"));
+    m_pass4TaxonomyChk->SetValue(true);
+
+    passBox->GetSizer()->Add(m_pass1ExactChk, 0, wxALL, 4);
+    passBox->GetSizer()->Add(m_pass2FuzzyChk, 0, wxALL, 4);
+    passBox->GetSizer()->Add(m_pass3SemanticChk, 0, wxALL, 4);
+    passBox->GetSizer()->Add(m_pass4TaxonomyChk, 0, wxALL, 4);
+
+    configBox->GetSizer()->Add(passBox, 0, wxEXPAND | wxALL, 5);
+    sizer1->Add(configBox, 0, wxEXPAND | wxALL, 10);
     m_page1->SetSizer(sizer1);
 
     // Page 2: 4-Pass LLM Auto-Mapping Results

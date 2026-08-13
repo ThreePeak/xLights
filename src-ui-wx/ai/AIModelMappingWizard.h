@@ -12,6 +12,8 @@
 #include <wx/button.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
+#include <wx/slider.h>
+#include <wx/checkbox.h>
 #include <wx/listctrl.h>
 #include <wx/sizer.h>
 
@@ -31,6 +33,13 @@ private:
     wxWizardPageSimple* m_page2 = nullptr;
 
     wxTextCtrl* m_vendorSeqCtrl = nullptr;
+    wxSlider* m_confidenceThresholdSlider = nullptr;
+    wxCheckBox* m_pass1ExactChk = nullptr;
+    wxCheckBox* m_pass2FuzzyChk = nullptr;
+    wxCheckBox* m_pass3SemanticChk = nullptr;
+    wxCheckBox* m_pass4TaxonomyChk = nullptr;
+    wxButton* m_taxonomyEditorBtn = nullptr;
+
     wxListCtrl* m_mappingsList = nullptr;
 
     ModelMappingResult m_mappingResult;
