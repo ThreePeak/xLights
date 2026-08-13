@@ -55,6 +55,7 @@ enum AuditCategoryFlags : uint32_t {
     AUDIT_NONE               = 0,
     AUDIT_XML_INTEGRITY      = 1 << 0, // Corrupted XML, invalid tags, missing schemas
     AUDIT_CHANNEL_BOUNDS     = 1 << 1, // Channel overlaps, unmapped universe bounds
+    AUDIT_RHYTHM_SYNC        = 1 << 2, // Off-beat timing marks, transient drift
     AUDIT_TIMING             = 1 << 2,
     AUDIT_RENDER_PERFORMANCE = 1 << 3, // Layer collisions, excessive buffer redraws
     AUDIT_OVERLAP            = 1 << 4,
