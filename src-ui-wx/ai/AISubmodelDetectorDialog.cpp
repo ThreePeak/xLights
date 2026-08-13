@@ -7,6 +7,7 @@
  **************************************************************/
 
 #include "src-ui-wx/ai/AISubmodelDetectorDialog.h"
+#include "xLightsMain.h"
 #include <spdlog/spdlog.h>
 #include <wx/msgdlg.h>
 
@@ -25,6 +26,9 @@ wxEND_EVENT_TABLE()
 
 AISubmodelDetectorDialog::AISubmodelDetectorDialog(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style)
     : wxDialog(parent, id, title, pos, size, style) {
+    if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetSequenceLoaded()) {
+        spdlog::info("AISubmodelDetectorDialog: Inspection initialized for sequence {}", xLightsFrame::CurrentSeqXmlFile->GetFullPath().ToStdString());
+    }
     InitUI();
 }
 
