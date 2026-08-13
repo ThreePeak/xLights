@@ -243,24 +243,46 @@ std::string AudioStemExtractor::GenerateVocalLipSyncPhonemesXML(
     pugi::xml_node dbNode = rootNode.append_child("EffectDB");
     dbNode.append_attribute("version").set_value("1");
 
-    const std::vector<std::string> phonemes = {"AI", "E", "O", "L", "MBP", "ETC", "REST", "WQ", "FV"};
-    size_t step = sampleRate / 10;
+    size_t step = sampleRate / 20; // 50ms frame intervals
     int timeMS = 0;
 
     for (size_t i = 0; i < vocalBuffer.size(); i += step) {
         float energy = 0.0f;
-        for (size_t k = i; k < std::min(i + step, vocalBuffer.size()); ++k) {
-            energy += std::abs(vocalBuffer[k]);
-        }
-        energy /= step;
+        int zeroCrossings = 0;
+        size_t endIdx = std::min(i + step, vocalBuffer.size());
 
-        std::string label = (energy < 0.01f) ? "REST" : phonemes[(i / step) % phonemes.size()];
+        for (size_t k = i; k < endIdx; ++k) {
+            energy += std::abs(vocalBuffer[k]);
+            if (k > i && ((vocalBuffer[k] >= 0.0f && vocalBuffer[k - 1] < 0.0f) || (vocalBuffer[k] < 0.0f && vocalBuffer[k - 1] >= 0.0f))) {
+                zeroCrossings++;
+            }
+        }
+        energy /= (endIdx - i);
+        float zcr = static_cast<float>(zeroCrossings) / (endIdx - i);
+
+        std::string label = "REST";
+        if (energy >= 0.01f) {
+            if (zcr > 0.15f) {
+                label = (energy > 0.08f) ? "FV" : "ETC";
+            } else if (energy > 0.12f) {
+                label = "AI";
+            } else if (energy > 0.08f) {
+                label = "O";
+            } else if (energy > 0.05f) {
+                label = "E";
+            } else if (zcr < 0.04f) {
+                label = "MBP";
+            } else {
+                label = "L";
+            }
+        }
+
         pugi::xml_node effNode = dbNode.append_child("Effect");
         effNode.append_attribute("label").set_value(label.c_str());
         effNode.append_attribute("start").set_value(timeMS);
-        effNode.append_attribute("end").set_value(timeMS + 100);
+        effNode.append_attribute("end").set_value(timeMS + 50);
 
-        timeMS += 100;
+        timeMS += 50;
     }
 
     std::ostringstream ss;
