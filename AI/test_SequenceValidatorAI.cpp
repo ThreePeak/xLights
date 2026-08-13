@@ -46,4 +46,13 @@ TEST_CASE("SequenceValidatorAI: Sequence Quality & Diagnostic Audit", "[Sequence
         REQUIRE(result.personaCritiqueBody.find("MASTER SEQUENCER BOSS CRITIQUE") != std::string::npos);
         REQUIRE(result.personaCritiqueBody.find("DIRECT AUDIT FINDINGS") != std::string::npos);
     }
+
+    SECTION("RunComprehensiveAudit alias method works") {
+        SequenceValidationConfig config;
+        config.totalDurationMs = 30000;
+        config.activeEffectCount = 500;
+
+        ComprehensiveAuditReport report = SequenceValidatorAI::RunComprehensiveAudit(config);
+        REQUIRE(report.success == true);
+    }
 }

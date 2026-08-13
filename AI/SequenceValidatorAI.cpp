@@ -138,6 +138,10 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
     return result;
 }
 
+ComprehensiveAuditReport SequenceValidatorAI::RunComprehensiveAudit(const SequenceValidationConfig& config) {
+    return ValidateSequenceDiagnostics(config);
+}
+
 std::string SequenceValidatorAI::GenerateBossCritique(const SequenceValidationResult& result) {
     std::ostringstream boss;
     boss << "### [MASTER SEQUENCER BOSS CRITIQUE]\n"

@@ -89,6 +89,8 @@ struct SequenceValidationResult {
     std::string personaCritiqueBody;   // Contains Master Sequencer or Journalist critique
 };
 
+using ComprehensiveAuditReport = SequenceValidationResult;
+
 class SequenceValidatorAI : public AISubsystemBase {
 public:
     SequenceValidatorAI(ServiceManager* sm = nullptr) : AISubsystemBase(sm) {}
@@ -117,6 +119,7 @@ public:
 
     // Executes an automated sequence quality and diagnostic audit
     [[nodiscard]] static SequenceValidationResult ValidateSequenceDiagnostics(const SequenceValidationConfig& config);
+    [[nodiscard]] static ComprehensiveAuditReport RunComprehensiveAudit(const SequenceValidationConfig& config);
 
     // Formats a no-fluff, direct Master Sequencer Boss critique detailing timing errors, sloppy transitions, and visual clutter
     [[nodiscard]] static std::string GenerateBossCritique(const SequenceValidationResult& result);
