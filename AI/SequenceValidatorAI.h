@@ -49,11 +49,12 @@ struct SequenceValidationIssue {
 enum AuditCategoryFlags {
     AUDIT_NONE               = 0,
     AUDIT_XML_INTEGRITY      = 1 << 0, // Corrupted XML, invalid tags, missing schemas
-    AUDIT_TIMING             = 1 << 1,
-    AUDIT_OVERLAP            = 1 << 2,
-    AUDIT_PERFORMANCE        = 1 << 3,
-    AUDIT_HARDWARE_SAFETY    = 1 << 4, // Over-current risks, high-density white clipping
-    AUDIT_BOUNDS             = 1 << 5,
+    AUDIT_CHANNEL_BOUNDS     = 1 << 1, // Channel overlaps, unmapped universe bounds
+    AUDIT_TIMING             = 1 << 2,
+    AUDIT_OVERLAP            = 1 << 3,
+    AUDIT_PERFORMANCE        = 1 << 4,
+    AUDIT_HARDWARE_SAFETY    = 1 << 5, // Over-current risks, high-density white clipping
+    AUDIT_BOUNDS             = 1 << 6,
     AUDIT_ALL                = 0xFFFFFFFF
 };
 
