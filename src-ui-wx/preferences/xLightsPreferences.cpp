@@ -30,6 +30,7 @@
 #include "CheckSequenceSettingsPanel.h"
 #include "ToolbarsSettingsPanel.h"
 #include "ServicesPanel.h"
+#include "src-ui-wx/ai/AIInferenceSettingsPanel.h"
 
 #include "grid_icon.xpm"
 #include "settings_panel_icon.xpm"
@@ -238,6 +239,10 @@ void xLightsFrame::ShowPreferencesDialog(const wxString& initialPage)
                       wxArtProvider::GetBitmapBundle("xlART_SETTINGS", wxART_BUTTON, listIconSize),
                       [this](wxWindow* p) { return (wxWindow*)(new ServicesPanel(p, _serviceManager.get())); } });
 #endif
+    pages.push_back({ "AI Hardware Acceleration",
+                      wxArtProvider::GetBitmapBundle("xlART_SETTINGS", wxART_BUTTON, iconSize),
+                      wxArtProvider::GetBitmapBundle("xlART_SETTINGS", wxART_BUTTON, listIconSize),
+                      [this](wxWindow* p) { return (wxWindow*)(new xLights::AI::AIInferenceSettingsPanel(p)); } });
 
 #ifdef __WXOSX__
     // initialPage is intentionally unused here: wxPreferencesEditor (the
