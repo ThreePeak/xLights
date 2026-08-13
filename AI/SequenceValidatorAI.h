@@ -52,7 +52,7 @@ enum AuditCategoryFlags {
 };
 
 enum class ExecutionActionMode {
-    REPORT_ONLY,
+    REPORT_ONLY,         // Audit and generate report; make no edits
     AUTO_REPAIR,
     AUTO_REMEDIATE       // Automatically fix all safe technical issues in XML
 };
