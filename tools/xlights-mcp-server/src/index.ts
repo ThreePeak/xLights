@@ -405,6 +405,33 @@ const MCP_TOOLS = [
             },
             required: ["user_prompt"]
         }
+    },
+    {
+        name: "audit_sequence_quality",
+        description: "Executes an automated sequence quality audit checking timing grid gaps, channel overlaps, unassigned model channels, and rendering performance bottlenecks.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                sequence_file_path: { type: "string", description: "Path to sequence file" },
+                total_duration_ms: { type: "number", description: "Total sequence duration in ms" },
+                active_effect_count: { type: "number", description: "Total active effect count" },
+                active_model_names: { type: "array", description: "List of active model names" }
+            },
+            required: ["total_duration_ms"]
+        }
+    },
+    {
+        name: "query_assistant_copilot",
+        description: "Queries the context-aware light show assistant for real-time design recommendations, color palettes, and shortcut actions.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                user_query: { type: "string", description: "User query prompt e.g. 'How do I make smooth transitions on MegaTree?'" },
+                selected_model_name: { type: "string", description: "Target xLights model name" },
+                sequence_context: { type: "string", description: "Sequence background context" }
+            },
+            required: ["user_query"]
+        }
     }
 ];
 
@@ -447,6 +474,8 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "analyze_power_injection":   return await httpPost("/api/power-analysis", args);
         case "map_vendor_sequence_models": return await httpPost("/api/ai/map-models", args);
         case "generate_lua_macro":         return await httpPost("/api/ai/lua-macro", args);
+        case "audit_sequence_quality":     return await httpPost("/api/ai/audit-sequence", args);
+        case "query_assistant_copilot":    return await httpPost("/api/ai/copilot-query", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }
