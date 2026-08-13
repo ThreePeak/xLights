@@ -70,6 +70,7 @@ enum class ExecutionActionMode {
 enum class PersonaReviewMode {
     MASTER_SEQUENCER_BOSS,      // Direct, unfiltered, expert technical feedback
     LIGHT_SHOW_JOURNALIST,
+    LIGHTSHOW_CRITIC_JOURNALIST = LIGHT_SHOW_JOURNALIST, // Artistic, journalistic review article (pros/cons/impact)
     ENTHUSIAST_COACH
 };
 
