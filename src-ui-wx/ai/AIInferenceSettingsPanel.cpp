@@ -31,7 +31,7 @@ void AIInferenceSettingsPanel::InitUI() {
     wxBoxSizer* hwSizer = new wxBoxSizer(wxVERTICAL);
 
     wxStaticBoxSizer* hwBox = new wxStaticBoxSizer(wxVERTICAL, hwPanel, wxT("Local Execution Engine & Quantization Settings"));
-    wxFlexGridSizer* hwGrid = new wxFlexGridSizer(4, 2, 8, 12);
+    wxFlexGridSizer* hwGrid = new wxFlexGridSizer(5, 2, 8, 12);
 
     hwGrid->Add(new wxStaticText(hwPanel, wxID_ANY, wxT("Execution Provider Backend:")), 0, wxALIGN_CENTER_VERTICAL);
     wxArrayString backends;
@@ -59,6 +59,10 @@ void AIInferenceSettingsPanel::InitUI() {
     hwGrid->Add(new wxStaticText(hwPanel, wxID_ANY, wxT("ONNX CPU Thread Count:")), 0, wxALIGN_CENTER_VERTICAL);
     m_threadSpin = new wxSpinCtrl(hwPanel, wxID_ANY, wxT("4"), wxDefaultPosition, wxSize(100, -1), wxSP_ARROW_KEYS, 1, 32, 4);
     hwGrid->Add(m_threadSpin, 0, wxEXPAND);
+
+    hwGrid->Add(new wxStaticText(hwPanel, wxID_ANY, wxT("Local ONNX Model Dir:")), 0, wxALIGN_CENTER_VERTICAL);
+    m_onnxDirPicker = new wxDirPickerCtrl(hwPanel, wxID_ANY, wxT(""), wxT("Select ONNX Models Folder"));
+    hwGrid->Add(m_onnxDirPicker, 1, wxEXPAND);
 
     hwBox->GetSizer()->Add(hwGrid, 0, wxEXPAND | wxALL, 8);
 
@@ -280,7 +284,9 @@ void AIInferenceSettingsPanel::LoadSettingsFromConfig() {
     m_topPSlider->SetValue(static_cast<int>(topPVal));
     m_topPValueLabel->SetLabel(wxString::Format(wxT("%.2f"), topPVal / 100.0f));
     m_maxTokensSpin->SetValue(static_cast<int>(maxTokens));
-    m_systemPromptCtrl->SetValue(systemPrompt);
+    wxString onnxDir;
+    wxConfigBase::Get()->Read(wxT("AI_OnnxModelDir"), &onnxDir, wxT(""));
+    m_onnxDirPicker->SetPath(onnxDir);
 }
 
 void AIInferenceSettingsPanel::SaveSettingsToConfig() {
@@ -290,6 +296,7 @@ void AIInferenceSettingsPanel::SaveSettingsToConfig() {
     wxConfigBase::Get()->Write(wxT("AI_QuantizationPrecision"), m_precisionChoice->GetSelection());
     wxConfigBase::Get()->Write(wxT("AI_CpuThreads"), m_threadSpin->GetValue());
     wxConfigBase::Get()->Write(wxT("AI_VRAMCapMB"), m_memCapSlider->GetValue());
+    wxConfigBase::Get()->Write(wxT("AI_OnnxModelDir"), m_onnxDirPicker->GetPath());
 
     wxConfigBase::Get()->Write(wxT("AI_PrimaryModel"), m_primaryModelChoice->GetSelection());
     wxConfigBase::Get()->Write(wxT("AI_OpenAIKey"), m_openaiKeyCtrl->GetValue());
