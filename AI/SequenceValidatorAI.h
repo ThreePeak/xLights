@@ -43,6 +43,12 @@ enum class ExecutionActionMode {
     AUTO_REPAIR
 };
 
+enum class PersonaReviewMode {
+    MASTER_SEQUENCER_BOSS,
+    LIGHT_SHOW_JOURNALIST,
+    ENTHUSIAST_COACH
+};
+
 struct SequenceValidationConfig {
     std::string sequenceFilePath;
     int totalDurationMs = 0;
@@ -53,6 +59,7 @@ struct SequenceValidationConfig {
     bool checkPerformanceBottlenecks = true;
     bool checkChannelBounds = true;
     ExecutionActionMode actionMode = ExecutionActionMode::REPORT_ONLY;
+    PersonaReviewMode reviewMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS;
 };
 
 using SequenceIssue = SequenceValidationIssue;
@@ -108,6 +115,9 @@ public:
 
     // Executes an automated sequence quality and diagnostic audit
     [[nodiscard]] static SequenceValidationResult ValidateSequenceDiagnostics(const SequenceValidationConfig& config);
+
+    // Formats a no-fluff, direct Master Sequencer Boss critique detailing timing errors, sloppy transitions, and visual clutter
+    [[nodiscard]] static std::string GenerateBossCritique(const SequenceValidationResult& result);
 
     // Export validation report to structured JSON format
     [[nodiscard]] static std::string ExportValidationReportJSON(const SequenceValidationResult& result);

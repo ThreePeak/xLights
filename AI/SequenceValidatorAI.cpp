@@ -116,22 +116,43 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
             << result.errorCount << " Error, " << result.warningCount << " Warning).";
     result.validationSummary = summary.str();
 
-    std::ostringstream critique;
-    critique << "### Master Sequencer Review & Critique\n"
-             << "Your sequence currently has " << config.activeEffectCount << " active effect(s) across "
-             << config.activeModelNames.size() << " model(s). ";
-    if (result.errorCount > 0) {
-        critique << "CRITICAL: Fix layout channel assignments before rendering to avoid dark props.";
-    } else if (result.warningCount > 0) {
-        critique << "RECOMMENDATION: Address timing gaps and effect density to optimize visual impact.";
+    if (config.reviewMode == PersonaReviewMode::MASTER_SEQUENCER_BOSS) {
+        result.personaCritiqueBody = GenerateBossCritique(result);
     } else {
-        critique << "EXCELLENT: Sequence structure passes quality audit with clean effect transitions.";
+        std::ostringstream critique;
+        critique << "### Light Show Review\n"
+                 << "Your sequence currently has " << config.activeEffectCount << " active effect(s) across "
+                 << config.activeModelNames.size() << " model(s). ";
+        if (result.errorCount > 0) {
+            critique << "Fix layout channel assignments before rendering.";
+        } else {
+            critique << "Sequence structure passes quality audit.";
+        }
+        result.personaCritiqueBody = critique.str();
     }
-    result.personaCritiqueBody = critique.str();
 
     result.success = true;
     spdlog::info("SequenceValidatorAI: {}", result.validationSummary);
     return result;
+}
+
+std::string SequenceValidatorAI::GenerateBossCritique(const SequenceValidationResult& result) {
+    std::ostringstream boss;
+    boss << "### [MASTER SEQUENCER BOSS CRITIQUE]\n"
+         << "Overall Health Score: " << result.scorecard.overallHealthScore << "/100\n\n";
+
+    if (result.issues.empty()) {
+        boss << "CRITIQUE: Clean sequence structure. No timing grid drift or channel conflicts detected. Good execution.\n";
+        return boss.str();
+    }
+
+    boss << "DIRECT AUDIT FINDINGS (" << result.totalIssuesCount << " Issue(s)):\n";
+    for (const auto& issue : result.issues) {
+        boss << "  - [" << issue.category << "] " << issue.message << "\n"
+             << "    ACTIONABLE FIX: " << issue.suggestedFix << "\n";
+    }
+    boss << "\nRECOMMENDATION: Clean up timing marks and remove visual clutter before exporting to controller.";
+    return boss.str();
 }
 
 std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValidationResult& result) {

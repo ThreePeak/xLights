@@ -33,4 +33,17 @@ TEST_CASE("SequenceValidatorAI: Sequence Quality & Diagnostic Audit", "[Sequence
         REQUIRE(parsed["success"] == true);
         REQUIRE(parsed.contains("issues"));
     }
+
+    SECTION("Generates direct Master Sequencer Boss critique") {
+        SequenceValidationConfig config;
+        config.totalDurationMs = 60000;
+        config.activeEffectCount = 2500;
+        config.reviewMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS;
+
+        SequenceValidationResult result = SequenceValidatorAI::ValidateSequenceDiagnostics(config);
+        REQUIRE(result.success == true);
+        REQUIRE(!result.personaCritiqueBody.empty());
+        REQUIRE(result.personaCritiqueBody.find("MASTER SEQUENCER BOSS CRITIQUE") != std::string::npos);
+        REQUIRE(result.personaCritiqueBody.find("DIRECT AUDIT FINDINGS") != std::string::npos);
+    }
 }
