@@ -41,9 +41,11 @@ CategoryScorecard SequenceValidatorAI::CalculateScorecard(const std::vector<Sequ
             card.hardwareSafetyScore = std::max(0.0f, card.hardwareSafetyScore - penalty);
         } else if (issue.category == "VisualHarmony" || issue.category == "CreativeHarmony") {
             card.visualHarmonyScore = std::max(0.0f, card.visualHarmonyScore - penalty);
+        } else if (issue.category == "XmlIntegrity" || issue.category == "XMLIntegrity") {
+            card.xmlIntegrityScore = std::max(0.0f, card.xmlIntegrityScore - penalty);
         }
     }
-    card.overallSequenceHealthScore = (card.timingGridScore + card.channelOverlapScore + card.modelAssignmentScore + card.performanceScore + card.rhythmicPrecisionScore + card.hardwareSafetyScore + card.visualHarmonyScore) / 7.0f;
+    card.overallSequenceHealthScore = (card.timingGridScore + card.channelOverlapScore + card.modelAssignmentScore + card.performanceScore + card.rhythmicPrecisionScore + card.hardwareSafetyScore + card.visualHarmonyScore + card.xmlIntegrityScore) / 8.0f;
     card.overallHealthScore = card.overallSequenceHealthScore;
     return card;
 }
