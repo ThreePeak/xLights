@@ -112,6 +112,9 @@
 #include "src-ui-wx/ai/AISubmodelDetectorDialog.h"
 #include "src-ui-wx/ai/AIGrayCodePixelMapperDialog.h"
 #include "src-ui-wx/ai/AIAudioStemExtractorDialog.h"
+#include "src-ui-wx/ai/AICustomPropDesignerDialog.h"
+#include "src-ui-wx/ai/AIFPPSyncDialog.h"
+#include "src-ui-wx/ai/AIDMXAddressDialog.h"
 #include "diagnostics/ShowFolderSearchDialog.h"
 #include "sequencer/TopEffectsPanel.h"
 #include "utils/TraceLog.h"
@@ -306,6 +309,9 @@ const wxWindowID xLightsFrame::ID_MENU_GENERATE2DPATH = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_GenerateCustomModel = wxNewId();
 const wxWindowID xLightsFrame::ID_MNU_REMAPCUSTOM = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_GenerateAIImage = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_FPP_SYNC = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_DMX_ADVISOR = wxNewId();
 const wxWindowID xLightsFrame::ID_MNU_GENERATELYRICS = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_CONVERT = wxNewId();
 const wxWindowID xLightsFrame::ID_MNU_PREPAREAUDIO = wxNewId();
@@ -1078,6 +1084,19 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     Menu1->Append(MenuItemUserDict);
     MenuItemFindShowFolder = new wxMenuItem(Menu1, ID_MENU_FIND_SHOW_FOLDER, _("Search for Show Folders"), wxEmptyString, wxITEM_NORMAL);
     Menu1->Append(MenuItemFindShowFolder);
+    Menu1->AppendSeparator();
+    wxMenu* MenuAITools = new wxMenu();
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER, _("AI Custom Prop Designer..."), _("Design, refine, and 3D preview custom props using AI"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SEQUENCE_VALIDATOR, _("AI Sequence Validator..."), _("Validate sequence against physical rules and bounds"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_POWER_INSPECTOR, _("AI Power Injection Inspector..."), _("Calculate voltage drops and optimal power injection"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_FPP_SYNC, _("AI FPP Controller Sync Advisor..."), _("Analyze and optimize FPP controller channel layouts"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_DMX_ADVISOR, _("AI DMX Address Conflict Advisor..."), _("Detect and remap DMX/E1.31 address collisions"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_LUA_GENERATOR, _("AI Lua Script Generator..."), _("Generate Lua automation scripts using LLM prompts"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_MODEL_MAPPER, _("AI Model Mapping Wizard..."), _("Map downloaded sequence effects to your layout"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SUBMODEL_DETECTOR, _("AI Submodel Detector..."), _("Auto-detect segments, spokes, rings, and outlines"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_CAMERA_MAPPER, _("AI Camera Pixel Mapper..."), _("2D/3D camera capture and Gray code pixel calibration"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_AUDIO_STEMS, _("AI Audio Stem Extractor..."), _("Split audio into vocal, bass, drum, and synth stems"), wxITEM_NORMAL));
+    Menu1->AppendSubMenu(MenuAITools, _("&AI Copilot Tools"));
     MenuBar->Append(Menu1, _("&Tools"));
     MenuView = new wxMenu();
     MenuItem_ViewZoomIn = new wxMenuItem(MenuView, wxID_ZOOM_IN, _("Zoom In"), wxEmptyString, wxITEM_NORMAL);
@@ -1319,6 +1338,16 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     Connect(ID_MNU_EFFECTSYMBOLS, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_EffectSymbolsSelected);
     Connect(ID_MNU_CONVERTSYMBOLS, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_ConvertSymbolsSelected);
     Connect(ID_MENUITEM_GenerateAIImage, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_GenerateAIImageSelected);
+    Connect(ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAICustomPropDesignerSelected);
+    Connect(ID_MENUITEM_AI_SEQUENCE_VALIDATOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAISequenceValidatorSelected);
+    Connect(ID_MENUITEM_AI_POWER_INSPECTOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIPowerInspectorSelected);
+    Connect(ID_MENUITEM_AI_FPP_SYNC, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIFPPSyncSelected);
+    Connect(ID_MENUITEM_AI_DMX_ADVISOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIDMXAdvisorSelected);
+    Connect(ID_MENUITEM_AI_LUA_GENERATOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAILuaGeneratorSelected);
+    Connect(ID_MENUITEM_AI_MODEL_MAPPER, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIModelMapperSelected);
+    Connect(ID_MENUITEM_AI_SUBMODEL_DETECTOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAISubmodelDetectorSelected);
+    Connect(ID_MENUITEM_AI_CAMERA_MAPPER, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAICameraMapperSelected);
+    Connect(ID_MENUITEM_AI_AUDIO_STEMS, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIAudioStemsSelected);
     Connect(ID_MNU_GENERATELYRICS, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_GenerateLyricsSelected);
     Connect(ID_MENUITEM_CONVERT, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItemConvertSelected);
     Connect(ID_MNU_PREPAREAUDIO, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_PrepareAudioSelected);
@@ -6023,6 +6052,21 @@ void xLightsFrame::OnMenuAICameraMapperSelected(wxCommandEvent& WXUNUSED(event))
 
 void xLightsFrame::OnMenuAIAudioStemsSelected(wxCommandEvent& WXUNUSED(event)) {
     xLights::AI::AIAudioStemExtractorDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAICustomPropDesignerSelected(wxCommandEvent& WXUNUSED(event)) {
+    AICustomPropDesignerDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAIFPPSyncSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIFPPSyncDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAIDMXAdvisorSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIDMXAddressDialog dlg(this);
     dlg.ShowModal();
 }
 

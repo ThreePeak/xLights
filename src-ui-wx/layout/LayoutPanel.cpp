@@ -51,6 +51,7 @@
 #include "layout/ModelPreview.h"
 #include "xLightsMain.h"
 #include "xLightsApp.h"
+#include "src-ui-wx/ai/AICustomPropDesignerDialog.h"
 #include "settings/XLightsConfigAdapter.h"
 #include "model/ChannelLayoutDialog.h"
 #include "setup/ControllerConnectionDialog.h"
@@ -379,6 +380,7 @@ const long LayoutPanel::ID_TREELISTVIEW_MODELS = wxNewId();
 const long LayoutPanel::ID_TREELISTVIEW_GROUPS = wxNewId();
 const long LayoutPanel::ID_PREVIEW_REPLACEMODEL = wxNewId();
 const long LayoutPanel::ID_PREVIEW_RESET = wxNewId();
+const long LayoutPanel::ID_PREVIEW_AI_PROP_DESIGNER = wxNewId();
 const long LayoutPanel::ID_PREVIEW_MODELS_NOT_ON_CONTROLLER = wxNewId();
 const long LayoutPanel::ID_PREVIEW_ALIGN = wxNewId();
 const long LayoutPanel::ID_PREVIEW_RESIZE = wxNewId();
@@ -7646,6 +7648,9 @@ void LayoutPanel::OnPreviewRightDown(wxMouseEvent& event)
         mnu.Append(ID_PREVIEW_MODELS_NOT_ON_CONTROLLER, _("Show Models Not On Controller"));
     }
 
+    mnu.AppendSeparator();
+    mnu.Append(ID_PREVIEW_AI_PROP_DESIGNER, _("AI Custom Prop Designer..."));
+
     mnu.Connect(wxEVT_MENU, (wxObjectEventFunction)&LayoutPanel::OnPreviewModelPopup, nullptr, this);
     PopupMenu(&mnu);
     modelPreview->SetFocus();
@@ -7656,6 +7661,9 @@ void LayoutPanel::OnPreviewModelPopup(wxCommandEvent& event)
     if (event.GetId() == ID_PREVIEW_RESET) {
         modelPreview->Reset();
         xlights->GetOutputModelManager()->AddASAPWork(OutputModelManager::WORK_REDRAW_LAYOUTPREVIEW, "LayoutPanel::OnPreviewModelPopup::ID_PREVIEW_RESET");
+    } else if (event.GetId() == ID_PREVIEW_AI_PROP_DESIGNER) {
+        AICustomPropDesignerDialog dlg(this);
+        dlg.ShowModal();
     } else if (event.GetId() == ID_PREVIEW_MODELS_NOT_ON_CONTROLLER) {
         UnSelectAllModels();
         for (auto m : modelPreview->GetModels()) {

@@ -219,6 +219,7 @@ class LayoutPanel: public wxPanel
         static const long ID_TEXTCTRL_GROUP_FILTER;
         static const long ID_PREVIEW_REPLACEMODEL;
         static const long ID_PREVIEW_RESET;
+        static const long ID_PREVIEW_AI_PROP_DESIGNER;
         static const long ID_PREVIEW_MODELS_NOT_ON_CONTROLLER;
         static const long ID_PREVIEW_ALIGN;
         static const long ID_PREVIEW_MODEL_NODELAYOUT;

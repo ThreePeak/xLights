@@ -3,20 +3,29 @@
 #include "src-ui-wx/ai/AICustomPropDesignerDialog.h"
 #include "src-ui-wx/ai/AISequenceValidatorDialog.h"
 #include "src-ui-wx/ai/AIPowerInjectionDialog.h"
+#include "src-ui-wx/ai/AIFPPSyncDialog.h"
+#include "src-ui-wx/ai/AIDMXAddressDialog.h"
+#include <wx/confbase.h>
 #include <wx/msgdlg.h>
 
 enum {
     ID_AI_TOGGLE = 16001,
     ID_AI_PROP_DESIGNER = 16002,
     ID_AI_VALIDATOR = 16003,
-    ID_AI_POWER = 16004
+    ID_AI_POWER = 16004,
+    ID_AI_FPP_SYNC = 16005,
+    ID_AI_DMX_ADVISOR = 16006,
+    ID_AI_PIN_ALWAYS_VISIBLE = 16007
 };
 
 BEGIN_EVENT_TABLE(AIStatusBar, wxPanel)
     EVT_BUTTON(ID_AI_TOGGLE, AIStatusBar::OnToggleExpand)
+    EVT_CHECKBOX(ID_AI_PIN_ALWAYS_VISIBLE, AIStatusBar::OnPinAlwaysVisible)
     EVT_BUTTON(ID_AI_PROP_DESIGNER, AIStatusBar::OnOpenPropDesigner)
     EVT_BUTTON(ID_AI_VALIDATOR, AIStatusBar::OnOpenValidator)
     EVT_BUTTON(ID_AI_POWER, AIStatusBar::OnOpenPowerInspector)
+    EVT_BUTTON(ID_AI_FPP_SYNC, AIStatusBar::OnOpenFPPSync)
+    EVT_BUTTON(ID_AI_DMX_ADVISOR, AIStatusBar::OnOpenDMXAdvisor)
 END_EVENT_TABLE()
 
 AIStatusBar::AIStatusBar(wxWindow* parent, wxWindowID id)
@@ -44,38 +53,82 @@ void AIStatusBar::InitUI()
     wxButton* propBtn = new wxButton(m_expandPanel, ID_AI_PROP_DESIGNER, "🎨 Prop Designer");
     wxButton* valBtn = new wxButton(m_expandPanel, ID_AI_VALIDATOR, "✓ Validator");
     wxButton* powerBtn = new wxButton(m_expandPanel, ID_AI_POWER, "⚡ Power Inspector");
+    wxButton* fppBtn = new wxButton(m_expandPanel, ID_AI_FPP_SYNC, "📡 FPP Sync");
+    wxButton* dmxBtn = new wxButton(m_expandPanel, ID_AI_DMX_ADVISOR, "🔀 DMX Advisor");
+
+    m_alwaysVisibleCheck = new wxCheckBox(m_expandPanel, ID_AI_PIN_ALWAYS_VISIBLE, "📌 Always Visible");
+    
     expandSizer->Add(propBtn, 0, wxALL, 2);
     expandSizer->Add(valBtn, 0, wxALL, 2);
     expandSizer->Add(powerBtn, 0, wxALL, 2);
+    expandSizer->Add(fppBtn, 0, wxALL, 2);
+    expandSizer->Add(dmxBtn, 0, wxALL, 2);
+    expandSizer->Add(m_alwaysVisibleCheck, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, 6);
+    
     m_expandPanel->SetSizer(expandSizer);
-    m_expandPanel->Show(false);
+    
+    // Load preference from config
+    bool alwaysVisible = false;
+    if (wxConfigBase::Get()) {
+        wxConfigBase::Get()->Read("AI_ToolbarAlwaysVisible", &alwaysVisible, false);
+    }
+    m_alwaysVisibleCheck->SetValue(alwaysVisible);
+    m_expanded = alwaysVisible;
+    m_expandPanel->Show(m_expanded);
+    m_toggleBtn->SetLabel(m_expanded ? "⬡ AI ◂" : "⬡ AI ▸");
     
     mainSizer->Add(m_expandPanel, 0, wxALIGN_CENTER_VERTICAL);
     
     SetSizer(mainSizer);
 }
 
-void AIStatusBar::OnToggleExpand(wxCommandEvent& evt)
+void AIStatusBar::OnToggleExpand(wxCommandEvent& WXUNUSED(evt))
 {
     m_expanded = !m_expanded;
     m_expandPanel->Show(m_expanded);
     m_toggleBtn->SetLabel(m_expanded ? "⬡ AI ◂" : "⬡ AI ▸");
-    GetParent()->Layout();
+    if (GetParent()) {
+        GetParent()->Layout();
+    }
 }
 
-void AIStatusBar::OnOpenPropDesigner(wxCommandEvent& evt)
+void AIStatusBar::OnPinAlwaysVisible(wxCommandEvent& evt)
 {
-    (new AICustomPropDesignerDialog(GetParent()))->ShowModal();
+    bool pinned = evt.IsChecked();
+    if (wxConfigBase::Get()) {
+        wxConfigBase::Get()->Write("AI_ToolbarAlwaysVisible", pinned);
+        wxConfigBase::Get()->Flush();
+    }
 }
 
-void AIStatusBar::OnOpenValidator(wxCommandEvent& evt)
+void AIStatusBar::OnOpenPropDesigner(wxCommandEvent& WXUNUSED(evt))
 {
-    (new AISequenceValidatorDialog(GetParent()))->ShowModal();
+    AICustomPropDesignerDialog dlg(GetParent());
+    dlg.ShowModal();
 }
 
-void AIStatusBar::OnOpenPowerInspector(wxCommandEvent& evt)
+void AIStatusBar::OnOpenValidator(wxCommandEvent& WXUNUSED(evt))
 {
-    (new AIPowerInjectionDialog(GetParent()))->ShowModal();
+    xLights::AI::AISequenceValidatorDialog dlg(GetParent());
+    dlg.ShowModal();
+}
+
+void AIStatusBar::OnOpenPowerInspector(wxCommandEvent& WXUNUSED(evt))
+{
+    xLights::AI::AIPowerInjectionDialog dlg(GetParent());
+    dlg.ShowModal();
+}
+
+void AIStatusBar::OnOpenFPPSync(wxCommandEvent& WXUNUSED(evt))
+{
+    xLights::AI::AIFPPSyncDialog dlg(GetParent());
+    dlg.ShowModal();
+}
+
+void AIStatusBar::OnOpenDMXAdvisor(wxCommandEvent& WXUNUSED(evt))
+{
+    xLights::AI::AIDMXAddressDialog dlg(GetParent());
+    dlg.ShowModal();
 }
 
 void AIStatusBar::SetActiveModel(const wxString& modelName)

@@ -587,6 +587,9 @@ public:
     void OnMenuAISubmodelDetectorSelected(wxCommandEvent& event);
     void OnMenuAICameraMapperSelected(wxCommandEvent& event);
     void OnMenuAIAudioStemsSelected(wxCommandEvent& event);
+    void OnMenuAICustomPropDesignerSelected(wxCommandEvent& event);
+    void OnMenuAIFPPSyncSelected(wxCommandEvent& event);
+    void OnMenuAIDMXAdvisorSelected(wxCommandEvent& event);
     void OnMenuItem_Help_ForumSelected(wxCommandEvent& event);
     void OnMenuItem_Help_DownloadSelected(wxCommandEvent& event);
     void OnMenuItem_Help_ReleaseNotesSelected(wxCommandEvent& event);
@@ -815,6 +818,9 @@ public:
     static const wxWindowID ID_MENUITEM_AI_SUBMODEL_DETECTOR;
     static const wxWindowID ID_MENUITEM_AI_CAMERA_MAPPER;
     static const wxWindowID ID_MENUITEM_AI_AUDIO_STEMS;
+    static const wxWindowID ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER;
+    static const wxWindowID ID_MENUITEM_AI_FPP_SYNC;
+    static const wxWindowID ID_MENUITEM_AI_DMX_ADVISOR;
     static const wxWindowID ID_MNU_GENERATELYRICS;
     static const wxWindowID ID_MENUITEM_CONVERT;
     static const wxWindowID ID_MNU_PREPAREAUDIO;
