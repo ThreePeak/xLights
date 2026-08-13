@@ -100,4 +100,37 @@ TEST_CASE("SequenceValidatorAI: Sequence Quality & Diagnostic Audit", "[Sequence
         REQUIRE(card.hardwareSafetyScore < 100.0f);
         REQUIRE(card.overallHealthScore > 0.0f);
     }
+
+    SECTION("AutoRemediateSequence XML repair engine works") {
+        std::string rawXml = "<seq overlap=\"true\"><color>255,255,255</color></seq>";
+        std::vector<SequenceIssue> issues;
+        SequenceIssue i1;
+        i1.category = "ChannelOverlap";
+        i1.autoFixable = true;
+        issues.push_back(i1);
+        SequenceIssue i2;
+        i2.category = "HardwareSafety";
+        i2.autoFixable = true;
+        issues.push_back(i2);
+
+        std::string remediated = SequenceValidatorAI::AutoRemediateSequence(rawXml, issues);
+        REQUIRE(remediated.find("overlap=\"false\"") != std::string::npos);
+        REQUIRE(remediated.find("200,200,200") != std::string::npos);
+    }
+
+    SECTION("GenerateBossCritique overload with CategoryScorecard and issues works") {
+        CategoryScorecard card;
+        card.overallHealthScore = 80.0f;
+        std::vector<SequenceIssue> issues;
+        SequenceIssue i1;
+        i1.category = "TimingGrid";
+        i1.message = "Timing drift detected";
+        i1.suggestedFix = "Quantize timing grid";
+        issues.push_back(i1);
+
+        std::string critique = SequenceValidatorAI::GenerateBossCritique(card, issues);
+        REQUIRE(!critique.empty());
+        REQUIRE(critique.find("MASTER SEQUENCER BOSS CRITIQUE") != std::string::npos);
+        REQUIRE(critique.find("Timing drift detected") != std::string::npos);
+    }
 }
