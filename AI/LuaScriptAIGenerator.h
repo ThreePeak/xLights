@@ -56,7 +56,7 @@ public:
         return {"natural_language_lua_generation", "xlights_lua_api_binding", "sandbox_script_validation"};
     }
 
-    // Converts natural language prompts into executable sandboxed xLights Lua scripts
+    // Translate a natural language prompt into an executable xLights Lua automation script
     [[nodiscard]] static LuaScriptResult GenerateLuaScript(const LuaScriptConfig& config);
 
     // Validates Lua code against xLights Lua API schema and safety rules
