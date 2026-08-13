@@ -105,7 +105,7 @@ struct SequenceValidationResult {
     std::string personaCritiqueBody;   // Contains Master Sequencer or Journalist critique
 };
 
-using ComprehensiveAuditReport = SequenceValidationResult;
+struct ComprehensiveAuditReport : public SequenceValidationResult {};
 
 class SequenceValidatorAI : public AISubsystemBase {
 public:
