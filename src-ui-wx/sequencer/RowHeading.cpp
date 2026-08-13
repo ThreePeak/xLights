@@ -36,6 +36,7 @@
 #include "UtilFunctions.h"
 #include "graphics/opengl/xlGLCanvas.h"
 #include "sequencer/MetronomeLabelDialog.h"
+#include "AI/PredictiveDiagnosticWorker.h"
 
 #include <log.h>
 #include "shared/utils/wxUtilities.h"
@@ -2889,4 +2890,32 @@ int RowHeading::getWidth() const
 int RowHeading::getHeight() const
 {
     return GetSize().y;
+}
+
+void RowHeading::RenderPredictiveTelemetryBadges(wxDC& dc) {
+    if (mSequenceElements == nullptr) return;
+
+    std::vector<std::string> modelNames;
+    for (int r = 0; r < mSequenceElements->GetRowInformationSize(); r++) {
+        Row_Information_Struct* info = mSequenceElements->GetRowInformation(r);
+        if (info && info->element) {
+            modelNames.push_back(info->element->GetName());
+        }
+    }
+
+    auto report = xLights::AI::PredictiveDiagnosticWorker::RunBackgroundDiagnosticScan("", 60000, modelNames);
+    for (const auto& badge : report.badges) {
+        if (badge.rowId >= 0 && badge.rowId < mSequenceElements->GetRowInformationSize()) {
+            int yPos = badge.rowId * DEFAULT_ROW_HEADING_HEIGHT + 4;
+            if (badge.type == xLights::AI::DiagnosticBadgeType::POWER_DROP_WARNING) {
+                dc.SetBrush(*wxYELLOW_BRUSH);
+                dc.SetPen(*wxBLACK_PEN);
+                dc.DrawCircle(12, yPos + 6, 5);
+            } else if (badge.type == xLights::AI::DiagnosticBadgeType::CHANNEL_OVERLAP_ERROR) {
+                dc.SetBrush(*wxRED_BRUSH);
+                dc.SetPen(*wxWHITE_PEN);
+                dc.DrawRectangle(8, yPos + 2, 10, 10);
+            }
+        }
+    }
 }

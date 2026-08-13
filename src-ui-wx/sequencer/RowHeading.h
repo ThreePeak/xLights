@@ -43,6 +43,7 @@ public:
     void SelectTiming(int timing);
     
     void SetShowGroupEffectIndicator(bool b) { groupEffectIndicator = b; }
+    void RenderPredictiveTelemetryBadges(wxDC& dc);
 
     static int rowHeadingSize;
     
