@@ -2472,6 +2472,37 @@ void EffectsGrid::ApplyEffectSettingToSelected(const std::string& effectName, co
     }
 }
 
+void EffectsGrid::ApplyCallbackToSelected(const std::string& effectName, const std::function<bool(Effect*)>& mutator) {
+    Element* lastModel = nullptr;
+    RangeAccumulator rangeAccumulator;
+
+    mSequenceElements->get_undo_mgr().CreateUndoStep();
+    for (int row = 0; row < mSequenceElements->GetRowInformationSize(); row++) {
+        Row_Information_Struct* ri = mSequenceElements->GetRowInformationFromRow(row);
+
+        if (ri->element != lastModel && lastModel != nullptr && rangeAccumulator.size() > 0) {
+            rangeAccumulator.Consolidate();
+            sendRenderEvent(lastModel->GetModelName(), rangeAccumulator.front().first, rangeAccumulator.back().second);
+
+            rangeAccumulator.clear();
+        }
+        lastModel = ri->element;
+
+        if (ri->element->GetType() == ElementType::ELEMENT_TYPE_TIMING) {
+            // skip timing rows
+        } else {
+            mSequenceElements->GetEffectLayer(row)->ApplyCallbackToSelected(this, mSequenceElements->get_undo_mgr(), effectName, mutator, xlights->GetEffectManager(), rangeAccumulator);
+        }
+    }
+
+    if (lastModel != nullptr && rangeAccumulator.size() > 0) {
+        rangeAccumulator.Consolidate();
+        sendRenderEvent(lastModel->GetModelName(), rangeAccumulator.front().first, rangeAccumulator.back().second);
+
+        rangeAccumulator.clear();
+    }
+}
+
 void EffectsGrid::ApplyButtonPressToSelected(const std::string& effectName, const std::string id) {
     Element* lastModel = nullptr;
     RangeAccumulator rangeAccumulator;
@@ -5980,6 +6011,13 @@ Effect* EffectsGrid::Paste(const wxString& data, const wxString& pasteDataVersio
 
     Effect* res = nullptr;
 
+    auto isModelGroupElement = [this](Element* elem) -> bool {
+        if (elem == nullptr)
+            return false;
+        Model* m = xlights->AllModels[elem->GetModelName()];
+        return m != nullptr && m->GetDisplayAs() == DisplayAsType::ModelGroup;
+    };
+
     if (mSequenceElements == nullptr)
         return res;
 
@@ -6260,7 +6298,7 @@ Effect* EffectsGrid::Paste(const wxString& data, const wxString& pasteDataVersio
                             for (int si = 0; si < me->GetSubModelCount(); ++si)
                                 deleteUnused(me->GetSubModel(si));
                             undo_mgr.CreateUndoStep(); // needed for redo
-                            if (!singleElementPaste) {
+                            if (!singleElementPaste && !isModelGroupElement(me)) {
                                 me->ShowSubModels(true);
                                 me->ShowStrands(true);
                                 mSequenceElements->PopulateRowInformation();
@@ -6366,7 +6404,7 @@ Effect* EffectsGrid::Paste(const wxString& data, const wxString& pasteDataVersio
                         if (!singleElementPaste) {
                             for (auto& [elem, maxLayer] : elemMaxLayer) {
                                 ModelElement* me2 = dynamic_cast<ModelElement*>(elem);
-                                if (me2 != nullptr) {
+                                if (me2 != nullptr && !isModelGroupElement(me2)) {
                                     me2->ShowSubModels(true);
                                     me2->ShowStrands(true);
                                 }
@@ -6855,7 +6893,8 @@ void EffectsGrid::ResizeSingleEffectMS(int timems) {
     }
 
     if (mResizingMode == EFFECT_RESIZE_LEFT || mResizingMode == EFFECT_RESIZE_LEFT_EDGE) {
-        bool prevLocked = mResizeEffectIndex > 0 && mEffectLayer->GetEffect(mResizeEffectIndex - 1)->IsLocked();
+        Effect* priorEffect = mEffectLayer->GetPriorEffect(mResizeEffectIndex);
+        bool prevLocked = priorEffect != nullptr && priorEffect->IsLocked();
         int minimumTime = mEffectLayer->GetMinimumStartTimeMS(mResizeEffectIndex, mResizingMode == EFFECT_RESIZE_LEFT && !prevLocked, mSequenceElements->GetMinPeriod());
         // User has dragged left side to the right side exit
         if (time >= mEffectLayer->GetEffect(mResizeEffectIndex)->GetEndTimeMS()) {
@@ -6866,7 +6905,7 @@ void EffectsGrid::ResizeSingleEffectMS(int timems) {
                 time = 0;
             }
             if (mEffectLayer->IsStartTimeLinked(mResizeEffectIndex) && mResizingMode == EFFECT_RESIZE_LEFT && !prevLocked) {
-                Effect* eff = mEffectLayer->GetEffect(mResizeEffectIndex - 1);
+                Effect* eff = priorEffect;
                 if (mSequenceElements->get_undo_mgr().GetCaptureUndo()) {
                     mSequenceElements->get_undo_mgr().CaptureEffectToBeMoved(mEffectLayer->GetParentElement()->GetModelName(), mEffectLayer->GetIndex(), eff->GetID(),
                                                                              eff->GetStartTimeMS(), eff->GetEndTimeMS());
@@ -6880,24 +6919,25 @@ void EffectsGrid::ResizeSingleEffectMS(int timems) {
             }
             eff->SetStartTimeMS(time);
         } else {
-            if (mResizeEffectIndex != 0) {
+            if (priorEffect != nullptr) {
                 Effect* eff = mEffectLayer->GetEffect(mResizeEffectIndex);
                 if (mSequenceElements->get_undo_mgr().GetCaptureUndo()) {
                     mSequenceElements->get_undo_mgr().CaptureEffectToBeMoved(mEffectLayer->GetParentElement()->GetModelName(), mEffectLayer->GetIndex(), eff->GetID(),
                                                                              eff->GetStartTimeMS(), eff->GetEndTimeMS());
                 }
-                eff->SetStartTimeMS(mEffectLayer->GetEffect(mResizeEffectIndex - 1)->GetEndTimeMS());
+                eff->SetStartTimeMS(priorEffect->GetEndTimeMS());
             }
         }
     } else if (mResizingMode == EFFECT_RESIZE_RIGHT || mResizingMode == EFFECT_RESIZE_RIGHT_EDGE) {
-        bool nextLocked = mResizeEffectIndex + 1 < mEffectLayer->GetEffectCount() && mEffectLayer->GetEffect(mResizeEffectIndex + 1)->IsLocked();
+        Effect* nextEffect = mEffectLayer->GetNextEffect(mResizeEffectIndex);
+        bool nextLocked = nextEffect != nullptr && nextEffect->IsLocked();
         int maximumTime = mEffectLayer->GetMaximumEndTimeMS(mResizeEffectIndex, mResizingMode == EFFECT_RESIZE_RIGHT && !nextLocked, mSequenceElements->GetMinPeriod());
         // User has dragged right side to the left side exit
         if (time <= mEffectLayer->GetEffect(mResizeEffectIndex)->GetStartTimeMS()) {
             return;
         } else if (time <= maximumTime || maximumTime == NO_MIN_MAX_TIME) {
             if (mEffectLayer->IsEndTimeLinked(mResizeEffectIndex) && mResizingMode == EFFECT_RESIZE_RIGHT && !nextLocked) {
-                Effect* eff = mEffectLayer->GetEffect(mResizeEffectIndex + 1);
+                Effect* eff = nextEffect;
                 if (mSequenceElements->get_undo_mgr().GetCaptureUndo()) {
                     mSequenceElements->get_undo_mgr().CaptureEffectToBeMoved(mEffectLayer->GetParentElement()->GetModelName(), mEffectLayer->GetIndex(), eff->GetID(),
                                                                              eff->GetStartTimeMS(), eff->GetEndTimeMS());
@@ -6911,13 +6951,13 @@ void EffectsGrid::ResizeSingleEffectMS(int timems) {
             }
             eff->SetEndTimeMS(time);
         } else {
-            if (mResizeEffectIndex < mEffectLayer->GetEffectCount() - 1) {
+            if (nextEffect != nullptr) {
                 Effect* eff = mEffectLayer->GetEffect(mResizeEffectIndex);
                 if (mSequenceElements->get_undo_mgr().GetCaptureUndo()) {
                     mSequenceElements->get_undo_mgr().CaptureEffectToBeMoved(mEffectLayer->GetParentElement()->GetModelName(), mEffectLayer->GetIndex(), eff->GetID(),
                                                                              eff->GetStartTimeMS(), eff->GetEndTimeMS());
                 }
-                eff->SetEndTimeMS(mEffectLayer->GetEffect(mResizeEffectIndex + 1)->GetStartTimeMS());
+                eff->SetEndTimeMS(nextEffect->GetStartTimeMS());
             }
         }
     }
@@ -9122,8 +9162,11 @@ void EffectsGrid::PasteModelEffectsWithSubModelLayers(ModelElement* me) {
         return;
 
     me->SetCollapsed(false);
-    me->ShowSubModels(true);
-    me->ShowStrands(true);
+    Model* destModel = xlights->AllModels[me->GetModelName()];
+    if (destModel == nullptr || destModel->GetDisplayAs() != DisplayAsType::ModelGroup) {
+        me->ShowSubModels(true);
+        me->ShowStrands(true);
+    }
 
     xLightsApp::GetFrame()->AbortRender();
 
