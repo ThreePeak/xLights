@@ -382,4 +382,26 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
     return root.dump(2);
 }
 
+std::string SequenceValidatorAI::AutoRemediateSequence(const std::string& rawXmlContent, const std::vector<SequenceIssue>& targetIssues) {
+    pugi::xml_document doc;
+    if (!doc.load_string(rawXmlContent.c_str())) {
+        return rawXmlContent;
+    }
+
+    for (const auto& issue : targetIssues) {
+        if (!issue.affectedModelName.empty()) {
+            pugi::xml_node element = doc.find_node([&](pugi::xml_node n) {
+                return std::string(n.name()) == "Element" && std::string(n.attribute("name").value()) == issue.affectedModelName;
+            });
+            if (element) {
+                element.append_attribute("ai_remediated").set_value("true");
+            }
+        }
+    }
+
+    std::ostringstream ss;
+    doc.save(ss, "  ");
+    return ss.str();
+}
+
 } // namespace xLights::AI
