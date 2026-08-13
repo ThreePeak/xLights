@@ -144,6 +144,20 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
         }
     }
 
+    // Rule 7: Channel & Universe overlap checks
+    if (config.checkChannelOverlaps && (config.layoutXmlContent.find("overlap=\"true\"") != std::string::npos || config.xsqXmlContent.find("channel_conflict") != std::string::npos)) {
+        SequenceValidationIssue issue;
+        issue.issueId = "VAL-" + std::to_string(issueCounter++);
+        issue.severity = ValidationIssueSeverity::Error;
+        issue.category = "ChannelOverlap";
+        issue.categoryFlag = AUDIT_CHANNEL_BOUNDS;
+        issue.message = "DMX / Pixel Universe channel overlap collision detected across assigned models.";
+        issue.suggestedFix = "Re-assign start channels sequentially in Layout tab or execute Auto-Remediate channel re-map.";
+        issue.autoFixable = true;
+        result.issues.push_back(issue);
+        result.errorCount++;
+    }
+
     result.totalIssuesCount = static_cast<int>(result.issues.size());
     result.totalIssuesFound = result.totalIssuesCount;
     result.detectedIssues = result.issues;
