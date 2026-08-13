@@ -225,11 +225,24 @@ void AISequenceValidatorDialog::OnAutoRemediateButtonClick(wxCommandEvent& WXUNU
         return;
     }
 
+    // Register Undo step in xLights UndoManager before applying remediation
+    if (xLightsApp::GetFrame() && xLightsApp::GetFrame()->GetSequenceElements()) {
+        xLightsApp::GetFrame()->GetSequenceElements()->get_undo_mgr().CreateUndoStep();
+    }
+
     std::string remediated = SequenceValidatorAI::AutoRemediateSequence(m_config.xsqXmlContent, m_lastResult.issues);
     m_config.xsqXmlContent = remediated;
     m_lastResult.remediatedSequenceXML = remediated;
 
-    wxMessageBox(wxT("Auto-Remediation complete! XML issue fixes applied."), wxT("Auto-Remediate XML"), wxOK | wxICON_INFORMATION, this);
+    // Apply remediated XML directly to active SequenceFile in memory
+    if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetSequenceLoaded()) {
+        xLightsFrame::CurrentSeqXmlFile->SetRawXMLContent(remediated);
+        if (xLightsApp::GetFrame()) {
+            xLightsApp::GetFrame()->DoForceSequencerRefresh();
+        }
+    }
+
+    wxMessageBox(wxT("Auto-Remediation complete! XML issue fixes applied and Undo step created."), wxT("Auto-Remediate XML"), wxOK | wxICON_INFORMATION, this);
 }
 
 void AISequenceValidatorDialog::OnExportJSONButtonClick(wxCommandEvent& WXUNUSED(event)) {
