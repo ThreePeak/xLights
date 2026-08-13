@@ -26,7 +26,17 @@ static std::string ToLower(std::string_view str) {
 CategoryScorecard SequenceValidatorAI::CalculateScorecard(const std::vector<SequenceIssue>& issues) {
     CategoryScorecard card;
     for (const auto& issue : issues) {
-        float penalty = (issue.severity == ValidationIssueSeverity::Error || issue.severity == ValidationIssueSeverity::Critical) ? 25.0f : 10.0f;
+        float penalty = 10.0f;
+        if (issue.severity == ValidationIssueSeverity::Critical || issue.severity == ValidationIssueSeverity::CRITICAL_ERROR) {
+            penalty = 30.0f;
+        } else if (issue.severity == ValidationIssueSeverity::Error || issue.severity == ValidationIssueSeverity::ERROR) {
+            penalty = 20.0f;
+        } else if (issue.severity == ValidationIssueSeverity::Warning || issue.severity == ValidationIssueSeverity::WARNING) {
+            penalty = 10.0f;
+        } else if (issue.severity == ValidationIssueSeverity::Info || issue.severity == ValidationIssueSeverity::INFO) {
+            penalty = 5.0f;
+        }
+
         if (issue.category == "TimingGrid") {
             card.timingGridScore = std::max(0.0f, card.timingGridScore - penalty);
         } else if (issue.category == "ChannelOverlap") {
