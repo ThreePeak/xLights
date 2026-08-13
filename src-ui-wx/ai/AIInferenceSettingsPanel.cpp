@@ -195,6 +195,7 @@ void AIInferenceSettingsPanel::InitUI() {
 
     m_backendChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) { SaveSettingsToConfig(); });
     m_primaryModelChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) { SaveSettingsToConfig(); });
+    m_systemPromptCtrl->Bind(wxEVT_TEXT, [this](wxCommandEvent&) { SaveSettingsToConfig(); });
 }
 
 void AIInferenceSettingsPanel::LoadSettingsFromConfig() {
