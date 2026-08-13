@@ -51,7 +51,8 @@ enum AuditCategoryFlags {
     AUDIT_XML_INTEGRITY      = 1 << 0, // Corrupted XML, invalid tags, missing schemas
     AUDIT_CHANNEL_BOUNDS     = 1 << 1, // Channel overlaps, unmapped universe bounds
     AUDIT_TIMING             = 1 << 2,
-    AUDIT_OVERLAP            = 1 << 3,
+    AUDIT_RENDER_PERFORMANCE = 1 << 3, // Layer collisions, excessive buffer redraws
+    AUDIT_OVERLAP            = 1 << 4,
     AUDIT_PERFORMANCE        = 1 << 4,
     AUDIT_HARDWARE_SAFETY    = 1 << 5, // Over-current risks, high-density white clipping
     AUDIT_BOUNDS             = 1 << 6,
