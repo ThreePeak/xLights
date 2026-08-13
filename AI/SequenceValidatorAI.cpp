@@ -62,8 +62,35 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
 
     int issueCounter = 1;
 
+    // Apply scopeFilter to target/ignore props
+    std::vector<std::string> filteredModels;
+    for (const auto& model : config.activeModelNames) {
+        // Skip ignored props
+        bool isIgnored = false;
+        for (const auto& ignored : config.scopeFilter.ignorePropNames) {
+            if (ToLower(model).find(ToLower(ignored)) != std::string::npos) {
+                isIgnored = true;
+                break;
+            }
+        }
+        if (isIgnored) continue;
+
+        // Filter target props if non-empty
+        if (!config.scopeFilter.targetPropNames.empty()) {
+            bool isTarget = false;
+            for (const auto& target : config.scopeFilter.targetPropNames) {
+                if (ToLower(model).find(ToLower(target)) != std::string::npos) {
+                    isTarget = true;
+                    break;
+                }
+            }
+            if (!isTarget) continue;
+        }
+        filteredModels.push_back(model);
+    }
+
     // Rule 1: Unassigned model layout check
-    if (config.activeModelNames.empty()) {
+    if (config.activeModelNames.empty() && filteredModels.empty()) {
         SequenceValidationIssue issue;
         issue.issueId = "VAL-" + std::to_string(issueCounter++);
         issue.severity = ValidationIssueSeverity::Error;
@@ -86,8 +113,9 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
         result.warningCount++;
     }
 
-    // Rule 3: Timing grid gaps check
-    if (config.checkTimingGaps && config.totalDurationMs > 30000 && config.activeEffectCount < 5) {
+    // Rule 3: Timing grid gaps check (scoped time range check)
+    int evalDurationMs = (config.scopeFilter.endMs > 0) ? (config.scopeFilter.endMs - config.scopeFilter.startMs) : config.totalDurationMs;
+    if (config.checkTimingGaps && evalDurationMs > 30000 && config.activeEffectCount < 5) {
         SequenceValidationIssue issue;
         issue.issueId = "VAL-" + std::to_string(issueCounter++);
         issue.severity = ValidationIssueSeverity::Warning;
@@ -98,8 +126,8 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
         result.warningCount++;
     }
 
-    // Rule 4: Model specific check
-    for (const auto& model : config.activeModelNames) {
+    // Rule 4: Model specific check (applied to filtered scope models)
+    for (const auto& model : filteredModels) {
         if (ToLower(model).find("tree") != std::string::npos && config.activeEffectCount < 2) {
             SequenceValidationIssue issue;
             issue.issueId = "VAL-" + std::to_string(issueCounter++);
