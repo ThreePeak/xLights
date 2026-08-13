@@ -78,7 +78,7 @@ enum class PersonaReviewMode {
 };
 
 struct TargetScopeFilter {
-    int startMs = 0;
+    int startMs = 0;                           // 0 = Start of sequence
     int endMs = -1;                            // -1 = Full duration
     std::vector<std::string> targetPropNames;  // Empty = All props
     std::vector<std::string> ignorePropNames;  // Ignored props/directories
@@ -90,7 +90,7 @@ struct SequenceValidationConfig {
     std::string layoutXmlContent;      // Raw layout XML string for direct structural auditing
     std::string xsqXmlContent;         // Raw .xsq sequence XML string for direct XML sequence auditing
     int totalDurationMs = 0;
-    int startMs = 0;                   // Start time range in milliseconds
+    int startMs = 0;                   // 0 = Start of sequence
     int endMs = -1;                    // -1 = Full duration
     int activeEffectCount = 0;
     std::vector<std::string> activeModelNames;
