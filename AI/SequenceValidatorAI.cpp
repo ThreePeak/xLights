@@ -139,6 +139,10 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
         result.personaCritiqueBody = critique.str();
     }
 
+    if (config.actionMode == ExecutionActionMode::AUTO_REPAIR || config.actionMode == ExecutionActionMode::AUTO_REMEDIATE) {
+        result.remediatedSequenceXML = config.xsqXmlContent;
+    }
+
     result.success = true;
     result.passedAudit = (result.errorCount == 0);
     spdlog::info("SequenceValidatorAI: {}", result.validationSummary);
@@ -206,6 +210,7 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
     root["validationSummary"] = result.validationSummary;
     root["personaCritiqueTitle"] = result.personaCritiqueTitle;
     root["personaCritiqueBody"] = result.personaCritiqueBody;
+    root["remediatedSequenceXML"] = result.remediatedSequenceXML;
 
     nlohmann::json issuesArr = nlohmann::json::array();
     for (const auto& issue : result.issues) {

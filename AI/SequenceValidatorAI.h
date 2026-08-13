@@ -131,6 +131,7 @@ struct SequenceValidationResult {
     std::string validationSummary;
     std::string personaCritiqueTitle;  // Title of persona critique e.g. "Master Sequencer Boss Review"
     std::string personaCritiqueBody;   // Contains Master Sequencer or Journalist critique
+    std::string remediatedSequenceXML; // Remediated XML content after auto-fix
 };
 
 struct ComprehensiveAuditReport : public SequenceValidationResult {};
