@@ -130,6 +130,7 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
         iss["affectedModelName"] = issue.affectedModelName;
         iss["timeMs"] = issue.timeMs;
         iss["suggestedFix"] = issue.suggestedFix;
+        iss["autoFixable"] = issue.autoFixable;
         issuesArr.push_back(iss);
     }
     root["issues"] = issuesArr;

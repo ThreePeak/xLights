@@ -32,6 +32,7 @@ struct SequenceValidationIssue {
     std::string affectedModelName;
     int timeMs = -1;
     std::string suggestedFix;
+    bool autoFixable = false;          // Whether AI engine can automatically resolve this issue
 };
 
 struct SequenceValidationConfig {
