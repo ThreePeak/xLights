@@ -71,4 +71,33 @@ TEST_CASE("SequenceValidatorAI: Sequence Quality & Diagnostic Audit", "[Sequence
         REQUIRE(!review.empty());
         REQUIRE(review.find("LIGHT SHOW CHRONICLE REVIEW") != std::string::npos);
     }
+
+    SECTION("Fine-grained pre-run toggles and TargetScopeFilter") {
+        SequenceValidationConfig config;
+        config.totalDurationMs = 60000;
+        config.activeEffectCount = 10;
+        config.checkTimingGaps = false;
+        config.checkPerformanceBottlenecks = false;
+
+        config.scopeFilter.startMs = 1000;
+        config.scopeFilter.endMs = 50000;
+        config.scopeFilter.targetPropNames = {"MegaTree", "Roofline"};
+        config.scopeFilter.ignorePropNames = {"BackgroundMatrix"};
+
+        SequenceValidationResult result = SequenceValidatorAI::ValidateSequenceDiagnostics(config);
+        REQUIRE(result.success == true);
+        REQUIRE(result.passedAudit == true);
+    }
+
+    SECTION("Calculates CategoryScorecard including HardwareSafety") {
+        std::vector<SequenceIssue> issues;
+        SequenceIssue i1;
+        i1.category = "HardwareSafety";
+        i1.severity = ValidationIssueSeverity::Warning;
+        issues.push_back(i1);
+
+        CategoryScorecard card = SequenceValidatorAI::CalculateScorecard(issues);
+        REQUIRE(card.hardwareSafetyScore < 100.0f);
+        REQUIRE(card.overallHealthScore > 0.0f);
+    }
 }
