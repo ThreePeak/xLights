@@ -118,6 +118,7 @@ public:
     void MoveSelectedEffectDown(bool shift);
     void MoveSelectedEffectLeft(bool shift, bool control, bool alt);
     void MoveSelectedEffectRight(bool shift, bool control, bool alt);
+    void OnAIGenerateEffectForSelection();
     void SetEffectStatusText(Effect* eff) const;
     void InsertEffectLayerAbove();
     void InsertEffectLayerBelow();

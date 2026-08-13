@@ -38,6 +38,7 @@
 #include "render/SequenceElements.h"
 #include "render/SongStructureManager.h"
 #include "TimeLine.h"
+#include "AI/LuaScriptGenerator.h"
 #include "sequencer/AutoLabelDialog.h"
 #include "shared/utils/BitmapCache.h"
 #include "sequencer/DuplicateDialog.h"
@@ -2695,6 +2696,32 @@ void EffectsGrid::ConvertSelectedEffectsTo(const std::string& effectName) {
 
         rangeAccumulator.clear();
     }
+}
+
+void EffectsGrid::OnAIGenerateEffectForSelection() {
+    if (mSequenceElements == nullptr || mTimeline == nullptr) return;
+
+    wxTextEntryDialog dlg(this, wxT("Describe the AI effect to generate for the selection:"), wxT("AI Effect Generator for Selection"), wxT("Cascading 3D rainbow wave timed to 120 BPM"));
+    if (dlg.ShowModal() != wxID_OK) return;
+
+    std::string prompt = dlg.GetValue().ToStdString();
+    if (prompt.empty()) return;
+
+    std::string luaScript = xLights::AI::LuaScriptGenerator::GenerateLuaScript(prompt);
+
+    int startMS = GetDropStartMS();
+    int endMS = startMS + 2000;
+
+    mSequenceElements->get_undo_mgr().CreateUndoStep();
+    for (int row = 0; row < mSequenceElements->GetRowInformationSize(); row++) {
+        EffectLayer* el = mSequenceElements->GetEffectLayer(row);
+        if (el && el->GetSelectedEffectCount() > 0) {
+            el->AddEffect(0, "Script", "E_TEXTCTRL_Script=" + luaScript, "", startMS, endMS, EFFECT_SELECTED, false);
+        }
+    }
+
+    sendRenderDirtyEvent();
+    Draw();
 }
 
 Effect* EffectsGrid::ACDraw(ACTYPE type, ACSTYLE style, ACMODE mode, int intensity, int a, int b, int startMS, int endMS, int startRow, int endRow) {
