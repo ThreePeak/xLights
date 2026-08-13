@@ -14,6 +14,8 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/listctrl.h>
+#include <wx/gauge.h>
+#include <wx/filedlg.h>
 #include <wx/sizer.h>
 
 #include "AI/PowerInjectionAnalyzer.h"
@@ -31,6 +33,7 @@ private:
 
     // Event Handlers
     void OnCalculateButtonClick(wxCommandEvent& event);
+    void OnExportCsvButtonClick(wxCommandEvent& event);
     void OnCloseButtonClick(wxCommandEvent& event);
 
     // Controls
@@ -42,8 +45,10 @@ private:
     wxStaticText* m_voltageDropLabel = nullptr;
     wxStaticText* m_currentLabel = nullptr;
     wxListCtrl* m_injectionPointsList = nullptr;
+    wxGauge* m_calcProgress = nullptr;
 
     wxButton* m_calculateBtn = nullptr;
+    wxButton* m_exportCsvBtn = nullptr;
     wxButton* m_closeBtn = nullptr;
 
     DECLARE_EVENT_TABLE()

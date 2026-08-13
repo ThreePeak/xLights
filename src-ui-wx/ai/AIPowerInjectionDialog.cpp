@@ -13,12 +13,14 @@
 namespace xLights::AI {
 
 enum {
-    ID_POWER_CALCULATE_BTN = 12001
+    ID_POWER_CALCULATE_BTN = 12001,
+    ID_POWER_EXPORT_CSV_BTN = 12002
 };
 
 wxBEGIN_EVENT_TABLE(AIPowerInjectionDialog, wxDialog)
-    EVT_BUTTON(ID_POWER_CALCULATE_BTN, AIPowerInjectionDialog::OnCalculateButtonClick)
-    EVT_BUTTON(wxID_CANCEL, AIPowerInjectionDialog::OnCloseButtonClick)
+    EVT_BUTTON(ID_POWER_CALCULATE_BTN,  AIPowerInjectionDialog::OnCalculateButtonClick)
+    EVT_BUTTON(ID_POWER_EXPORT_CSV_BTN, AIPowerInjectionDialog::OnExportCsvButtonClick)
+    EVT_BUTTON(wxID_CANCEL,             AIPowerInjectionDialog::OnCloseButtonClick)
 wxEND_EVENT_TABLE()
 
 AIPowerInjectionDialog::AIPowerInjectionDialog(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style)
@@ -88,12 +90,18 @@ void AIPowerInjectionDialog::InitUI() {
     tableBox->GetSizer()->Add(m_injectionPointsList, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(tableBox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
-    // Action Buttons
+    // Action Buttons + Progress Gauge
+    m_calcProgress = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, wxSize(-1, 12));
+    m_calcProgress->SetValue(0);
+    mainSizer->Add(m_calcProgress, 0, wxEXPAND | wxLEFT | wxRIGHT, 10);
+
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    m_calculateBtn = new wxButton(this, ID_POWER_CALCULATE_BTN, wxT("Recalculate Power Drops"));
-    m_closeBtn = new wxButton(this, wxID_CANCEL, wxT("Close"));
+    m_calculateBtn  = new wxButton(this, ID_POWER_CALCULATE_BTN, wxT("Recalculate Power Drops"));
+    m_exportCsvBtn  = new wxButton(this, ID_POWER_EXPORT_CSV_BTN, wxT("Export CSV"));
+    m_closeBtn      = new wxButton(this, wxID_CANCEL, wxT("Close"));
 
     btnSizer->Add(m_calculateBtn, 0, wxALL, 5);
+    btnSizer->Add(m_exportCsvBtn, 0, wxALL, 5);
     btnSizer->AddStretchSpacer();
     btnSizer->Add(m_closeBtn, 0, wxALL, 5);
 
@@ -136,7 +144,30 @@ void AIPowerInjectionDialog::RunCalculation() {
 }
 
 void AIPowerInjectionDialog::OnCalculateButtonClick(wxCommandEvent& WXUNUSED(event)) {
+    if (m_calcProgress) { m_calcProgress->SetValue(30); }
     RunCalculation();
+    if (m_calcProgress) { m_calcProgress->SetValue(100); }
+}
+
+void AIPowerInjectionDialog::OnExportCsvButtonClick(wxCommandEvent& WXUNUSED(event)) {
+    wxFileDialog saveDialog(this, wxT("Export Power Injection Report"), wxT(""), wxT("power_injection.csv"),
+                            wxT("CSV files (*.csv)|*.csv"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (saveDialog.ShowModal() != wxID_OK) return;
+
+    wxFile file(saveDialog.GetPath(), wxFile::write);
+    if (!file.IsOpened()) return;
+
+    file.Write(wxT("Point #,Pixel Index,Recommended Feed,Calculated Voltage\n"));
+    for (int i = 0; i < m_injectionPointsList->GetItemCount(); ++i) {
+        wxString row;
+        for (int col = 0; col < 4; ++col) {
+            row += m_injectionPointsList->GetItemText(i, col);
+            if (col < 3) row += wxT(",");
+        }
+        row += wxT("\n");
+        file.Write(row);
+    }
+    wxMessageBox(wxT("CSV exported successfully."), wxT("Export Complete"), wxOK | wxICON_INFORMATION, this);
 }
 
 void AIPowerInjectionDialog::OnCloseButtonClick(wxCommandEvent& WXUNUSED(event)) {
