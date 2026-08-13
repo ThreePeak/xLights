@@ -58,7 +58,7 @@ enum class ExecutionActionMode {
 };
 
 enum class PersonaReviewMode {
-    MASTER_SEQUENCER_BOSS,
+    MASTER_SEQUENCER_BOSS,      // Direct, unfiltered, expert technical feedback
     LIGHT_SHOW_JOURNALIST,
     ENTHUSIAST_COACH
 };
