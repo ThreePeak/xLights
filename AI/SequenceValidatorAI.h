@@ -35,6 +35,11 @@ struct SequenceValidationIssue {
     bool autoFixable = false;          // Whether AI engine can automatically resolve this issue
 };
 
+enum class ExecutionActionMode {
+    REPORT_ONLY,
+    AUTO_REPAIR
+};
+
 struct SequenceValidationConfig {
     std::string sequenceFilePath;
     int totalDurationMs = 0;
@@ -44,6 +49,7 @@ struct SequenceValidationConfig {
     bool checkChannelOverlaps = true;
     bool checkPerformanceBottlenecks = true;
     bool checkChannelBounds = true;
+    ExecutionActionMode actionMode = ExecutionActionMode::REPORT_ONLY;
 };
 
 struct SequenceValidationResult {
