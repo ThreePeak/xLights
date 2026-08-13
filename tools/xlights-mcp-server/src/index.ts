@@ -391,6 +391,20 @@ const MCP_TOOLS = [
             },
             required: ["source_channels", "target_models"]
         }
+    },
+    {
+        name: "generate_lua_macro",
+        description: "Translates natural language prompt descriptors into executable, sandboxed xLights Lua automation scripts.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                user_prompt: { type: "string", description: "Natural language description e.g. 'Create a spiral rainbow effect on MegaTree'" },
+                target_model_name: { type: "string", description: "Target xLights model name e.g. MegaTree" },
+                duration_ms: { type: "number", description: "Duration in milliseconds (default: 5000)" },
+                current_palette: { type: "string", description: "Hex palette string e.g. '#FF0000,#00FF00,#0000FF'" }
+            },
+            required: ["user_prompt"]
+        }
     }
 ];
 
@@ -432,6 +446,7 @@ async function handleToolCall(name: string, args: MCPToolCallArgs): Promise<any>
         case "calculate_power_injection": return await httpPost("/api/power-injection", args);
         case "analyze_power_injection":   return await httpPost("/api/power-analysis", args);
         case "map_vendor_sequence_models": return await httpPost("/api/ai/map-models", args);
+        case "generate_lua_macro":         return await httpPost("/api/ai/lua-macro", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }

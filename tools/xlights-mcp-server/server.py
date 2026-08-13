@@ -317,6 +317,20 @@ MCP_TOOLS = [
             },
             "required": ["source_channels", "target_models"]
         }
+    },
+    {
+        "name": "generate_lua_macro",
+        "description": "Translates natural language prompt descriptors into executable, sandboxed xLights Lua automation scripts.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "user_prompt": {"type": "string", "description": "Natural language description e.g. 'Create a spiral rainbow effect on MegaTree'"},
+                "target_model_name": {"type": "string", "description": "Target xLights model name e.g. MegaTree"},
+                "duration_ms": {"type": "number", "description": "Duration in milliseconds (default: 5000)"},
+                "current_palette": {"type": "string", "description": "Hex palette string e.g. '#FF0000,#00FF00,#0000FF'"}
+            },
+            "required": ["user_prompt"]
+        }
     }
 ]
 
@@ -359,6 +373,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/power-analysis", arguments)
     elif name == "map_vendor_sequence_models":
         return http_post("/api/ai/map-models", arguments)
+    elif name == "generate_lua_macro":
+        return http_post("/api/ai/lua-macro", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 

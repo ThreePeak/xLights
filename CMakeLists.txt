@@ -303,6 +303,7 @@ file(GLOB_RECURSE SRC_CORE
     AI/PowerInjectionAIGenerator.cpp
     AI/PowerInjectionAnalyzer.cpp
     AI/ModelMappingAIGenerator.cpp
+    AI/LuaScriptAIGenerator.cpp
 )
 if(WIN32)
     list(APPEND SRC_CORE src-core/media/WindowsHardwareVideoReader.cpp)
