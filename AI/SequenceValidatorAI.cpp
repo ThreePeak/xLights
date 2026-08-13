@@ -119,10 +119,14 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
             << result.errorCount << " Error, " << result.warningCount << " Warning).";
     result.validationSummary = summary.str();
 
-    if (config.reviewMode == PersonaReviewMode::MASTER_SEQUENCER_BOSS) {
+    PersonaReviewMode mode = (config.personaMode != PersonaReviewMode::MASTER_SEQUENCER_BOSS) ? config.personaMode : config.reviewMode;
+    if (mode == PersonaReviewMode::NONE) {
+        result.personaCritiqueTitle = "None";
+        result.personaCritiqueBody = "";
+    } else if (mode == PersonaReviewMode::MASTER_SEQUENCER_BOSS) {
         result.personaCritiqueTitle = "Master Sequencer Boss Review";
         result.personaCritiqueBody = GenerateBossCritique(result);
-    } else if (config.reviewMode == PersonaReviewMode::LIGHT_SHOW_JOURNALIST) {
+    } else if (mode == PersonaReviewMode::LIGHT_SHOW_JOURNALIST) {
         result.personaCritiqueTitle = "Light Show Journalist Review";
         result.personaCritiqueBody = GenerateJournalistReview(result.scorecard, result.detectedIssues);
     } else {

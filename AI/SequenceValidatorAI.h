@@ -70,6 +70,7 @@ enum class ExecutionActionMode {
 };
 
 enum class PersonaReviewMode {
+    NONE,                       // Skip persona review critique generation
     MASTER_SEQUENCER_BOSS,      // Direct, unfiltered, expert technical feedback
     LIGHT_SHOW_JOURNALIST,
     LIGHTSHOW_CRITIC_JOURNALIST = LIGHT_SHOW_JOURNALIST, // Artistic, journalistic review article (pros/cons/impact)
@@ -101,6 +102,7 @@ struct SequenceValidationConfig {
     bool checkChannelBounds = true;
     ExecutionActionMode actionMode = ExecutionActionMode::REPORT_ONLY;
     PersonaReviewMode reviewMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS;
+    PersonaReviewMode personaMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS; // Alias for reviewMode
 };
 
 using DiagnosticConfigSpec = SequenceValidationConfig;
