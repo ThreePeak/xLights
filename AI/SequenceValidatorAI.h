@@ -175,7 +175,7 @@ public:
     // Calculates health category scorecard from detected sequence issues
     [[nodiscard]] static CategoryScorecard CalculateScorecard(const std::vector<SequenceIssue>& issues);
 
-    // Executes an automated sequence quality and diagnostic audit
+    // Execute a fully configured audit scan on loaded sequence and layout data
     [[nodiscard]] static SequenceValidationResult ValidateSequenceDiagnostics(const SequenceValidationConfig& config);
     [[nodiscard]] static ComprehensiveAuditReport RunComprehensiveAudit(const SequenceValidationConfig& config);
 
