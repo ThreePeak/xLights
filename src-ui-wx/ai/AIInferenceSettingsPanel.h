@@ -44,11 +44,19 @@ private:
     wxDirPickerCtrl* m_onnxDirPicker = nullptr;
     wxStaticText* m_backendStatusLabel = nullptr;
 
-    // Cloud API Credentials
+    // Cloud API Credentials & Test Buttons
     wxTextCtrl* m_openaiKeyCtrl = nullptr;
+    wxButton* m_testOpenAIBtn = nullptr;
+
     wxTextCtrl* m_anthropicKeyCtrl = nullptr;
+    wxButton* m_testAnthropicBtn = nullptr;
+
     wxTextCtrl* m_geminiKeyCtrl = nullptr;
+    wxButton* m_testGeminiBtn = nullptr;
+
     wxTextCtrl* m_deepseekKeyCtrl = nullptr;
+    wxButton* m_testDeepseekBtn = nullptr;
+
     wxTextCtrl* m_customEndpointCtrl = nullptr;
     wxTextCtrl* m_ollamaEndpointCtrl = nullptr;
     wxChoice* m_primaryModelChoice = nullptr;
