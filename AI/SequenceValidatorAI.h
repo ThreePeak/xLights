@@ -82,6 +82,7 @@ struct TargetScopeFilter {
     int endMs = -1;                            // -1 = Full duration
     std::vector<std::string> targetPropNames;  // Empty = All props
     std::vector<std::string> ignorePropNames;  // Ignored props/directories
+    std::vector<std::string> targetTrackNames; // e.g., ["Kick Drum", "Vocals"]
 };
 
 struct SequenceValidationConfig {
@@ -95,6 +96,7 @@ struct SequenceValidationConfig {
     std::vector<std::string> activeModelNames;
     std::vector<std::string> targetPropNames;   // Empty = All props
     std::vector<std::string> ignorePropNames;   // Ignored props/directories
+    std::vector<std::string> targetTrackNames;  // e.g., ["Kick Drum", "Vocals"]
     TargetScopeFilter scopeFilter;             // Target scope filtering configuration
     bool checkTimingGaps = true;
     bool checkChannelOverlaps = true;
