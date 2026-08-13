@@ -1,0 +1,36 @@
+/***************************************************************
+ * This source file comes from the xLights project
+ * https://www.xlights.org
+ * https://github.com/xLightsSequencer/xLights
+ * Copyright claimed based on commit dates recorded in Github
+ * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
+ **************************************************************/
+
+// Catch2 Unit Tests for SequenceValidatorAI
+
+#include <catch2/catch_test_macros.hpp>
+#include "SequenceValidatorAI.h"
+#include <nlohmann/json.hpp>
+
+using namespace xLights::AI;
+
+TEST_CASE("SequenceValidatorAI: Sequence Quality & Diagnostic Audit", "[SequenceValidatorAI]") {
+
+    SECTION("Validates sequence diagnostics and exports report JSON") {
+        SequenceValidationConfig config;
+        config.totalDurationMs = 45000;
+        config.activeEffectCount = 3;
+        config.checkTimingGaps = true;
+
+        SequenceValidationResult result = SequenceValidatorAI::ValidateSequenceDiagnostics(config);
+        REQUIRE(result.success == true);
+        REQUIRE(result.totalIssuesCount >= 2);
+
+        std::string jsonStr = SequenceValidatorAI::ExportValidationReportJSON(result);
+        REQUIRE(!jsonStr.empty());
+
+        nlohmann::json parsed = nlohmann::json::parse(jsonStr);
+        REQUIRE(parsed["success"] == true);
+        REQUIRE(parsed.contains("issues"));
+    }
+}
