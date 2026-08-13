@@ -19,6 +19,7 @@ namespace xLights::AI {
 
 enum class ValidationIssueSeverity {
     Info,
+    INFO = Info,
     Warning,
     Error,
     Critical,
