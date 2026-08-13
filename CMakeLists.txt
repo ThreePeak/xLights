@@ -305,6 +305,7 @@ file(GLOB_RECURSE SRC_CORE
     AI/ModelMappingAIGenerator.cpp
     AI/LuaScriptAIGenerator.cpp
     AI/SequenceDiagnosticsCopilot.cpp
+    AI/LocalInferenceEngine.cpp
 )
 if(WIN32)
     list(APPEND SRC_CORE src-core/media/WindowsHardwareVideoReader.cpp)

@@ -358,6 +358,17 @@ MCP_TOOLS = [
             },
             "required": ["user_query"]
         }
+    },
+    {
+        "name": "get_local_inference_status",
+        "description": "Queries local hardware acceleration providers (DirectML, OpenVINO, CoreML, CUDA) and active local model session status.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model_file_path": {"type": "string", "description": "Path to ONNX / OpenVINO local model file"},
+                "preferred_provider": {"type": "string", "description": "Preferred provider ('DirectML', 'OpenVINO', 'CoreML', 'CUDA', 'CPU')"}
+            }
+        }
     }
 ]
 
@@ -406,6 +417,8 @@ def handle_tool_call(name: str, arguments: dict):
         return http_post("/api/ai/audit-sequence", arguments)
     elif name == "query_assistant_copilot":
         return http_post("/api/ai/copilot-query", arguments)
+    elif name == "get_local_inference_status":
+        return http_post("/api/ai/local-inference-status", arguments)
     else:
         return {"error": f"Unknown tool: {name}"}
 

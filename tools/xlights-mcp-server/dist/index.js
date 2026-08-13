@@ -430,6 +430,17 @@ const MCP_TOOLS = [
             },
             required: ["user_query"]
         }
+    },
+    {
+        name: "get_local_inference_status",
+        description: "Queries local hardware acceleration providers (DirectML, OpenVINO, CoreML, CUDA) and active local model session status.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                model_file_path: { type: "string", description: "Path to ONNX / OpenVINO local model file" },
+                preferred_provider: { type: "string", description: "Preferred provider ('DirectML', 'OpenVINO', 'CoreML', 'CUDA', 'CPU')" }
+            }
+        }
     }
 ];
 async function handleToolCall(name, args) {
@@ -473,6 +484,7 @@ async function handleToolCall(name, args) {
         case "generate_lua_macro": return await httpPost("/api/ai/lua-macro", args);
         case "audit_sequence_quality": return await httpPost("/api/ai/audit-sequence", args);
         case "query_assistant_copilot": return await httpPost("/api/ai/copilot-query", args);
+        case "get_local_inference_status": return await httpPost("/api/ai/local-inference-status", args);
         default: return { error: `Unknown tool: ${name}` };
     }
 }
