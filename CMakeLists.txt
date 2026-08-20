@@ -1044,16 +1044,106 @@ install(TARGETS xLights DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY resources/ DESTINATION ${CMAKE_INSTALL_DATADIR}/xLights)
 
 # ─── AI Unit Tests ──────────────────────────────────────────────────────────
-add_executable(test_DynamicsContourMapper
-    AI/test_DynamicsContourMapper.cpp
-    ${SRC_CORE}
+# Helper macro — each AI test compiles its test file, the tested AI source(s), and shared deps.
+macro(xlights_ai_test TEST_NAME)
+    set(TEST_SRCS AI/${TEST_NAME}.cpp ${XL_DEPS}/pugixml/src/pugixml.cpp ${ARGN})
+    add_executable(${TEST_NAME} ${TEST_SRCS})
+    target_include_directories(${TEST_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}/AI
+        ${CMAKE_SOURCE_DIR}/src-core
+        ${XL_INC}
+        ${XL_DEPS}
+        ${XL_DEPS}/spdlog/include
+        ${XL_DEPS}/pugixml/src
+        ${XL_DEPS}/lua/src
+        ${XL_DEPS}/midifile/include
+    )
+endmacro()
+
+# ── Standard assert-based tests (main() entry point) ─────────────────────────
+xlights_ai_test(test_AIConfigurationManager AI/AIConfigurationManager.cpp)
+xlights_ai_test(test_AINodeEditInterpreter AI/AINodeEditInterpreter.cpp AI/PropModelEditEngine.cpp AI/PropNodeEditHistory.cpp)
+xlights_ai_test(test_AudioStemExtractor AI/AudioStemExtractor.cpp)
+xlights_ai_test(test_AutoPropMapper AI/AutoPropMapper.cpp)
+xlights_ai_test(test_CustomPropDesignerAI AI/CustomPropDesignerAI.cpp AI/PropModelEditEngine.cpp AI/PropNodeEditHistory.cpp AI/AINodeEditInterpreter.cpp)
+xlights_ai_test(test_DMXAddressAdvisor AI/DMXAddressAdvisor.cpp)
+xlights_ai_test(test_DynamicsContourMapper AI/DynamicsContourMapper.cpp)
+xlights_ai_test(test_EffectPresetAIGenerator AI/EffectPresetAIGenerator.cpp)
+xlights_ai_test(test_FPPControllerSyncAdvisor AI/FPPControllerSyncAdvisor.cpp)
+xlights_ai_test(test_LayerBlendAdvisor AI/LayerBlendAdvisor.cpp)
+xlights_ai_test(test_LayerBlendingTransitionAdvisor AI/LayerBlendingTransitionAdvisor.cpp)
+xlights_ai_test(test_LocalInferenceEngine AI/LocalInferenceEngine.cpp)
+xlights_ai_test(test_LuaScriptAIGenerator AI/LuaScriptAIGenerator.cpp)
+xlights_ai_test(test_LuaScriptGenerator AI/LuaScriptGenerator.cpp)
+xlights_ai_test(test_ModelMappingAIGenerator AI/ModelMappingAIGenerator.cpp)
+xlights_ai_test(test_PowerInjectionAIGenerator AI/PowerInjectionAIGenerator.cpp)
+xlights_ai_test(test_PowerInjectionAnalyzer AI/PowerInjectionAnalyzer.cpp)
+xlights_ai_test(test_PredictiveDiagnosticWorker AI/PredictiveDiagnosticWorker.cpp)
+xlights_ai_test(test_PropModelEditEngine AI/PropModelEditEngine.cpp AI/PropNodeEditHistory.cpp)
+xlights_ai_test(test_PropNodeEditHistory AI/PropNodeEditHistory.cpp)
+xlights_ai_test(test_SequenceDiagnosticsCopilot AI/SequenceDiagnosticsCopilot.cpp)
+xlights_ai_test(test_SubmodelDetector AI/SubmodelDetector.cpp)
+xlights_ai_test(test_SubmodelDetectorAIGenerator AI/SubmodelDetectorAIGenerator.cpp)
+xlights_ai_test(test_SequenceRemappingAgent AI/SequenceRemappingAgent.cpp)
+xlights_ai_test(test_ShowLogDiagnosticsAnalyzer AI/ShowLogDiagnosticsAnalyzer.cpp)
+xlights_ai_test(test_PhonemeMap AI/PhonemeMap.cpp)
+
+# ── Catch2-based tests ────────────────────────────────────────────────────────
+find_package(Catch2 3 QUIET)
+if(Catch2_FOUND)
+    add_executable(test_SequenceValidatorAI
+        AI/test_SequenceValidatorAI.cpp
+        AI/SequenceValidatorAI.cpp
+        ${XL_DEPS}/pugixml/src/pugixml.cpp
+    )
+    target_include_directories(test_SequenceValidatorAI PRIVATE
+        ${CMAKE_SOURCE_DIR}/AI
+        ${CMAKE_SOURCE_DIR}/src-core
+        ${XL_INC}
+        ${XL_DEPS}
+        ${XL_DEPS}/spdlog/include
+        ${XL_DEPS}/pugixml/src
+    )
+    target_link_libraries(test_SequenceValidatorAI PRIVATE
+        Catch2::Catch2WithMain
+    )
+    include(CTest)
+    include(Catch)
+    catch_discover_tests(test_SequenceValidatorAI)
+else()
+    message(STATUS "Catch2 not found — test_SequenceValidatorAI will not be built. Install with: vcpkg install catch2")
+endif()
+
+# ── Group all AI tests under a meta-target ────────────────────────────────────
+add_custom_target(xLights_AI_Tests
+    DEPENDS
+        test_AIConfigurationManager
+        test_AINodeEditInterpreter
+        test_AudioStemExtractor
+        test_AutoPropMapper
+        test_CustomPropDesignerAI
+        test_DMXAddressAdvisor
+        test_DynamicsContourMapper
+        test_EffectPresetAIGenerator
+        test_FPPControllerSyncAdvisor
+        test_LayerBlendAdvisor
+        test_LayerBlendingTransitionAdvisor
+        test_LocalInferenceEngine
+        test_LuaScriptAIGenerator
+        test_LuaScriptGenerator
+        test_ModelMappingAIGenerator
+        test_PowerInjectionAIGenerator
+        test_PowerInjectionAnalyzer
+        test_PredictiveDiagnosticWorker
+        test_PropModelEditEngine
+        test_PropNodeEditHistory
+        test_SequenceDiagnosticsCopilot
+        test_SubmodelDetector
+        test_SubmodelDetectorAIGenerator
+        test_SequenceRemappingAgent
+        test_ShowLogDiagnosticsAnalyzer
+        test_PhonemeMap
+    COMMENT "Build all xLights AI subsystem unit tests"
 )
-target_include_directories(test_DynamicsContourMapper PRIVATE
-    ${CMAKE_SOURCE_DIR}/src-core
-    ${CMAKE_SOURCE_DIR}/AI
-)
-target_link_libraries(test_DynamicsContourMapper PRIVATE
-    nlohmann_json::nlohmann_json
-    pugixml::pugixml
-    spdlog::spdlog
-)
+
+

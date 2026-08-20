@@ -23,9 +23,12 @@ private:
     void OnDetectClick(wxCommandEvent& event);
     void OnAutoRemapClick(wxCommandEvent& event);
     void OnExportClick(wxCommandEvent& event);
+    void OnLoadFileClick(wxCommandEvent& event);
+    void OnHelpClick(wxCommandEvent& event);
     void OnCloseClick(wxCommandEvent& event);
 
     wxTextCtrl* m_universeXmlCtrl = nullptr;
+    wxButton* m_loadFileBtn = nullptr;
     wxButton* m_detectBtn = nullptr;
     wxButton* m_autoRemapBtn = nullptr;
     wxButton* m_exportBtn = nullptr;

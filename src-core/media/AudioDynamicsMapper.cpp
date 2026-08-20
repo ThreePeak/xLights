@@ -158,14 +158,14 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(AudioMana
                                                                         long framePeriodMS,
                                                                         std::function<void(int pct)> progress) {
     AudioDynamicsContourResult result;
-    if (!audioManager || !audioManager->HasAudio()) {
+    if (!audioManager || !audioManager->IsOk()) {
         spdlog::error("AudioDynamicsMapper: AudioManager has no loaded audio.");
         result.errorMessage = "AudioManager has no loaded audio.";
         return result;
     }
 
-    const float* left = audioManager->GetLeftData();
-    const float* right = audioManager->GetRightData();
+    const float* left = audioManager->GetRawLeftDataPtr(0);
+    const float* right = audioManager->GetRawRightDataPtr(0);
     long totalSamples = audioManager->GetTrackSize();
     long sampleRate = audioManager->GetSampleRate();
 
@@ -175,7 +175,7 @@ AudioDynamicsContourResult AudioDynamicsMapper::AnalyzeDynamicsContour(AudioMana
     std::vector<float> rightVec(right ? right : left, (right ? right : left) + totalSamples);
 
     result = AnalyzeDynamicsContour(leftVec, rightVec, (size_t)sampleRate, framePeriodMS, progress);
-    result.songPath = audioManager->GetAudioFile();
+    result.songPath = audioManager->FileName();
     return result;
 }
 
@@ -318,6 +318,7 @@ std::string AudioDynamicsMapper::ExportAsValueCurveString(const AudioDynamicsCon
         if (i < total - 1) ss << "|";
     }
 
+    ss << ";Active=TRUE;";
     return ss.str();
 }
 

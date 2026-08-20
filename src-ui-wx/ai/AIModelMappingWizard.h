@@ -29,10 +29,15 @@ public:
     bool RunWizardUI();
 
 private:
+    void OnPageChanged(wxWizardEvent& event);
+    void OnWizardFinished(wxWizardEvent& event);
+    void RunMappingAnalysis();
+
     wxWizardPageSimple* m_page1 = nullptr;
     wxWizardPageSimple* m_page2 = nullptr;
 
-    wxTextCtrl* m_vendorSeqCtrl = nullptr;
+    class wxFilePickerCtrl;
+    wxFilePickerCtrl* m_pickerVendorSeq = nullptr;
     wxSlider* m_confidenceThresholdSlider = nullptr;
     wxCheckBox* m_pass1ExactChk = nullptr;
     wxCheckBox* m_pass2FuzzyChk = nullptr;

@@ -102,6 +102,8 @@ class CustomModel : public ModelWithScreenLocation<BoxedScreenLocation>
         [[nodiscard]] const std::string StartNodeAttrName(int idx) const override
         {
             return std::string("NodeStart") + std::to_string(idx + 1);
+        }
+
         // Spatial AI & Computer Vision Mesh Generation
         struct SpatialAIMeshOptions {
             int targetWidth = 50;

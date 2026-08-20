@@ -6,7 +6,7 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
-#include "AI/PropNodeEditHistory.h"
+#include "PropNodeEditHistory.h"
 #include <spdlog/spdlog.h>
 
 namespace xLights::AI {

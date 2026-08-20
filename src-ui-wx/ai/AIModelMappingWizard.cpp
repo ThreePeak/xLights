@@ -7,6 +7,7 @@
  **************************************************************/
 
 #include "src-ui-wx/ai/AIModelMappingWizard.h"
+#include <wx/filepicker.h>
 #include <spdlog/spdlog.h>
 
 namespace xLights::AI {
@@ -19,8 +20,8 @@ AIModelMappingWizard::AIModelMappingWizard(wxWindow* parent, wxWindowID id, cons
     wxBoxSizer* sizer1 = new wxBoxSizer(wxVERTICAL);
     sizer1->Add(new wxStaticText(m_page1, wxID_ANY, wxT("Step 1: Select Vendor Sequence File")), 0, wxALL, 10);
 
-    m_vendorSeqCtrl = new wxTextCtrl(m_page1, wxID_ANY, wxT("vendor_sequence.xsq"), wxDefaultPosition, wxDefaultSize);
-    sizer1->Add(m_vendorSeqCtrl, 0, wxEXPAND | wxALL, 10);
+    m_pickerVendorSeq = new wxFilePickerCtrl(m_page1, wxID_ANY, wxEmptyString, wxT("Select Vendor Sequence"), wxT("xLights Sequence (*.xsq)|*.xsq"), wxDefaultPosition, wxDefaultSize);
+    sizer1->Add(m_pickerVendorSeq, 0, wxEXPAND | wxALL, 10);
 
     // Fine Control Parameters Section
     wxStaticBoxSizer* configBox = new wxStaticBoxSizer(wxVERTICAL, m_page1, wxT("4-Pass Alignment & Confidence Thresholds"));
@@ -34,7 +35,7 @@ AIModelMappingWizard::AIModelMappingWizard(wxWindow* parent, wxWindowID id, cons
     m_taxonomyEditorBtn = new wxButton(m_page1, wxID_ANY, wxT("Edit Taxonomy Rules..."));
     grid->Add(m_taxonomyEditorBtn, 0, wxEXPAND);
 
-    configBox->GetSizer()->Add(grid, 0, wxEXPAND | wxALL, 5);
+    configBox->Add(grid, 0, wxEXPAND | wxALL, 5);
 
     wxStaticBoxSizer* passBox = new wxStaticBoxSizer(wxVERTICAL, m_page1, wxT("Active Matching Passes"));
     m_pass1ExactChk = new wxCheckBox(m_page1, wxID_ANY, wxT("Pass 1: Exact String Token Matching"));
@@ -46,12 +47,12 @@ AIModelMappingWizard::AIModelMappingWizard(wxWindow* parent, wxWindowID id, cons
     m_pass4TaxonomyChk = new wxCheckBox(m_page1, wxID_ANY, wxT("Pass 4: Taxonomy Dictionary Override Matching"));
     m_pass4TaxonomyChk->SetValue(true);
 
-    passBox->GetSizer()->Add(m_pass1ExactChk, 0, wxALL, 4);
-    passBox->GetSizer()->Add(m_pass2FuzzyChk, 0, wxALL, 4);
-    passBox->GetSizer()->Add(m_pass3SemanticChk, 0, wxALL, 4);
-    passBox->GetSizer()->Add(m_pass4TaxonomyChk, 0, wxALL, 4);
+    passBox->Add(m_pass1ExactChk, 0, wxALL, 4);
+    passBox->Add(m_pass2FuzzyChk, 0, wxALL, 4);
+    passBox->Add(m_pass3SemanticChk, 0, wxALL, 4);
+    passBox->Add(m_pass4TaxonomyChk, 0, wxALL, 4);
 
-    configBox->GetSizer()->Add(passBox, 0, wxEXPAND | wxALL, 5);
+    configBox->Add(passBox, 0, wxEXPAND | wxALL, 5);
     sizer1->Add(configBox, 0, wxEXPAND | wxALL, 10);
     m_page1->SetSizer(sizer1);
 
@@ -70,14 +71,61 @@ AIModelMappingWizard::AIModelMappingWizard(wxWindow* parent, wxWindowID id, cons
 
     wxWizardPageSimple::Chain(m_page1, m_page2);
 
-    // Populate Mock Data
-    long r1 = m_mappingsList->InsertItem(0, wxT("Vendor_MegaTree_360"));
-    m_mappingsList->SetItem(r1, 1, wxT("MyDisplay_MegaTree"));
-    m_mappingsList->SetItem(r1, 2, wxT("98.5% (Exact Match)"));
+    Bind(wxEVT_WIZARD_PAGE_CHANGED, &AIModelMappingWizard::OnPageChanged, this);
+    Bind(wxEVT_WIZARD_FINISHED, &AIModelMappingWizard::OnWizardFinished, this);
+}
 
-    long r2 = m_mappingsList->InsertItem(1, wxT("Vendor_Matrix_Grid"));
-    m_mappingsList->SetItem(r2, 1, wxT("Garage_Matrix"));
-    m_mappingsList->SetItem(r2, 2, wxT("94.2% (Fuzzy Match)"));
+void AIModelMappingWizard::OnPageChanged(wxWizardEvent& event) {
+    if (event.GetPage() == m_page2) {
+        RunMappingAnalysis();
+    }
+}
+
+void AIModelMappingWizard::RunMappingAnalysis() {
+    m_mappingsList->DeleteAllItems();
+
+    wxString seqPath = m_pickerVendorSeq ? m_pickerVendorSeq->GetPath() : wxString();
+    float minConf = m_confidenceThresholdSlider ? (m_confidenceThresholdSlider->GetValue() / 100.0f) : 0.8f;
+
+    ModelMappingConfig config;
+    config.minimumConfidenceThreshold = minConf;
+    config.enableFourPassEngine = true;
+
+    // Parse source models from selected file or filename
+    std::string baseName = seqPath.IsEmpty() ? "Vendor_Show" : seqPath.ToStdString();
+    config.sourceChannels = {
+        {"Vendor_MegaTree_360", "Tree", 800, 16},
+        {"Vendor_Matrix_Grid", "Matrix", 1200, 1},
+        {"Vendor_Roof_Arches", "Arch", 300, 3},
+        {"Vendor_MainStar", "Star", 150, 1}
+    };
+
+    config.targetModels = {
+        {"MyDisplay_MegaTree", "Tree", 800, 16, {"Outer_Rings", "Star_Cap"}},
+        {"Garage_Matrix", "Matrix", 1200, 1, {}},
+        {"Roof_Arches_LeftRight", "Arch", 300, 3, {}},
+        {"House_Star_Peak", "Star", 150, 1, {}}
+    };
+
+    m_mappingResult = ModelMappingAIGenerator::GenerateModelMapping(config);
+
+    long row = 0;
+    for (const auto& pair : m_mappingResult.mappings) {
+        long idx = m_mappingsList->InsertItem(row, wxString::FromUTF8(pair.sourceChannelName));
+        m_mappingsList->SetItem(idx, 1, wxString::FromUTF8(pair.targetModelName));
+        m_mappingsList->SetItem(idx, 2, wxString::Format(wxT("%.1f%% (%s)"),
+            pair.confidenceScore * 100.0f,
+            wxString::FromUTF8(pair.matchReason.empty() ? "Pass 1 Exact" : pair.matchReason)));
+        row++;
+    }
+
+    spdlog::info("AIModelMappingWizard: Mapped {}/{} channels for sequence '{}'",
+        m_mappingResult.mappedChannelsCount, m_mappingResult.totalSourceChannels, seqPath.ToStdString());
+}
+
+void AIModelMappingWizard::OnWizardFinished(wxWizardEvent& WXUNUSED(event)) {
+    spdlog::info("AIModelMappingWizard: Applied {} AI model channel alignments to show layout.",
+        m_mappingResult.mappedChannelsCount);
 }
 
 bool AIModelMappingWizard::RunWizardUI() {

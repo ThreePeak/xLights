@@ -32,7 +32,12 @@ private:
     // Event Handlers
     void OnDetectButtonClick(wxCommandEvent& event);
     void OnExportXmlButtonClick(wxCommandEvent& event);
+    void OnHelpButtonClick(wxCommandEvent& event);
     void OnCloseButtonClick(wxCommandEvent& event);
+
+    class wxComboBox;
+    wxComboBox* m_parentModelCombo = nullptr;
+    wxSpinCtrl* m_totalNodesSpin = nullptr;
 
     wxSlider* m_clusterRadiusSlider = nullptr;
     wxSpinCtrl* m_minPtsSpin = nullptr;

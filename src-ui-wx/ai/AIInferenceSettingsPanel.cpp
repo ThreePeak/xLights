@@ -70,10 +70,10 @@ void AIInferenceSettingsPanel::InitUI() {
     m_onnxDirPicker = new wxDirPickerCtrl(hwPanel, wxID_ANY, wxT(""), wxT("Select ONNX Models Folder"));
     hwGrid->Add(m_onnxDirPicker, 1, wxEXPAND);
 
-    hwBox->GetSizer()->Add(hwGrid, 0, wxEXPAND | wxALL, 8);
+    hwBox->Add(hwGrid, 0, wxEXPAND | wxALL, 8);
 
     m_backendStatusLabel = new wxStaticText(hwPanel, wxID_ANY, wxT("Hardware Probe: DirectX 12 DirectML GPU detected."));
-    hwBox->GetSizer()->Add(m_backendStatusLabel, 0, wxALL, 8);
+    hwBox->Add(m_backendStatusLabel, 0, wxALL, 8);
 
     hwSizer->Add(hwBox, 1, wxEXPAND | wxALL, 8);
     hwPanel->SetSizer(hwSizer);
@@ -86,54 +86,6 @@ void AIInferenceSettingsPanel::InitUI() {
     wxBoxSizer* apiSizer = new wxBoxSizer(wxVERTICAL);
 
     wxStaticBoxSizer* apiBox = new wxStaticBoxSizer(wxVERTICAL, apiPanel, wxT("API Keys & Local Server Endpoints"));
-    wxFlexGridSizer* apiGrid = new wxFlexGridSizer(7, 3, 6, 10);
-
-    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("Default Primary Model:")), 0, wxALIGN_CENTER_VERTICAL);
-    wxArrayString models;
-    models.Add(wxT("OpenAI GPT-4o (Cloud Recommended)"));
-    models.Add(wxT("Anthropic Claude 3.5 Sonnet"));
-    models.Add(wxT("Google Gemini 2.0 Flash"));
-    models.Add(wxT("DeepSeek V3 / R1"));
-    models.Add(wxT("Ollama Local Model (http://localhost:11434)"));
-    models.Add(wxT("Custom OpenAI-Compatible API Endpoint"));
-    m_primaryModelChoice = new wxChoice(apiPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, models);
-    m_primaryModelChoice->SetSelection(0);
-    apiGrid->Add(m_primaryModelChoice, 1, wxEXPAND);
-    apiGrid->AddSpacer(1);
-
-    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("OpenAI API Key:")), 0, wxALIGN_CENTER_VERTICAL);
-    m_openaiKeyCtrl = new wxTextCtrl(apiPanel, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
-    m_testOpenAIBtn = new wxButton(apiPanel, wxID_ANY, wxT("Test Key"));
-    apiGrid->Add(m_openaiKeyCtrl, 1, wxEXPAND);
-    apiGrid->Add(m_testOpenAIBtn, 0, wxALIGN_CENTER_VERTICAL);
-
-    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("Anthropic API Key:")), 0, wxALIGN_CENTER_VERTICAL);
-    m_anthropicKeyCtrl = new wxTextCtrl(apiPanel, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
-    m_testAnthropicBtn = new wxButton(apiPanel, wxID_ANY, wxT("Test Key"));
-    apiGrid->Add(m_anthropicKeyCtrl, 1, wxEXPAND);
-    apiGrid->Add(m_testAnthropicBtn, 0, wxALIGN_CENTER_VERTICAL);
-
-    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("Google Gemini API Key:")), 0, wxALIGN_CENTER_VERTICAL);
-    m_geminiKeyCtrl = new wxTextCtrl(apiPanel, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
-    m_testGeminiBtn = new wxButton(apiPanel, wxID_ANY, wxT("Test Key"));
-    apiGrid->Add(m_geminiKeyCtrl, 1, wxEXPAND);
-    apiGrid->Add(m_testGeminiBtn, 0, wxALIGN_CENTER_VERTICAL);
-
-    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("DeepSeek API Key:")), 0, wxALIGN_CENTER_VERTICAL);
-    m_deepseekKeyCtrl = new wxTextCtrl(apiPanel, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
-    m_testDeepseekBtn = new wxButton(apiPanel, wxID_ANY, wxT("Test Key"));
-    apiGrid->Add(m_deepseekKeyCtrl, 1, wxEXPAND);
-    apiGrid->Add(m_testDeepseekBtn, 0, wxALIGN_CENTER_VERTICAL);
-
-    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("Custom Endpoint Base URL:")), 0, wxALIGN_CENTER_VERTICAL);
-    m_customEndpointCtrl = new wxTextCtrl(apiPanel, wxID_ANY, wxT("http://localhost:8000/v1"));
-    apiGrid->Add(m_customEndpointCtrl, 1, wxEXPAND);
-    apiGrid->AddSpacer(1);
-
-    apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("Ollama Endpoint URL:")), 0, wxALIGN_CENTER_VERTICAL);
-    m_ollamaEndpointCtrl = new wxTextCtrl(apiPanel, wxID_ANY, wxT("http://localhost:11434"));
-    apiGrid->Add(m_ollamaEndpointCtrl, 1, wxEXPAND);
-    apiGrid->AddSpacer(1);
 
     // ---- API status label helper lambda ----
     auto addApiRow = [&](wxFlexGridSizer* grid, wxPanel* panel,
@@ -150,8 +102,6 @@ void AIInferenceSettingsPanel::InitUI() {
         grid->Add(rowSizer, 1, wxEXPAND);
     };
 
-    // Remove old grid, rebuild with status labels
-    apiBox->GetSizer()->Clear(true);
     wxFlexGridSizer* apiGrid = new wxFlexGridSizer(7, 2, 6, 10);
     apiGrid->AddGrowableCol(1, 1);
 
@@ -185,7 +135,7 @@ void AIInferenceSettingsPanel::InitUI() {
     apiGrid->Add(new wxStaticText(apiPanel, wxID_ANY, wxT("")), 0);
     apiGrid->Add(m_applySettingsBtn, 0, wxALIGN_LEFT);
 
-    apiBox->GetSizer()->Add(apiGrid, 1, wxEXPAND | wxALL, 8);
+    apiBox->Add(apiGrid, 1, wxEXPAND | wxALL, 8);
     apiSizer->Add(apiBox, 1, wxEXPAND | wxALL, 8);
     apiPanel->SetSizer(apiSizer);
     m_notebook->AddPage(apiPanel, wxT("API Keys & Endpoints"));
@@ -255,7 +205,7 @@ void AIInferenceSettingsPanel::InitUI() {
     hpGrid->Add(m_presPenaltySlider, 1, wxEXPAND);
     hpGrid->Add(m_presValueLabel, 0, wxALIGN_CENTER_VERTICAL);
 
-    hpBox->GetSizer()->Add(hpGrid, 1, wxEXPAND | wxALL, 8);
+    hpBox->Add(hpGrid, 1, wxEXPAND | wxALL, 8);
     hpSizer->Add(hpBox, 1, wxEXPAND | wxALL, 8);
     hpPanel->SetSizer(hpSizer);
     m_notebook->AddPage(hpPanel, wxT("LLM Hyperparameters"));
@@ -270,7 +220,7 @@ void AIInferenceSettingsPanel::InitUI() {
     m_systemPromptCtrl = new wxTextCtrl(promptPanel, wxID_ANY,
         wxT("You are an expert xLights lighting sequence copilot. Prioritize rhythmic musical timing, harmonious color palettes, and efficient prop rendering."),
         wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
-    promptBox->GetSizer()->Add(m_systemPromptCtrl, 1, wxEXPAND | wxALL, 8);
+    promptBox->Add(m_systemPromptCtrl, 1, wxEXPAND | wxALL, 8);
 
     promptSizer->Add(promptBox, 1, wxEXPAND | wxALL, 8);
     promptPanel->SetSizer(promptSizer);

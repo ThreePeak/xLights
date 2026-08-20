@@ -36,11 +36,16 @@ struct KaleidoscopeData {
     float v2x, v2y;
 };
 
+// ISPC floating-point modulo helper
+static inline float ispc_fmod(float a, float b) {
+    return a - floor(a / b) * b;
+}
+
 // Triangle-wave reflection: fold v into [-halfSize, +halfSize].
 // Mirrors ReflectCoord() from KaleidoscopeFunctions.metal.
 static inline float ReflectCoord(float v, float halfSize) {
     float period = 4.0f * halfSize;
-    float t = fmod(v + halfSize, period);
+    float t = ispc_fmod(v + halfSize, period);
     if (t < 0.0f) t += period;
     if (t <= 2.0f * halfSize) {
         return t - halfSize;
@@ -117,9 +122,9 @@ export void KaleidoscopeEffectISPC(const uniform KaleidoscopeData * uniform data
             float radius = sqrt(dx * dx + dy * dy);
             if (radius < 0.5f) continue;
             float angle = atan2(dy, dx) - data->rotRad;
-            angle = fmod(angle, 2.0f * KALE_PI);
+            angle = ispc_fmod(angle, 2.0f * KALE_PI);
             if (angle < 0.0f) angle += 2.0f * KALE_PI;
-            float folded = fmod(angle, 2.0f * wedgeAngle);
+            float folded = ispc_fmod(angle, 2.0f * wedgeAngle);
             if (folded > wedgeAngle) folded = 2.0f * wedgeAngle - folded;
             folded += data->rotRad;
             int sx = (int)floor(data->cx + radius * cos(folded) + 0.5f);

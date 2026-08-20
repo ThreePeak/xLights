@@ -22,13 +22,9 @@ namespace xLights::AI {
 
 enum class ValidationIssueSeverity {
     Info,
-    INFO = Info,
     Warning,
-    WARNING = Warning,
     Error,
-    ERROR = Error,
-    Critical,
-    CRITICAL_ERROR = Critical
+    Critical
 };
 
 using IssueSeverity = ValidationIssueSeverity;
@@ -47,6 +43,7 @@ struct SequenceValidationIssue {
     int startMs = 0;
     int endMs = -1;
     std::string suggestedFix;
+    std::string remediationSuggestion; // Alias for suggestedFix
     bool autoFixable = false;          // Whether AI engine can automatically resolve this issue
 };
 
@@ -107,6 +104,10 @@ struct SequenceValidationConfig {
     bool checkChannelOverlaps = true;
     bool checkPerformanceBottlenecks = true;
     bool checkChannelBounds = true;
+    bool checkXmlContent = true;
+    bool checkTimingGrid = true;
+    bool checkHardwareLimits = true;
+    bool checkVisualHarmony = true;
     float currentPowerCapPercent = 0.30f;       // Hardware safety power threshold
     ExecutionActionMode actionMode = ExecutionActionMode::REPORT_ONLY;
     PersonaReviewMode reviewMode = PersonaReviewMode::MASTER_SEQUENCER_BOSS;

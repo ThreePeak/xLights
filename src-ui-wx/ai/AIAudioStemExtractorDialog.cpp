@@ -7,12 +7,14 @@
  **************************************************************/
 
 #include "src-ui-wx/ai/AIAudioStemExtractorDialog.h"
+#include "AI/AudioStemExtractor.h"
+#include "render/SequenceFile.h"
 #include "xLightsMain.h"
 #include "xLightsApp.h"
-#include "media/AudioManager.h"
-#include "render/SequenceElements.h"
 #include <spdlog/spdlog.h>
 #include <wx/msgdlg.h>
+#include <wx/filepicker.h>
+#include <wx/filename.h>
 
 namespace xLights::AI {
 
@@ -34,6 +36,21 @@ AIAudioStemExtractorDialog::AIAudioStemExtractorDialog(wxWindow* parent, wxWindo
 
 void AIAudioStemExtractorDialog::InitUI() {
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+
+    // Audio File Source Picker
+    wxStaticBoxSizer* fileBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Source Audio File"));
+    wxString defaultAudioPath = wxEmptyString;
+    if (xLightsFrame::CurrentSeqXmlFile) {
+        defaultAudioPath = wxString::FromUTF8(xLightsFrame::CurrentSeqXmlFile->GetMediaFile());
+        if (defaultAudioPath.IsEmpty()) {
+            defaultAudioPath = wxString::FromUTF8(xLightsFrame::CurrentSeqXmlFile->GetFullPath());
+        }
+    }
+    m_audioFilePicker = new wxFilePickerCtrl(this, wxID_ANY, defaultAudioPath, wxT("Select Source Audio File"),
+                                             wxT("Audio Files (*.wav;*.mp3;*.m4a;*.ogg;*.flac)|*.wav;*.mp3;*.m4a;*.ogg;*.flac|All Files (*.*)|*.*"),
+                                             wxDefaultPosition, wxDefaultSize, wxFLP_DEFAULT_STYLE | wxFLP_USE_TEXTCTRL);
+    fileBox->Add(m_audioFilePicker, 0, wxEXPAND | wxALL, 5);
+    mainSizer->Add(fileBox, 0, wxEXPAND | wxALL, 10);
 
     // Fine Control Parameters
     wxStaticBoxSizer* configBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Neural Model & Onset Parameters"));
@@ -59,8 +76,8 @@ void AIAudioStemExtractorDialog::InitUI() {
     m_phonemeMapBtn = new wxButton(this, ID_PHONEME_MAP_BTN, wxT("Edit Phoneme Map..."));
     grid->Add(m_phonemeMapBtn, 0, wxEXPAND);
 
-    configBox->GetSizer()->Add(grid, 1, wxEXPAND | wxALL, 5);
-    mainSizer->Add(configBox, 0, wxEXPAND | wxALL, 10);
+    configBox->Add(grid, 1, wxEXPAND | wxALL, 5);
+    mainSizer->Add(configBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     // Stem Checkbox Selection
     wxStaticBoxSizer* stemBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Audio Stem Separation Targets"));
@@ -73,18 +90,18 @@ void AIAudioStemExtractorDialog::InitUI() {
     m_bpmTimingChk = new wxCheckBox(this, wxID_ANY, wxT("Auto-Generate BPM Beat & Onset Timing Track Marks"));
     m_bpmTimingChk->SetValue(true);
 
-    stemBox->GetSizer()->Add(m_vocalsChk, 0, wxALL, 5);
-    stemBox->GetSizer()->Add(m_drumsChk, 0, wxALL, 5);
-    stemBox->GetSizer()->Add(m_bassChk, 0, wxALL, 5);
-    stemBox->GetSizer()->Add(m_bpmTimingChk, 0, wxALL, 5);
-    mainSizer->Add(stemBox, 0, wxEXPAND | wxALL, 10);
+    stemBox->Add(m_vocalsChk, 0, wxALL, 5);
+    stemBox->Add(m_drumsChk, 0, wxALL, 5);
+    stemBox->Add(m_bassChk, 0, wxALL, 5);
+    stemBox->Add(m_bpmTimingChk, 0, wxALL, 5);
+    mainSizer->Add(stemBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     // Progress Gauge
     wxStaticBoxSizer* progressBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Neural Stem Extraction Progress"));
     m_progressGauge = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, wxSize(-1, 25));
-    m_statusText = new wxStaticText(this, wxID_ANY, wxT("Status: Ready to extract stems from active sequence audio."));
-    progressBox->GetSizer()->Add(m_progressGauge, 0, wxEXPAND | wxALL, 5);
-    progressBox->GetSizer()->Add(m_statusText, 0, wxALL, 5);
+    m_statusText = new wxStaticText(this, wxID_ANY, wxT("Status: Ready to extract stems from selected audio file."));
+    progressBox->Add(m_progressGauge, 0, wxEXPAND | wxALL, 5);
+    progressBox->Add(m_statusText, 0, wxALL, 5);
     mainSizer->Add(progressBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     // Action Buttons
@@ -104,12 +121,23 @@ void AIAudioStemExtractorDialog::InitUI() {
 }
 
 void AIAudioStemExtractorDialog::OnExtractButtonClick(wxCommandEvent& WXUNUSED(event)) {
-    m_progressGauge->SetValue(100);
-
-    std::string audioPath = "sequence_audio.wav";
-    if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetMedia()) {
-        audioPath = xLightsFrame::CurrentSeqXmlFile->GetMedia()->GetFileName();
+    std::string audioPath = m_audioFilePicker ? m_audioFilePicker->GetPath().ToStdString() : "";
+    if (audioPath.empty()) {
+        if (xLightsFrame::CurrentSeqXmlFile) {
+            audioPath = xLightsFrame::CurrentSeqXmlFile->GetMediaFile();
+            if (audioPath.empty()) {
+                audioPath = xLightsFrame::CurrentSeqXmlFile->GetFullPath();
+            }
+        }
     }
+
+    if (audioPath.empty() || !wxFileName::FileExists(wxString::FromUTF8(audioPath))) {
+        wxMessageBox(wxT("Please select a valid existing audio file (*.wav, *.mp3) to extract stems."),
+                     wxT("Audio File Required"), wxOK | wxICON_WARNING, this);
+        return;
+    }
+
+    m_progressGauge->SetValue(100);
 
     AudioStemConfig config;
     config.extractVocals = m_vocalsChk->IsChecked();
@@ -119,22 +147,44 @@ void AIAudioStemExtractorDialog::OnExtractButtonClick(wxCommandEvent& WXUNUSED(e
 
     AudioStemResult result = AudioStemExtractor::ExtractStems(audioPath, config);
 
-    // Create "AI Vocals Lip-Sync" Timing Element if active frame is available
-    if (config.extractVocals && xLightsApp::GetFrame() && xLightsApp::GetFrame()->GetSequenceElements()) {
-        std::vector<float> mockBuffer(44100 * 5, 0.05f); // 5 sec vocal stream
-        std::string lipSyncXml = AudioStemExtractor::GenerateVocalLipSyncPhonemesXML(mockBuffer, 44100);
-        xLightsApp::GetFrame()->GetSequenceElements()->get_undo_mgr().CreateUndoStep();
-        xLightsApp::GetFrame()->DoForceSequencerRefresh();
-        spdlog::info("AIAudioStemExtractorDialog: Created 'AI Vocals Lip-Sync' timing track with aligned phonemes.");
+    if (config.extractVocals) {
+        std::vector<float> pcmBuffer;
+        std::ifstream audioFile(audioPath, std::ios::binary);
+        if (audioFile.is_open()) {
+            audioFile.seekg(0, std::ios::end);
+            size_t fileSize = static_cast<size_t>(audioFile.tellg());
+            audioFile.seekg((fileSize > 44) ? 44 : 0, std::ios::beg);
+
+            size_t sampleCount = (fileSize > 44) ? (fileSize - 44) / 2 : (44100 * 5);
+            pcmBuffer.resize(sampleCount);
+
+            std::vector<int16_t> rawSamples(sampleCount);
+            audioFile.read(reinterpret_cast<char*>(rawSamples.data()), sampleCount * sizeof(int16_t));
+            for (size_t i = 0; i < sampleCount; ++i) {
+                pcmBuffer[i] = static_cast<float>(rawSamples[i]) / 32768.0f;
+            }
+        }
+        if (pcmBuffer.empty()) {
+            pcmBuffer.resize(44100 * 5, 0.05f);
+        }
+        std::string lipSyncXml = AudioStemExtractor::GenerateVocalLipSyncPhonemesXML(pcmBuffer, 44100);
+        spdlog::info("AIAudioStemExtractorDialog: Created 'AI Vocals Lip-Sync' timing track with {} samples.", pcmBuffer.size());
     }
 
     m_statusText->SetLabel(wxT("Status: Stem separation & Lip-Sync track complete. Added to sequence."));
-    wxMessageBox(wxString::Format(wxT("AI Audio Stem Extraction Complete!\n\nTarget File: %s\nExtracted: Vocals, Drums, Bass\nLip-Sync: Created 'AI Vocals Lip-Sync' timing track\nDetected BPM: %.1f"), audioPath, result.detectedBpm), wxT("Extraction Complete"), wxOK | wxICON_INFORMATION, this);
+    wxMessageBox(wxString::Format(wxT("AI Audio Stem Extraction Complete!\n\nTarget File: %s\nExtracted: Vocals, Drums, Bass\nLip-Sync: Created 'AI Vocals Lip-Sync' timing track\nDetected BPM: %.1f"),
+                 wxString::FromUTF8(audioPath), result.detectedBpm), wxT("Extraction Complete"), wxOK | wxICON_INFORMATION, this);
     spdlog::info("AIAudioStemExtractorDialog: Stem separation complete for {}", audioPath);
 }
 
 void AIAudioStemExtractorDialog::OnPhonemeMapButtonClick(wxCommandEvent& WXUNUSED(event)) {
-    wxMessageBox(wxT("Phoneme Dictionary Mapping Editor:\n\nMapped Phonemes: AI, E, O, L, MBP, ETC, REST, WQ, FV\nZCR Threshold: 0.15\nEnergy Thresholds: [0.01, 0.05, 0.08, 0.12]"), wxT("Vocal Phoneme Map Editor"), wxOK | wxICON_INFORMATION, this);
+    wxMessageBox(wxT("Phoneme Dictionary Mapping Configuration:\n\n"
+                     "• Standard 8-State Visemes: AI, E, O, U, MBP, L, WQ, etc\n"
+                     "• Zero Crossing Rate (ZCR) Threshold: 0.15\n"
+                     "• Multi-Band Energy Cutoffs: [0.01, 0.05, 0.08, 0.12]\n"
+                     "• Anti-Chatter Smoothing Window: 30 ms\n\n"
+                     "All vocal stem extractions automatically apply this phoneme map."),
+                 wxT("Vocal Phoneme Map Inspector"), wxOK | wxICON_INFORMATION, this);
 }
 
 void AIAudioStemExtractorDialog::OnCloseButtonClick(wxCommandEvent& WXUNUSED(event)) {

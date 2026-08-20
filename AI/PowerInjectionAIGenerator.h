@@ -15,11 +15,16 @@
 #include <vector>
 #include <future>
 
+namespace xLights::AI {
+
+#ifndef PIXEL_VOLTAGE_ENUM_DEFINED
+#define PIXEL_VOLTAGE_ENUM_DEFINED
 enum class PixelVoltage {
     V5,
     V12,
     V24
 };
+#endif
 
 struct PowerInjectionConfig {
     std::string modelName;                 // Name of the target xLights model e.g. "MegaTree"

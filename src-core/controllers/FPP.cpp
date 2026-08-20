@@ -19,6 +19,7 @@
 #include <unordered_set>
 #include <cinttypes>
 #include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
 
 #include <curl/curl.h>
 

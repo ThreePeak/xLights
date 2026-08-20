@@ -103,19 +103,19 @@ void WxServiceSettingsStore::SyncToAIConfigurationManager() {
     cfg.quantizationPrecision = static_cast<int>(config->Read("AI_QuantizationPrecision", 0L));
     cfg.cpuThreads = static_cast<int>(config->Read("AI_CpuThreads", 4L));
     cfg.vramCapMb = static_cast<int>(config->Read("AI_VRAMCapMB", 4096L));
-    cfg.onnxModelDir = config->Read("AI_OnnxModelDir", "").ToStdString();
+    cfg.onnxModelDir = config->Read("AI_OnnxModelDir", "");
     cfg.primaryModel = static_cast<int>(config->Read("AI_PrimaryModel", 0L));
-    cfg.openAIKey = config->Read("AI_OpenAIKey", "").ToStdString();
-    cfg.anthropicKey = config->Read("AI_AnthropicKey", "").ToStdString();
-    cfg.geminiKey = config->Read("AI_GeminiKey", "").ToStdString();
-    cfg.deepSeekKey = config->Read("AI_DeepSeekKey", "").ToStdString();
-    cfg.customEndpoint = config->Read("AI_CustomEndpoint", "http://localhost:8000/v1").ToStdString();
-    cfg.ollamaEndpoint = config->Read("AI_OllamaEndpoint", "http://localhost:11434").ToStdString();
+    cfg.openAIKey = config->Read("AI_OpenAIKey", "");
+    cfg.anthropicKey = config->Read("AI_AnthropicKey", "");
+    cfg.geminiKey = config->Read("AI_GeminiKey", "");
+    cfg.deepSeekKey = config->Read("AI_DeepSeekKey", "");
+    cfg.customEndpoint = config->Read("AI_CustomEndpoint", "http://localhost:8000/v1");
+    cfg.ollamaEndpoint = config->Read("AI_OllamaEndpoint", "http://localhost:11434");
     cfg.temperature = static_cast<float>(config->Read("AI_Temperature", 70L)) / 100.0f;
     cfg.topP = static_cast<float>(config->Read("AI_TopP", 95L)) / 100.0f;
     cfg.maxTokens = static_cast<int>(config->Read("AI_MaxTokens", 4096L));
     cfg.systemPrompt = config->Read("AI_SystemPrompt",
-        "You are an expert xLights lighting sequence copilot.").ToStdString();
+        "You are an expert xLights lighting sequence copilot.");
 
     AIConfigurationManager::Instance().UpdateSettings(cfg);
 }

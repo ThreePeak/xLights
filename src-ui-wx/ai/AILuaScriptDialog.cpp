@@ -7,20 +7,25 @@
  **************************************************************/
 
 #include "src-ui-wx/ai/AILuaScriptDialog.h"
+#include "src-ui-wx/ai/AIHelpGuideDialog.h"
+#include <wx/filedlg.h>
 #include <spdlog/spdlog.h>
+#include <fstream>
 
 namespace xLights::AI {
 
 enum {
     ID_LUA_GENERATE_BTN = 11001,
     ID_LUA_VALIDATE_BTN,
-    ID_LUA_RUN_BTN
+    ID_LUA_RUN_BTN,
+    ID_LUA_HELP_BTN
 };
 
 wxBEGIN_EVENT_TABLE(AILuaScriptDialog, wxDialog)
     EVT_BUTTON(ID_LUA_GENERATE_BTN, AILuaScriptDialog::OnGenerateButtonClick)
     EVT_BUTTON(ID_LUA_VALIDATE_BTN, AILuaScriptDialog::OnValidateButtonClick)
-    EVT_BUTTON(ID_LUA_RUN_BTN, AILuaScriptDialog::OnRunScriptButtonClick)
+    EVT_BUTTON(ID_LUA_RUN_BTN, AILuaScriptDialog::OnSaveScriptButtonClick)
+    EVT_BUTTON(ID_LUA_HELP_BTN, AILuaScriptDialog::OnHelpButtonClick)
     EVT_BUTTON(wxID_CANCEL, AILuaScriptDialog::OnCloseButtonClick)
 wxEND_EVENT_TABLE()
 
@@ -30,7 +35,36 @@ AILuaScriptDialog::AILuaScriptDialog(wxWindow* parent, wxWindowID id, const wxSt
 }
 
 void AILuaScriptDialog::InitUI() {
+    SetMinSize(wxSize(800, 640));
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+
+    // Modern Header Banner
+    auto* banner = new wxPanel(this, wxID_ANY);
+    banner->SetBackgroundColour(wxColour(36, 32, 54));
+    auto* bannerSizer = new wxBoxSizer(wxHORIZONTAL);
+    
+    auto* textSizer = new wxBoxSizer(wxVERTICAL);
+    auto* titleTxt = new wxStaticText(banner, wxID_ANY, wxT("AI Lua Scripting & Automation Copilot"));
+    titleTxt->SetForegroundColour(*wxWHITE);
+    wxFont titleFont = titleTxt->GetFont();
+    titleFont.SetPointSize(titleFont.GetPointSize() + 2);
+    titleFont.SetWeight(wxFONTWEIGHT_BOLD);
+    titleTxt->SetFont(titleFont);
+
+    auto* subTitle = new wxStaticText(banner, wxID_ANY,
+        wxT("Generate, sandbox-verify, and execute custom sequencing automation scripts via LLM intelligence."));
+    subTitle->SetForegroundColour(wxColour(210, 190, 240));
+
+    textSizer->Add(titleTxt, 0, wxALL, 8);
+    textSizer->Add(subTitle, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+    bannerSizer->Add(textSizer, 1, wxEXPAND);
+
+    auto* helpBtn = new wxButton(banner, ID_LUA_HELP_BTN, wxT("❓ Help & Guide"));
+    helpBtn->SetToolTip(wxT("Open comprehensive user manual, setting explanations, and workflow diagrams (F1)."));
+    bannerSizer->Add(helpBtn, 0, wxALL | wxALIGN_CENTER_VERTICAL, 10);
+
+    banner->SetSizer(bannerSizer);
+    mainSizer->Add(banner, 0, wxEXPAND);
 
     // Fine Control Parameters Section
     wxStaticBoxSizer* configBox = new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("LLM Model & Generator Parameters"));
@@ -43,40 +77,53 @@ void AILuaScriptDialog::InitUI() {
     providers.Add(wxT("Ollama Local Endpoint"));
     m_modelProviderChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, providers);
     m_modelProviderChoice->SetSelection(0);
+    m_modelProviderChoice->SetToolTip(wxT("Select the AI reasoning backend to synthesize the Lua script."));
     grid->Add(m_modelProviderChoice, 1, wxEXPAND);
 
     grid->Add(new wxStaticText(this, wxID_ANY, wxT("Temperature:")), 0, wxALIGN_CENTER_VERTICAL);
     m_temperatureSlider = new wxSlider(this, wxID_ANY, 70, 0, 200, wxDefaultPosition, wxSize(120, -1));
+    m_temperatureSlider->SetToolTip(wxT("Controls creativity vs. precision in script generation."));
     grid->Add(m_temperatureSlider, 1, wxEXPAND);
 
     m_sandboxEnforceChk = new wxCheckBox(this, wxID_ANY, wxT("Enforce Strict Security Sandbox"));
     m_sandboxEnforceChk->SetValue(true);
+    m_sandboxEnforceChk->SetToolTip(wxT("Prevent unsafe system calls, OS file deletions, or unbounded loops."));
     grid->Add(m_sandboxEnforceChk, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 10);
 
-    configBox->GetSizer()->Add(grid, 1, wxEXPAND | wxALL, 5);
+    configBox->Add(grid, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(configBox, 0, wxEXPAND | wxALL, 10);
 
     // Prompt Entry Section
     wxStaticBoxSizer* promptBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Natural Language Script Prompt"));
     m_promptTextCtrl = new wxTextCtrl(this, wxID_ANY, wxT("Generate a cascading 3D rainbow color wave across the MegaTree timed to 120 BPM"), wxDefaultPosition, wxSize(-1, 60), wxTE_MULTILINE);
-    promptBox->GetSizer()->Add(m_promptTextCtrl, 1, wxEXPAND | wxALL, 5);
+    m_promptTextCtrl->SetToolTip(wxT("Describe the lighting effect, animation, or sequence logic you want to create in plain English."));
+    promptBox->Add(m_promptTextCtrl, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(promptBox, 0, wxEXPAND | wxALL, 10);
 
     // Script Editor Section
     wxStaticBoxSizer* editorBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Generated Lua Script (Syntax Checked & Sandbox Verified)"));
     m_scriptEditorCtrl = new wxTextCtrl(this, wxID_ANY, wxT("-- AI Generated Lua Script will appear here..."), wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
-    editorBox->GetSizer()->Add(m_scriptEditorCtrl, 1, wxEXPAND | wxALL, 5);
+    m_scriptEditorCtrl->SetFont(wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+    editorBox->Add(m_scriptEditorCtrl, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(editorBox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     // Status Bar Label
-    m_statusLabel = new wxStaticText(this, wxID_ANY, wxT("Status: Ready. Input prompt and click Generate Script."));
+    m_statusLabel = new wxStaticText(this, wxID_ANY, wxT("🟢 Status: Ready. Input prompt and click Generate Script."));
     mainSizer->Add(m_statusLabel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     // Action Buttons
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    m_generateBtn = new wxButton(this, ID_LUA_GENERATE_BTN, wxT("Generate Script"));
-    m_validateBtn = new wxButton(this, ID_LUA_VALIDATE_BTN, wxT("Validate Sandbox"));
-    m_runBtn = new wxButton(this, ID_LUA_RUN_BTN, wxT("Run Script"));
+    m_generateBtn = new wxButton(this, ID_LUA_GENERATE_BTN, wxT("✨ Generate Script"));
+    m_generateBtn->SetBackgroundColour(wxColour(130, 60, 220));
+    m_generateBtn->SetForegroundColour(*wxWHITE);
+    m_generateBtn->SetToolTip(wxT("Synthesize a complete Lua script matching your natural language prompt."));
+
+    m_validateBtn = new wxButton(this, ID_LUA_VALIDATE_BTN, wxT("🛡️ Validate Sandbox"));
+    m_validateBtn->SetToolTip(wxT("Run the Lua AST security analyzer to confirm absence of unauthorized system APIs."));
+
+    m_runBtn = new wxButton(this, ID_LUA_RUN_BTN, wxT("💾 Save Script (.lua)..."));
+    m_runBtn->SetToolTip(wxT("Save verified Lua script file to disk."));
+
     m_closeBtn = new wxButton(this, wxID_CANCEL, wxT("Close"));
 
     btnSizer->Add(m_generateBtn, 0, wxALL, 5);
@@ -125,15 +172,29 @@ void AILuaScriptDialog::OnValidateButtonClick(wxCommandEvent& WXUNUSED(event)) {
     }
 }
 
-void AILuaScriptDialog::OnRunScriptButtonClick(wxCommandEvent& WXUNUSED(event)) {
+void AILuaScriptDialog::OnSaveScriptButtonClick(wxCommandEvent& WXUNUSED(event)) {
     std::string script = m_scriptEditorCtrl->GetValue().ToStdString();
     std::string errOut;
     if (!LuaScriptGenerator::ValidateLuaSandbox(script, errOut)) {
-        wxMessageBox(wxString::FromUTF8("Cannot run unsafe script: " + errOut), wxT("Execution Error"), wxOK | wxICON_ERROR, this);
+        wxMessageBox(wxString::FromUTF8("Cannot save unsafe script: " + errOut), wxT("Validation Error"), wxOK | wxICON_ERROR, this);
         return;
     }
 
-    wxMessageBox(wxT("Script executed successfully in xLights engine!"), wxT("Script Execution"), wxOK | wxICON_INFORMATION, this);
+    wxFileDialog saveDlg(this, wxT("Save Lua Script"), wxEmptyString, wxT("script.lua"), wxT("Lua scripts (*.lua)|*.lua"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (saveDlg.ShowModal() == wxID_CANCEL) return;
+
+    std::ofstream out(saveDlg.GetPath().ToStdString());
+    if (out.is_open()) {
+        out << script;
+        out.close();
+        wxMessageBox(wxString::Format(wxT("Script successfully saved to:\n%s"), saveDlg.GetPath()), wxT("Save Complete"), wxOK | wxICON_INFORMATION, this);
+    } else {
+        wxMessageBox(wxT("Failed to open file for writing."), wxT("Save Error"), wxOK | wxICON_ERROR, this);
+    }
+}
+
+void AILuaScriptDialog::OnHelpButtonClick(wxCommandEvent& WXUNUSED(event)) {
+    AIHelpGuideDialog::ShowHelp(this, "LUA_SCRIPTING");
 }
 
 void AILuaScriptDialog::OnCloseButtonClick(wxCommandEvent& WXUNUSED(event)) {

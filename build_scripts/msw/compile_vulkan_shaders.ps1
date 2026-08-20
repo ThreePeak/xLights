@@ -26,6 +26,8 @@ if ($env:GLSLC -and (Test-Path $env:GLSLC)) {
     $glslc = $env:GLSLC
 } elseif ($env:VULKAN_SDK -and (Test-Path (Join-Path $env:VULKAN_SDK 'Bin\glslc.exe'))) {
     $glslc = Join-Path $env:VULKAN_SDK 'Bin\glslc.exe'
+} elseif (Test-Path (Join-Path $PSScriptRoot '..\..\tools\vulkan_bin\glslc.exe')) {
+    $glslc = (Resolve-Path (Join-Path $PSScriptRoot '..\..\tools\vulkan_bin\glslc.exe')).Path
 } else {
     $cmd = Get-Command glslc.exe -ErrorAction SilentlyContinue
     if ($cmd) { $glslc = $cmd.Source }

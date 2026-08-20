@@ -19,8 +19,8 @@ AIFeatureManager& AIFeatureManager::GetInstance() {
 
 bool AIFeatureManager::Initialize() {
     std::lock_guard<std::mutex> lock(m_managerMutex);
-    spdlog::info("[AIFeatureManager] Virtual Initialize called — enabling default AI feature suite (Features 1..15).");
-    for (int i = 1; i <= 15; ++i) {
+    spdlog::info("[AIFeatureManager] Virtual Initialize called — enabling complete AI feature suite (Features 1..19).");
+    for (int i = 1; i <= 19; ++i) {
         m_enabledFeatures.insert(i);
     }
     return true;

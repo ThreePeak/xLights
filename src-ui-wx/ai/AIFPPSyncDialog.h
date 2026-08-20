@@ -23,11 +23,12 @@ private:
 
     void OnAnalyzeClick(wxCommandEvent& event);
     void OnExportJsonClick(wxCommandEvent& event);
+    void OnHelpClick(wxCommandEvent& event);
     void OnCloseClick(wxCommandEvent& event);
 
     wxTextCtrl* m_fppHostCtrl = nullptr;
-    wxTextCtrl* m_showXmlPathCtrl = nullptr;
-    wxButton* m_browseBtn = nullptr;
+    class wxFilePickerCtrl;
+    wxFilePickerCtrl* m_showXmlPicker = nullptr;
     wxButton* m_analyzeBtn = nullptr;
     wxButton* m_exportJsonBtn = nullptr;
     wxButton* m_closeBtn = nullptr;

@@ -590,7 +590,7 @@ private:
     // would race for the shared channel, so callers must use serial paths
     bool dupActChans = false;
 public:
-    uint32_t GetPixelCount() { return pixelVector.size(); }
+    uint32_t GetPixelCount() const { return pixelVector.size(); }
     xlColor *GetPixels() { return pixels; }
     // Hand pixel storage back to the CPU-owned vector. A GPU backend may point
     // `pixels` into its own mapping; InitBuffer then deliberately keeps that

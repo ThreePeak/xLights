@@ -32,7 +32,13 @@ private:
     // Event Handlers
     void OnStartCaptureButtonClick(wxCommandEvent& event);
     void OnSolvePointCloudButtonClick(wxCommandEvent& event);
+    void OnExportModelButtonClick(wxCommandEvent& event);
+    void OnHelpButtonClick(wxCommandEvent& event);
     void OnCloseButtonClick(wxCommandEvent& event);
+
+    bool m_captured = false;
+    bool m_solved = false;
+    GrayCodeCaptureResult m_lastResult;
 
     wxChoice* m_cameraChoice = nullptr;
     wxChoice* m_bitDepthChoice = nullptr;
@@ -45,6 +51,7 @@ private:
 
     wxButton* m_startCaptureBtn = nullptr;
     wxButton* m_solveBtn = nullptr;
+    wxButton* m_exportBtn = nullptr;
     wxButton* m_closeBtn = nullptr;
 
     DECLARE_EVENT_TABLE()

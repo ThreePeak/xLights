@@ -51,6 +51,8 @@ private:
     SequenceValidationResult m_lastResult;
 
     // UI Controls
+    class wxFilePickerCtrl;
+    wxFilePickerCtrl* m_sequenceFilePicker = nullptr;
     wxChoice* m_categoryChoice = nullptr;
     wxChoice* m_personaChoice = nullptr;
     wxChoice* m_severityFilterChoice = nullptr;

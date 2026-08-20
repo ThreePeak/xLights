@@ -79,9 +79,9 @@ DemucsStemResult AudioDecoder::SeparateDemucsStemsONNX(AudioManager* audioManage
     std::string baseDir = outputFolder.empty() ? "." : outputFolder;
     std::string songPrefix = "song";
     if (audioManager) {
-        std::string songTitle = audioManager->GetTitle();
+        std::string songTitle = audioManager->Title();
         if (songTitle.empty()) {
-            std::filesystem::path p(audioManager->GetAudioFile());
+            std::filesystem::path p(audioManager->FileName());
             if (p.has_stem()) songTitle = p.stem().string();
         }
         if (!songTitle.empty()) songPrefix = songTitle;

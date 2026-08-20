@@ -64,6 +64,19 @@ struct StemExtractionConfig {
     const std::atomic<bool>* cancel = nullptr;
 };
 
+struct AudioStemConfig {
+    bool extractVocals = true;
+    bool extractDrums = true;
+    bool extractBass = true;
+    bool generateBpmTimings = true;
+};
+
+struct AudioStemResult {
+    bool success = true;
+    float detectedBpm = 120.0f;
+    std::vector<std::string> stemFiles;
+};
+
 struct StemExtractionResult {
     bool success = false;
     std::vector<AudioStem> stems;
@@ -107,6 +120,11 @@ public:
         const StemSeparationOptions& options,
         std::function<void(int pct)> progress = nullptr,
         const std::atomic<bool>* cancel = nullptr
+    );
+
+    [[nodiscard]] static AudioStemResult ExtractStems(
+        const std::string& audioPath,
+        const AudioStemConfig& config = {}
     );
 
     /**

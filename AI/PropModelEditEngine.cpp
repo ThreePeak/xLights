@@ -6,7 +6,7 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
-#include "AI/PropModelEditEngine.h"
+#include "PropModelEditEngine.h"
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <cmath>

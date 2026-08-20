@@ -34,6 +34,7 @@ private:
     // Event Handlers
     void OnCalculateButtonClick(wxCommandEvent& event);
     void OnExportCsvButtonClick(wxCommandEvent& event);
+    void OnHelpButtonClick(wxCommandEvent& event);
     void OnCloseButtonClick(wxCommandEvent& event);
 
     // Controls

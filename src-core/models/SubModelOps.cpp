@@ -9,6 +9,7 @@
  **************************************************************/
 
 #include "SubModelOps.h"
+#include <spdlog/spdlog.h>
 
 #include "../utils/NodeUtils.h"
 #include "../utils/string_utils.h"

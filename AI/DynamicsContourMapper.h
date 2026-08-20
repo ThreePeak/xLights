@@ -9,7 +9,7 @@
  **************************************************************/
 
 #include "media/AudioDynamicsMapper.h"
-#include "AISubsystemBase.h"
+#include "ai/AISubsystemBase.h"
 
 namespace xLights::AI {
 

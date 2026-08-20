@@ -12,6 +12,8 @@
 
 #include "SubmodelDetectorAIGenerator.h"
 
+namespace xLights::AI {
+
 class SubmodelDetectorUtils {
 public:
     // Apply geometric clustering (DBSCAN) to group node coordinates into spatial clusters

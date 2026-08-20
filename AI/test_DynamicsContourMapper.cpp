@@ -7,12 +7,17 @@
  **************************************************************/
 
 #include "media/AudioDynamicsMapper.h"
+#include "media/AudioManager.h"
 #include "DynamicsContourMapper.h"
 #include <nlohmann/json.hpp>
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <cassert>
+
+// Test stubs for AudioManager
+float* AudioManager::GetRawLeftDataPtr(long) { return nullptr; }
+float* AudioManager::GetRawRightDataPtr(long) { return nullptr; }
 
 int main() {
     std::cout << "[Unit Test] Running AudioDynamicsMapper verification..." << std::endl;

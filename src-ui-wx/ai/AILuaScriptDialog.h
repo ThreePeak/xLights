@@ -35,7 +35,8 @@ private:
     // Event Handlers
     void OnGenerateButtonClick(wxCommandEvent& event);
     void OnValidateButtonClick(wxCommandEvent& event);
-    void OnRunScriptButtonClick(wxCommandEvent& event);
+    void OnSaveScriptButtonClick(wxCommandEvent& event);
+    void OnHelpButtonClick(wxCommandEvent& event);
     void OnCloseButtonClick(wxCommandEvent& event);
 
     std::string m_lastGeneratedScript;

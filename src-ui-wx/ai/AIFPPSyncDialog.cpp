@@ -1,19 +1,23 @@
 #include "src-ui-wx/ai/AIFPPSyncDialog.h"
+#include "src-ui-wx/ai/AIHelpGuideDialog.h"
 #include <wx/filedlg.h>
 #include <wx/msgdlg.h>
 #include <wx/file.h>
+#include <wx/filepicker.h>
 #include <spdlog/spdlog.h>
 
 namespace xLights::AI {
 
 enum {
     ID_FPP_ANALYZE_BTN = 13001,
-    ID_FPP_EXPORT_JSON_BTN = 13002
+    ID_FPP_EXPORT_JSON_BTN = 13002,
+    ID_FPP_HELP_BTN = 13003
 };
 
 wxBEGIN_EVENT_TABLE(AIFPPSyncDialog, wxDialog)
     EVT_BUTTON(ID_FPP_ANALYZE_BTN, AIFPPSyncDialog::OnAnalyzeClick)
     EVT_BUTTON(ID_FPP_EXPORT_JSON_BTN, AIFPPSyncDialog::OnExportJsonClick)
+    EVT_BUTTON(ID_FPP_HELP_BTN, AIFPPSyncDialog::OnHelpClick)
     EVT_BUTTON(wxID_CANCEL, AIFPPSyncDialog::OnCloseClick)
 wxEND_EVENT_TABLE()
 
@@ -23,29 +27,59 @@ AIFPPSyncDialog::AIFPPSyncDialog(wxWindow* parent, wxWindowID id, const wxString
 }
 
 void AIFPPSyncDialog::InitUI() {
+    SetMinSize(wxSize(760, 580));
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
+    // Modern Header Banner
+    auto* banner = new wxPanel(this, wxID_ANY);
+    banner->SetBackgroundColour(wxColour(24, 45, 56));
+    auto* bannerSizer = new wxBoxSizer(wxHORIZONTAL);
+    
+    auto* textSizer = new wxBoxSizer(wxVERTICAL);
+    auto* titleTxt = new wxStaticText(banner, wxID_ANY, wxT("AI Falcon Player (FPP) Multi-Sync & Controller Auto-Provisioner"));
+    titleTxt->SetForegroundColour(*wxWHITE);
+    wxFont titleFont = titleTxt->GetFont();
+    titleFont.SetPointSize(titleFont.GetPointSize() + 2);
+    titleFont.SetWeight(wxFONTWEIGHT_BOLD);
+    titleTxt->SetFont(titleFont);
+
+    auto* subTitle = new wxStaticText(banner, wxID_ANY,
+        wxT("Auto-discover FPP instances, synchronize universe maps, and export controller configuration manifests."));
+    subTitle->SetForegroundColour(wxColour(170, 210, 230));
+
+    textSizer->Add(titleTxt, 0, wxALL, 8);
+    textSizer->Add(subTitle, 0, wxLEFT | wxRIGHT | wxBOTTOM, 8);
+    bannerSizer->Add(textSizer, 1, wxEXPAND);
+
+    auto* helpBtn = new wxButton(banner, ID_FPP_HELP_BTN, wxT("❓ Help & Guide"));
+    helpBtn->SetToolTip(wxT("Open comprehensive user manual, setting explanations, and workflow diagrams (F1)."));
+    bannerSizer->Add(helpBtn, 0, wxALL | wxALIGN_CENTER_VERTICAL, 10);
+
+    banner->SetSizer(bannerSizer);
+    mainSizer->Add(banner, 0, wxEXPAND);
+
     // FPP Host Configuration
-    wxStaticBoxSizer* configBox = new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("FPP Host Configuration"));
-    wxFlexGridSizer* grid = new wxFlexGridSizer(2, 3, 5, 10);
+    wxStaticBoxSizer* configBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("FPP Host & Show Configuration"));
+    wxFlexGridSizer* grid = new wxFlexGridSizer(2, 2, 6, 12);
     grid->AddGrowableCol(1, 1);
     
-    grid->Add(new wxStaticText(this, wxID_ANY, wxT("FPP Host IP:")), 0, wxALIGN_CENTER_VERTICAL);
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("FPP Host IP / Hostname:")), 0, wxALIGN_CENTER_VERTICAL);
     m_fppHostCtrl = new wxTextCtrl(this, wxID_ANY, wxT("192.168.1.100"));
+    m_fppHostCtrl->SetToolTip(wxT("Enter the IP address or hostname of the primary Falcon Player master or remote node."));
     grid->Add(m_fppHostCtrl, 1, wxEXPAND);
-    grid->Add(new wxStaticText(this, wxID_ANY, wxT("")), 0, wxEXPAND);
     
-    grid->Add(new wxStaticText(this, wxID_ANY, wxT("show.xml Path:")), 0, wxALIGN_CENTER_VERTICAL);
-    m_showXmlPathCtrl = new wxTextCtrl(this, wxID_ANY, wxT(""));
-    grid->Add(m_showXmlPathCtrl, 1, wxEXPAND);
-    m_browseBtn = new wxButton(this, wxID_ANY, wxT("Browse..."));
-    grid->Add(m_browseBtn, 0, wxALIGN_CENTER_VERTICAL);
+    grid->Add(new wxStaticText(this, wxID_ANY, wxT("show.xml File Path:")), 0, wxALIGN_CENTER_VERTICAL);
+    m_showXmlPicker = new wxFilePickerCtrl(this, wxID_ANY, wxEmptyString, wxT("Select show.xml"),
+                                           wxT("XML files (*.xml)|*.xml|All files (*.*)|*.*"),
+                                           wxDefaultPosition, wxDefaultSize, wxFLP_DEFAULT_STYLE | wxFLP_USE_TEXTCTRL);
+    m_showXmlPicker->SetToolTip(wxT("Path to the local xLights show.xml file containing network & controller definitions."));
+    grid->Add(m_showXmlPicker, 1, wxEXPAND);
 
-    configBox->GetSizer()->Add(grid, 1, wxEXPAND | wxALL, 5);
+    configBox->Add(grid, 1, wxEXPAND | wxALL, 6);
     mainSizer->Add(configBox, 0, wxEXPAND | wxALL, 10);
 
     // Analysis Results
-    wxStaticBoxSizer* resultsBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Analysis Results"));
+    wxStaticBoxSizer* resultsBox = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Controller Auto-Provisioning Table"));
     m_resultsListCtrl = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxBORDER_SUNKEN);
     m_resultsListCtrl->InsertColumn(0, wxT("Point#"), wxLIST_FORMAT_LEFT, 60);
     m_resultsListCtrl->InsertColumn(1, wxT("Controller IP"), wxLIST_FORMAT_LEFT, 140);
@@ -53,7 +87,7 @@ void AIFPPSyncDialog::InitUI() {
     m_resultsListCtrl->InsertColumn(3, wxT("Start Channel"), wxLIST_FORMAT_LEFT, 130);
     m_resultsListCtrl->InsertColumn(4, wxT("Rationale"), wxLIST_FORMAT_LEFT, 260);
     
-    resultsBox->GetSizer()->Add(m_resultsListCtrl, 1, wxEXPAND | wxALL, 5);
+    resultsBox->Add(m_resultsListCtrl, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(resultsBox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     m_progressGauge = new wxGauge(this, wxID_ANY, 100);
@@ -61,13 +95,19 @@ void AIFPPSyncDialog::InitUI() {
     m_progressGauge->Hide();
     mainSizer->Add(m_progressGauge, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
-    m_statusLabel = new wxStaticText(this, wxID_ANY, wxT("Ready"));
+    m_statusLabel = new wxStaticText(this, wxID_ANY, wxT("🟢 Ready. Specify FPP host and click Analyze Controllers."));
     mainSizer->Add(m_statusLabel, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     // Button row
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-    m_analyzeBtn = new wxButton(this, ID_FPP_ANALYZE_BTN, wxT("Analyze Controllers"));
-    m_exportJsonBtn = new wxButton(this, ID_FPP_EXPORT_JSON_BTN, wxT("Export JSON"));
+    m_analyzeBtn = new wxButton(this, ID_FPP_ANALYZE_BTN, wxT("⚡ Analyze Controllers"));
+    m_analyzeBtn->SetBackgroundColour(wxColour(20, 150, 220));
+    m_analyzeBtn->SetForegroundColour(*wxWHITE);
+    m_analyzeBtn->SetToolTip(wxT("Analyze local network controllers and match against FPP remote channel boundaries."));
+
+    m_exportJsonBtn = new wxButton(this, ID_FPP_EXPORT_JSON_BTN, wxT("📄 Export FPP JSON Manifest..."));
+    m_exportJsonBtn->SetToolTip(wxT("Export universe definitions in standard Falcon Player JSON format."));
+
     m_closeBtn = new wxButton(this, wxID_CANCEL, wxT("Close"));
     
     btnSizer->Add(m_analyzeBtn, 0, wxALL, 5);
@@ -83,12 +123,13 @@ void AIFPPSyncDialog::InitUI() {
 }
 
 void AIFPPSyncDialog::OnAnalyzeClick(wxCommandEvent& event) {
+    wxString xmlPath = m_showXmlPicker ? m_showXmlPicker->GetPath() : wxString();
+
     m_progressGauge->Show();
     m_progressGauge->Pulse();
     Layout();
 
     FPPControllerSyncAdvisor advisor;
-    wxString xmlPath = m_showXmlPathCtrl->GetValue();
     m_lastResults = advisor.AnalyzeControllerLayout(xmlPath.ToStdString());
 
     m_resultsListCtrl->DeleteAllItems();
@@ -130,6 +171,10 @@ void AIFPPSyncDialog::OnExportJsonClick(wxCommandEvent& event) {
     } else {
         spdlog::error("AIFPPSyncDialog: Failed to open file for writing JSON");
     }
+}
+
+void AIFPPSyncDialog::OnHelpClick(wxCommandEvent& event) {
+    AIHelpGuideDialog::ShowHelp(this, "FPP_MULTI_SYNC");
 }
 
 void AIFPPSyncDialog::OnCloseClick(wxCommandEvent& event) {

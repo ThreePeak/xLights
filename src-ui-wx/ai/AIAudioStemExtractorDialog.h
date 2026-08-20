@@ -35,6 +35,8 @@ private:
     void OnPhonemeMapButtonClick(wxCommandEvent& event);
     void OnCloseButtonClick(wxCommandEvent& event);
 
+    class wxFilePickerCtrl;
+    wxFilePickerCtrl* m_audioFilePicker = nullptr;
     wxChoice* m_stemModelChoice = nullptr;
     wxSlider* m_transientSensitivitySlider = nullptr;
     wxSpinCtrl* m_framePeriodSpin = nullptr;

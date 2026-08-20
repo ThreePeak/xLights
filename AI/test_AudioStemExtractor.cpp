@@ -7,10 +7,29 @@
  **************************************************************/
 
 #include "AudioStemExtractor.h"
+#include "media/AudioDecoder.h"
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <cassert>
+
+// Test stubs for AudioDecoder interface
+AudioDecoder::AudioDecoder() = default;
+bool AudioDecoder::DecodeFile(const std::string&, long, int, DecodedAudioInfo&, uint8_t*&, long&, float*&, float*&, long&, std::function<void(int)>) { return true; }
+bool AudioDecoder::EncodeToFile(const std::vector<float>&, const std::vector<float>&, size_t, const std::string&) { return true; }
+size_t AudioDecoder::GetAudioFileLength(const std::string&) { return 0; }
+DemucsStemResult AudioDecoder::ProcessAudioFileStemSeparation(
+    AudioManager*,
+    const std::string&,
+    const std::string&,
+    std::vector<StemTimingTrackResult>&,
+    std::function<void(int)>,
+    const std::atomic<bool>*)
+{
+    DemucsStemResult res;
+    res.success = true;
+    return res;
+}
 
 int main() {
     std::cout << "[Unit Test] Running AudioStemExtractor verification..." << std::endl;

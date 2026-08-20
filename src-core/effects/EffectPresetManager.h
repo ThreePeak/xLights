@@ -137,6 +137,7 @@ public:
     nlohmann::json SaveToJson() const;
     bool LoadJsonFile(const std::string& filepath);
     bool SaveJsonFile(const std::string& filepath) const;
+    void ImportFromXml(pugi::xml_node node, EffectPresetGroup* parent = nullptr);
     void Reset();
 
     // Version of the effects block

@@ -24,6 +24,10 @@ struct LuaScriptGeneratorConfig {
     int durationMs = 5000;             // Duration in milliseconds
     std::string currentPalette;        // e.g. "#FF0000,#00FF00,#0000FF"
     bool sandboxValidation = true;     // Syntax & safety check before returning
+
+    LuaScriptGeneratorConfig() = default;
+    LuaScriptGeneratorConfig(const std::string& prompt) : userPrompt(prompt), promptDescription(prompt) {}
+    LuaScriptGeneratorConfig(const char* prompt) : userPrompt(prompt ? prompt : ""), promptDescription(prompt ? prompt : "") {}
 };
 
 struct LuaScriptGeneratorResult {
@@ -32,6 +36,8 @@ struct LuaScriptGeneratorResult {
     std::string generatedLuaCode;      // Clean, executable xLights Lua script
     std::string scriptDescription;     // Summary of what the generated Lua code does
     bool passesSandboxValidation = false;
+
+    operator std::string() const { return generatedLuaCode; }
 };
 
 using LuaScriptSpec = LuaScriptGeneratorResult;

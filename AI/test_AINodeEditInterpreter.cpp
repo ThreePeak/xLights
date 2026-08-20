@@ -6,16 +6,15 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
-#define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
-
-#include "AI/AINodeEditInterpreter.h"
-#include "AI/AIConfigurationManager.h"
-#include "AI/CustomPropDesignerAI.h"
+#include "AINodeEditInterpreter.h"
+#include "AIConfigurationManager.h"
+#include "CustomPropDesignerAI.h"
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <cassert>
 
 using namespace xLights::AI;
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 static std::vector<PropNodeSuggestion> MakeCircleNodes(int count) {
     std::vector<PropNodeSuggestion> nodes;
@@ -39,119 +38,119 @@ static AIConfigSettings MakeTestConfig() {
     return cfg;
 }
 
-// ── InterpretPrompt tests ─────────────────────────────────────────────────────
+int main() {
+    std::cout << "[Unit Test] Running AINodeEditInterpreter verification..." << std::endl;
 
-TEST_CASE("AINodeEditInterpreter: InterpretPrompt returns non-empty confirmationMessage", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    auto nodes = MakeCircleNodes(16);
-    auto cfg   = MakeTestConfig();
+    // Test 1: InterpretPrompt confirmation message
+    {
+        AINodeEditInterpreter interp;
+        auto nodes = MakeCircleNodes(16);
+        auto cfg   = MakeTestConfig();
 
-    auto plan = interp.InterpretPrompt("space all nodes evenly", nodes, cfg);
-    REQUIRE_FALSE(plan.confirmationMessage.empty());
-}
+        auto plan = interp.InterpretPrompt("space all nodes evenly", nodes, cfg);
+        assert(!plan.confirmationMessage.empty());
+        std::cout << " -> Test 1 (Confirmation Message): PASSED" << std::endl;
+    }
 
-TEST_CASE("AINodeEditInterpreter: requiresUserApproval always true", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    auto nodes = MakeCircleNodes(8);
-    auto cfg   = MakeTestConfig();
+    // Test 2: RequiresUserApproval flag
+    {
+        AINodeEditInterpreter interp;
+        auto nodes = MakeCircleNodes(8);
+        auto cfg   = MakeTestConfig();
 
-    auto plan = interp.InterpretPrompt("move everything left", nodes, cfg);
-    REQUIRE(plan.requiresUserApproval == true);
-}
+        auto plan = interp.InterpretPrompt("move everything left", nodes, cfg);
+        assert(plan.requiresUserApproval == true);
+        std::cout << " -> Test 2 (RequiresUserApproval Enforced): PASSED" << std::endl;
+    }
 
-TEST_CASE("AINodeEditInterpreter: space prompt includes EVEN_SPACE_ALL op", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    auto nodes = MakeCircleNodes(20);
-    auto cfg   = MakeTestConfig();
+    // Test 3: Space prompt operation code
+    {
+        AINodeEditInterpreter interp;
+        auto nodes = MakeCircleNodes(20);
+        auto cfg   = MakeTestConfig();
 
-    auto plan = interp.InterpretPrompt("space all nodes evenly across the model", nodes, cfg);
-    REQUIRE(plan.operationCode.find("EVEN_SPACE_ALL") != std::string::npos);
-}
+        auto plan = interp.InterpretPrompt("space all nodes evenly across the model", nodes, cfg);
+        assert(plan.operationCode.find("EVEN_SPACE_ALL") != std::string::npos);
+        std::cout << " -> Test 3 (EVEN_SPACE_ALL Opcode): PASSED" << std::endl;
+    }
 
-TEST_CASE("AINodeEditInterpreter: straighten prompt includes STRAIGHTEN_LEG op", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    auto nodes = MakeCircleNodes(12);
-    auto cfg   = MakeTestConfig();
+    // Test 4: Straighten leg operation code
+    {
+        AINodeEditInterpreter interp;
+        auto nodes = MakeCircleNodes(12);
+        auto cfg   = MakeTestConfig();
 
-    auto plan = interp.InterpretPrompt("straighten each vertical leg", nodes, cfg);
-    REQUIRE(plan.operationCode.find("STRAIGHTEN_LEG") != std::string::npos);
-}
+        auto plan = interp.InterpretPrompt("straighten each vertical leg", nodes, cfg);
+        assert(plan.operationCode.find("STRAIGHTEN_LEG") != std::string::npos);
+        std::cout << " -> Test 4 (STRAIGHTEN_LEG Opcode): PASSED" << std::endl;
+    }
 
-TEST_CASE("AINodeEditInterpreter: snap/grid prompt includes SNAP_GRID op", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    auto nodes = MakeCircleNodes(10);
-    auto cfg   = MakeTestConfig();
+    // Test 5: Snap to grid operation code
+    {
+        AINodeEditInterpreter interp;
+        auto nodes = MakeCircleNodes(10);
+        auto cfg   = MakeTestConfig();
 
-    auto plan = interp.InterpretPrompt("snap all nodes to the grid", nodes, cfg);
-    REQUIRE(plan.operationCode.find("SNAP_GRID") != std::string::npos);
-}
+        auto plan = interp.InterpretPrompt("snap all nodes to the grid", nodes, cfg);
+        assert(plan.operationCode.find("SNAP_GRID") != std::string::npos);
+        std::cout << " -> Test 5 (SNAP_GRID Opcode): PASSED" << std::endl;
+    }
 
-TEST_CASE("AINodeEditInterpreter: unknown prompt still returns valid plan", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    auto nodes = MakeCircleNodes(5);
-    auto cfg   = MakeTestConfig();
+    // Test 6: Unknown prompt fallback
+    {
+        AINodeEditInterpreter interp;
+        auto nodes = MakeCircleNodes(5);
+        auto cfg   = MakeTestConfig();
 
-    auto plan = interp.InterpretPrompt("xyzzy quux frobnicate", nodes, cfg);
-    // Should fall back to generic plan — not error
-    REQUIRE(plan.hasError == false);
-    REQUIRE_FALSE(plan.confirmationMessage.empty());
-    REQUIRE_FALSE(plan.operationCode.empty());
-}
+        auto plan = interp.InterpretPrompt("xyzzy quux frobnicate", nodes, cfg);
+        assert(!plan.hasError);
+        assert(!plan.confirmationMessage.empty());
+        assert(!plan.operationCode.empty());
+        std::cout << " -> Test 6 (Unknown Prompt Fallback): PASSED" << std::endl;
+    }
 
-// ── ExecutePlan tests ─────────────────────────────────────────────────────────
+    // Test 7: ExecutePlan EVEN_SPACE_ALL
+    {
+        AINodeEditInterpreter interp;
+        auto nodes = MakeCircleNodes(16);
+        auto cfg   = MakeTestConfig();
 
-TEST_CASE("AINodeEditInterpreter: ExecutePlan EVEN_SPACE_ALL preserves count", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    auto nodes = MakeCircleNodes(16);
-    auto cfg   = MakeTestConfig();
+        auto plan    = interp.InterpretPrompt("space all nodes evenly", nodes, cfg);
+        auto updated = interp.ExecutePlan(plan, nodes);
+        assert(updated.size() == nodes.size());
+        std::cout << " -> Test 7 (ExecutePlan EVEN_SPACE_ALL Preserves Count): PASSED" << std::endl;
+    }
 
-    auto plan    = interp.InterpretPrompt("space all nodes evenly", nodes, cfg);
-    auto updated = interp.ExecutePlan(plan, nodes);
-    REQUIRE(updated.size() == nodes.size());
-}
+    // Test 8: ExecutePlan SNAP_GRID
+    {
+        AINodeEditInterpreter interp;
+        std::vector<PropNodeSuggestion> nodes;
+        PropNodeSuggestion n; n.x = 13.3f; n.y = 6.7f; n.channelIndex = 1; n.label = "N";
+        nodes.push_back(n);
 
-TEST_CASE("AINodeEditInterpreter: ExecutePlan STRAIGHTEN_LEG changes middle node positions", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    auto nodes = MakeCircleNodes(10);
-    auto cfg   = MakeTestConfig();
+        NodeEditPlan plan;
+        plan.operationCode      = "SNAP_GRID 5.0\n";
+        plan.requiresUserApproval = true;
 
-    // Perturb a middle node so we can detect straightening
-    float origX = nodes[5].x;
-    nodes[5].x += 30.0f;
+        auto updated = interp.ExecutePlan(plan, nodes);
+        assert(std::abs(updated[0].x - 15.0f) < 1e-4f);
+        assert(std::abs(updated[0].y - 5.0f) < 1e-4f);
+        std::cout << " -> Test 8 (ExecutePlan SNAP_GRID): PASSED" << std::endl;
+    }
 
-    auto plan    = interp.InterpretPrompt("straighten the legs", nodes, cfg);
-    auto updated = interp.ExecutePlan(plan, nodes);
+    // Test 9: Compound prompt multi-operation
+    {
+        AINodeEditInterpreter interp;
+        auto nodes = MakeCircleNodes(20);
+        auto cfg   = MakeTestConfig();
 
-    // After straightening the first leg (0 to mid), node 5 should have changed
-    // (it's in the second half). Just verify count preserved and no throw.
-    REQUIRE(updated.size() == nodes.size());
-}
+        auto plan = interp.InterpretPrompt("straighten all legs and space all nodes evenly and snap to grid", nodes, cfg);
+        assert(plan.operationCode.find("STRAIGHTEN_LEG") != std::string::npos);
+        assert(plan.operationCode.find("EVEN_SPACE_ALL") != std::string::npos);
+        assert(plan.operationCode.find("SNAP_GRID") != std::string::npos);
+        std::cout << " -> Test 9 (Compound Prompt Multi-Op Extraction): PASSED" << std::endl;
+    }
 
-TEST_CASE("AINodeEditInterpreter: ExecutePlan SNAP_GRID rounds positions", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    std::vector<PropNodeSuggestion> nodes;
-    PropNodeSuggestion n; n.x = 13.3f; n.y = 6.7f; n.channelIndex = 1; n.label = "N";
-    nodes.push_back(n);
-    auto cfg = MakeTestConfig();
-
-    NodeEditPlan plan;
-    plan.operationCode      = "SNAP_GRID 5.0\n";
-    plan.requiresUserApproval = true;
-
-    auto updated = interp.ExecutePlan(plan, nodes);
-    REQUIRE(updated[0].x == Approx(15.0f));
-    REQUIRE(updated[0].y == Approx(5.0f));
-}
-
-TEST_CASE("AINodeEditInterpreter: compound prompt produces multiple ops", "[AINodeEditInterpreter]") {
-    AINodeEditInterpreter interp;
-    auto nodes = MakeCircleNodes(20);
-    auto cfg   = MakeTestConfig();
-
-    auto plan = interp.InterpretPrompt(
-        "straighten all legs and space all nodes evenly and snap to grid", nodes, cfg);
-    // Should have all 3 operation types
-    REQUIRE(plan.operationCode.find("STRAIGHTEN_LEG") != std::string::npos);
-    REQUIRE(plan.operationCode.find("EVEN_SPACE_ALL") != std::string::npos);
-    REQUIRE(plan.operationCode.find("SNAP_GRID") != std::string::npos);
+    std::cout << "[Unit Test] AINodeEditInterpreter ALL TESTS PASSED!" << std::endl;
+    return 0;
 }

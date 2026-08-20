@@ -28,13 +28,13 @@ CategoryScorecard SequenceValidatorAI::CalculateScorecard(const std::vector<Sequ
     CategoryScorecard card;
     for (const auto& issue : issues) {
         float penalty = 10.0f;
-        if (issue.severity == ValidationIssueSeverity::Critical || issue.severity == ValidationIssueSeverity::CRITICAL_ERROR) {
+        if (issue.severity == ValidationIssueSeverity::Critical) {
             penalty = 30.0f;
-        } else if (issue.severity == ValidationIssueSeverity::Error || issue.severity == ValidationIssueSeverity::ERROR) {
+        } else if (issue.severity == ValidationIssueSeverity::Error) {
             penalty = 20.0f;
-        } else if (issue.severity == ValidationIssueSeverity::Warning || issue.severity == ValidationIssueSeverity::WARNING) {
+        } else if (issue.severity == ValidationIssueSeverity::Warning) {
             penalty = 10.0f;
-        } else if (issue.severity == ValidationIssueSeverity::Info || issue.severity == ValidationIssueSeverity::INFO) {
+        } else if (issue.severity == ValidationIssueSeverity::Info) {
             penalty = 5.0f;
         }
 
@@ -231,7 +231,12 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
 
     result.totalIssuesCount = static_cast<int>(result.issues.size());
     result.totalIssuesFound = result.totalIssuesCount;
-    result.detectedIssues = result.issues;
+    result.detectedIssues.clear();
+    for (const auto& iss : result.issues) {
+        SequenceIssue si;
+        static_cast<SequenceValidationIssue&>(si) = iss;
+        result.detectedIssues.push_back(si);
+    }
     result.scorecard = CalculateScorecard(result.detectedIssues);
 
     std::ostringstream summary;
@@ -274,7 +279,10 @@ SequenceValidationResult SequenceValidatorAI::ValidateSequenceDiagnostics(const 
 }
 
 ComprehensiveAuditReport SequenceValidatorAI::RunComprehensiveAudit(const SequenceValidationConfig& config) {
-    return ValidateSequenceDiagnostics(config);
+    SequenceValidationResult res = ValidateSequenceDiagnostics(config);
+    ComprehensiveAuditReport rep;
+    static_cast<SequenceValidationResult&>(rep) = res;
+    return rep;
 }
 
 bool SequenceValidatorAI::RemediateSequenceIssues(const std::string& sequencePath, const std::vector<std::string>& targetIssueIds, std::string& errorOut) {
@@ -307,7 +315,16 @@ std::string SequenceValidatorAI::AutoRemediateSequence(const std::string& rawXml
 }
 
 std::string SequenceValidatorAI::GenerateBossCritique(const SequenceValidationResult& result) {
-    return GenerateBossCritique(result.scorecard, result.detectedIssues.empty() ? result.issues : result.detectedIssues);
+    if (!result.detectedIssues.empty()) {
+        return GenerateBossCritique(result.scorecard, result.detectedIssues);
+    }
+    std::vector<SequenceIssue> issues;
+    for (const auto& iss : result.issues) {
+        SequenceIssue si;
+        static_cast<SequenceValidationIssue&>(si) = iss;
+        issues.push_back(si);
+    }
+    return GenerateBossCritique(result.scorecard, issues);
 }
 
 std::string SequenceValidatorAI::GenerateBossCritique(const CategoryScorecard& scores, const std::vector<SequenceIssue>& issues) {
@@ -381,28 +398,6 @@ std::string SequenceValidatorAI::ExportValidationReportJSON(const SequenceValida
     root["issues"] = issuesArr;
 
     return root.dump(2);
-}
-
-std::string SequenceValidatorAI::AutoRemediateSequence(const std::string& rawXmlContent, const std::vector<SequenceIssue>& targetIssues) {
-    pugi::xml_document doc;
-    if (!doc.load_string(rawXmlContent.c_str())) {
-        return rawXmlContent;
-    }
-
-    for (const auto& issue : targetIssues) {
-        if (!issue.affectedModelName.empty()) {
-            pugi::xml_node element = doc.find_node([&](pugi::xml_node n) {
-                return std::string(n.name()) == "Element" && std::string(n.attribute("name").value()) == issue.affectedModelName;
-            });
-            if (element) {
-                element.append_attribute("ai_remediated").set_value("true");
-            }
-        }
-    }
-
-    std::ostringstream ss;
-    doc.save(ss, "  ");
-    return ss.str();
 }
 
 } // namespace xLights::AI

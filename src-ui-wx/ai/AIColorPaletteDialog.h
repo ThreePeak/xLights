@@ -46,6 +46,7 @@ class AIColorPaletteDialog: public wxDialog
         static const wxWindowID ID_BUTTON1;
         static const wxWindowID ID_OK;
         static const wxWindowID ID_CANCEL;
+        static const wxWindowID ID_HELP;
         //*)
 
     private:
@@ -57,6 +58,7 @@ class AIColorPaletteDialog: public wxDialog
         void OnGenerateButtonClick(wxCommandEvent& event);
         void OnOkButonClick(wxCommandEvent& event);
         void OnCancelButtonClick(wxCommandEvent& event);
+        void OnHelpButtonClick(wxCommandEvent& event);
         void OnSongTextCtrlText(wxCommandEvent& event);
         //*)
 

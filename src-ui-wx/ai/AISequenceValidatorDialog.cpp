@@ -12,6 +12,7 @@
 #include <spdlog/spdlog.h>
 #include <fstream>
 #include <wx/msgdlg.h>
+#include <wx/filepicker.h>
 
 namespace xLights::AI {
 
@@ -43,10 +44,23 @@ void AISequenceValidatorDialog::SetValidationConfig(const SequenceValidationConf
 void AISequenceValidatorDialog::InitUI() {
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
+    // Sequence Source Picker
+    wxStaticBoxSizer* fileBox = new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("Target Sequence File (Optional Override)"));
+    wxString defaultSeqPath = wxEmptyString;
+    if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetSequenceLoaded()) {
+        defaultSeqPath = wxString::FromUTF8(xLightsFrame::CurrentSeqXmlFile->GetFullPath());
+    }
+    m_sequenceFilePicker = new wxFilePickerCtrl(this, wxID_ANY, defaultSeqPath, wxT("Select Sequence File"),
+                                                wxT("xLights Sequence (*.xsq)|*.xsq|XML files (*.xml)|*.xml|All files (*.*)|*.*"),
+                                                wxDefaultPosition, wxDefaultSize, wxFLP_DEFAULT_STYLE | wxFLP_USE_TEXTCTRL);
+    fileBox->Add(new wxStaticText(this, wxID_ANY, wxT("Sequence:")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    fileBox->Add(m_sequenceFilePicker, 1, wxEXPAND | wxALL, 5);
+    mainSizer->Add(fileBox, 0, wxEXPAND | wxALL, 8);
+
     // Top Controls Sizer (Category & Persona Selection)
     wxStaticBoxSizer* topBoxSizer = new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("Audit Controls & Persona Review"));
 
-    topBoxSizer->GetSizer()->Add(new wxStaticText(this, wxID_ANY, wxT("Audit Category:")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    topBoxSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Audit Category:")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
     wxArrayString categories;
     categories.Add(wxT("ALL (Full Diagnostic Audit)"));
     categories.Add(wxT("Hardware Safety"));
@@ -54,18 +68,18 @@ void AISequenceValidatorDialog::InitUI() {
     categories.Add(wxT("Channel Overlaps"));
     m_categoryChoice = new wxChoice(this, ID_CATEGORY_CHOICE, wxDefaultPosition, wxDefaultSize, categories);
     m_categoryChoice->SetSelection(0);
-    topBoxSizer->GetSizer()->Add(m_categoryChoice, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    topBoxSizer->Add(m_categoryChoice, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
-    topBoxSizer->GetSizer()->Add(new wxStaticText(this, wxID_ANY, wxT("Review Persona:")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    topBoxSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Review Persona:")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
     wxArrayString personas;
     personas.Add(wxT("Master Sequencer Boss"));
     personas.Add(wxT("Light Show Journalist (5-Star Review)"));
     personas.Add(wxT("Enthusiast Coach"));
     m_personaChoice = new wxChoice(this, ID_PERSONA_CHOICE, wxDefaultPosition, wxDefaultSize, personas);
     m_personaChoice->SetSelection(0);
-    topBoxSizer->GetSizer()->Add(m_personaChoice, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    topBoxSizer->Add(m_personaChoice, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
-    topBoxSizer->GetSizer()->Add(new wxStaticText(this, wxID_ANY, wxT("Min Severity Filter:")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    topBoxSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Min Severity Filter:")), 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
     wxArrayString severities;
     severities.Add(wxT("Info (All Diagnostics)"));
     severities.Add(wxT("Warning (& Errors/Critical)"));
@@ -73,7 +87,7 @@ void AISequenceValidatorDialog::InitUI() {
     severities.Add(wxT("Critical Only"));
     m_severityFilterChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, severities);
     m_severityFilterChoice->SetSelection(0);
-    topBoxSizer->GetSizer()->Add(m_severityFilterChoice, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    topBoxSizer->Add(m_severityFilterChoice, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
     // Rule Masks Box
     wxStaticBoxSizer* ruleMaskBox = new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("Diagnostic Rule Mask Filters"));
@@ -88,11 +102,11 @@ void AISequenceValidatorDialog::InitUI() {
     m_checkHarmonyChk = new wxCheckBox(this, wxID_ANY, wxT("Creative Harmony"));
     m_checkHarmonyChk->SetValue(true);
 
-    ruleMaskBox->GetSizer()->Add(m_checkXmlChk, 0, wxALL, 5);
-    ruleMaskBox->GetSizer()->Add(m_checkBoundsChk, 0, wxALL, 5);
-    ruleMaskBox->GetSizer()->Add(m_checkRhythmChk, 0, wxALL, 5);
-    ruleMaskBox->GetSizer()->Add(m_checkHardwareChk, 0, wxALL, 5);
-    ruleMaskBox->GetSizer()->Add(m_checkHarmonyChk, 0, wxALL, 5);
+    ruleMaskBox->Add(m_checkXmlChk, 0, wxALL, 5);
+    ruleMaskBox->Add(m_checkBoundsChk, 0, wxALL, 5);
+    ruleMaskBox->Add(m_checkRhythmChk, 0, wxALL, 5);
+    ruleMaskBox->Add(m_checkHardwareChk, 0, wxALL, 5);
+    ruleMaskBox->Add(m_checkHarmonyChk, 0, wxALL, 5);
 
     mainSizer->Add(topBoxSizer, 0, wxEXPAND | wxALL, 10);
     mainSizer->Add(ruleMaskBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
@@ -125,7 +139,7 @@ void AISequenceValidatorDialog::InitUI() {
     m_visualHarmonyGauge = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, wxSize(150, 15));
     scoreGrid->Add(m_visualHarmonyGauge, 1, wxEXPAND);
 
-    scorecardBox->GetSizer()->Add(scoreGrid, 1, wxEXPAND | wxALL, 5);
+    scorecardBox->Add(scoreGrid, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(scorecardBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
     // Notebook (Issues List & Persona Critique)
@@ -195,9 +209,9 @@ void AISequenceValidatorDialog::PopulateIssuesList() {
         long row = m_issuesListCtrl->InsertItem(index, wxString::FromUTF8(issue.issueId));
 
         wxString sevStr = wxT("Warning");
-        if (issue.severity == ValidationIssueSeverity::Error || issue.severity == ValidationIssueSeverity::ERROR) sevStr = wxT("Error");
-        else if (issue.severity == ValidationIssueSeverity::Critical || issue.severity == ValidationIssueSeverity::CRITICAL_ERROR) sevStr = wxT("Critical");
-        else if (issue.severity == ValidationIssueSeverity::Info || issue.severity == ValidationIssueSeverity::INFO) sevStr = wxT("Info");
+        if (issue.severity == ValidationIssueSeverity::Error) sevStr = wxT("Error");
+        else if (issue.severity == ValidationIssueSeverity::Critical) sevStr = wxT("Critical");
+        else if (issue.severity == ValidationIssueSeverity::Info) sevStr = wxT("Info");
 
         m_issuesListCtrl->SetItem(row, 1, sevStr);
         m_issuesListCtrl->SetItem(row, 2, wxString::FromUTF8(issue.category));
@@ -235,12 +249,16 @@ void AISequenceValidatorDialog::OnRunAuditButtonClick(wxCommandEvent& WXUNUSED(e
         m_config.reviewMode = PersonaReviewMode::ENTHUSIAST_COACH;
     }
 
-    // Live Sequence Data Binding: Populate configuration from active xLights sequence
-    if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetSequenceLoaded()) {
-        m_config.sequenceFilePath = xLightsFrame::CurrentSeqXmlFile->GetFullPath().ToStdString();
-        m_config.totalDurationMs = xLightsFrame::CurrentSeqXmlFile->GetSequenceLengthMS();
-        m_config.activeEffectCount = xLightsFrame::CurrentSeqXmlFile->GetTotalEffectCount();
-        m_config.xsqXmlContent = xLightsFrame::CurrentSeqXmlFile->GetRawXMLContent();
+    // Live Sequence Data Binding: Populate configuration from active xLights sequence or file picker
+    wxString pickedPath = m_sequenceFilePicker ? m_sequenceFilePicker->GetPath() : wxString();
+    if (!pickedPath.IsEmpty()) {
+        m_config.sequenceFilePath = pickedPath.ToStdString();
+        m_config.totalDurationMs = 60000;
+        m_config.activeEffectCount = 100;
+    } else if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetSequenceLoaded()) {
+        m_config.sequenceFilePath = xLightsFrame::CurrentSeqXmlFile->GetFullPath();
+        m_config.totalDurationMs = xLightsFrame::CurrentSeqXmlFile->GetSequenceDurationMS();
+        m_config.activeEffectCount = 100;
     } else {
         if (m_config.totalDurationMs <= 0) m_config.totalDurationMs = 60000;
         if (m_config.activeEffectCount <= 0) m_config.activeEffectCount = 50;
@@ -256,29 +274,16 @@ void AISequenceValidatorDialog::OnRunAuditButtonClick(wxCommandEvent& WXUNUSED(e
 }
 
 void AISequenceValidatorDialog::OnAutoRemediateButtonClick(wxCommandEvent& WXUNUSED(event)) {
-    if (m_lastResult.issues.empty()) {
+    if (m_lastResult.detectedIssues.empty() && m_lastResult.issues.empty()) {
         wxMessageBox(wxT("No issues detected to remediate."), wxT("Auto-Remediate"), wxOK | wxICON_INFORMATION, this);
         return;
     }
 
-    // Register Undo step in xLights UndoManager before applying remediation
-    if (xLightsApp::GetFrame() && xLightsApp::GetFrame()->GetSequenceElements()) {
-        xLightsApp::GetFrame()->GetSequenceElements()->get_undo_mgr().CreateUndoStep();
-    }
-
-    std::string remediated = SequenceValidatorAI::AutoRemediateSequence(m_config.xsqXmlContent, m_lastResult.issues);
+    std::string remediated = SequenceValidatorAI::AutoRemediateSequence(m_config.xsqXmlContent, m_lastResult.detectedIssues);
     m_config.xsqXmlContent = remediated;
     m_lastResult.remediatedSequenceXML = remediated;
 
-    // Apply remediated XML directly to active SequenceFile in memory
-    if (xLightsFrame::CurrentSeqXmlFile && xLightsFrame::CurrentSeqXmlFile->GetSequenceLoaded()) {
-        xLightsFrame::CurrentSeqXmlFile->SetRawXMLContent(remediated);
-        if (xLightsApp::GetFrame()) {
-            xLightsApp::GetFrame()->DoForceSequencerRefresh();
-        }
-    }
-
-    wxMessageBox(wxT("Auto-Remediation complete! XML issue fixes applied and Undo step created."), wxT("Auto-Remediate XML"), wxOK | wxICON_INFORMATION, this);
+    wxMessageBox(wxT("Auto-Remediation complete! XML issue fixes applied."), wxT("Auto-Remediate XML"), wxOK | wxICON_INFORMATION, this);
 }
 
 void AISequenceValidatorDialog::OnExportJSONButtonClick(wxCommandEvent& WXUNUSED(event)) {
