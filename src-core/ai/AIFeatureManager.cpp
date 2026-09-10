@@ -49,12 +49,20 @@ void AIFeatureManager::InitializeAllFeatures(::ServiceManager* serviceManager) {
     m_serviceManager = serviceManager;
 
     spdlog::info("[AIFeatureManager] Initializing xLights AI Subsystem suite...");
+    std::vector<std::future<bool>> initFutures;
+    initFutures.reserve(m_subsystems.size());
     for (auto& [name, subsystem] : m_subsystems) {
         if (subsystem) {
             spdlog::info("[AIFeatureManager] Initializing feature: {}", name);
-            subsystem->InitializeAsync();
+            initFutures.push_back(subsystem->InitializeAsync());
         }
     }
+    for (auto& fut : initFutures) {
+        if (fut.valid()) {
+            fut.wait();
+        }
+    }
+    spdlog::info("[AIFeatureManager] All AI Subsystems initialized.");
 }
 
 void AIFeatureManager::RegisterSubsystem(const std::string& name, std::unique_ptr<AISubsystemBase> subsystem) {

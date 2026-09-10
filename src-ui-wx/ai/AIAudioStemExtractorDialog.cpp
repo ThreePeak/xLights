@@ -38,6 +38,13 @@ AIAudioStemExtractorDialog::AIAudioStemExtractorDialog(wxWindow* parent, wxWindo
     InitUI();
 }
 
+AIAudioStemExtractorDialog::~AIAudioStemExtractorDialog() {
+    m_workerCancel = true;
+    if (m_workerThread.joinable()) {
+        m_workerThread.join();
+    }
+}
+
 void AIAudioStemExtractorDialog::InitUI() {
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 

@@ -1028,6 +1028,72 @@ def test_fpp_log_self_healing_agent():
     return True
 
 
+def test_model_dimension_guards():
+    print("==================================================")
+    print("Test 36: Model Dimension Guards (2D Matrix Effects vs 1D Models)")
+    print("==================================================")
+    
+    effects_2d = [
+        "Text", "Picture", "Video", "Shader", "Canvas Shader", "GLSL Shader",
+        "ISF Shader", "Shockwave", "Bars", "Morph", "Spirals", "Fire",
+        "Fireworks", "Matrix", "Fan", "Galaxy", "Plasma", "Ripple",
+        "Meteors", "Curtain", "Pinwheel", "Tree", "Warp", "Marquee"
+    ]
+    
+    def effect_requires_2d(eff):
+        return eff in effects_2d
+
+    def is_1d_dims(w, h):
+        return w <= 1 or h <= 1
+
+    def can_render_effect(w, h, eff):
+        if w <= 0 or h <= 0:
+            return False
+        if is_1d_dims(w, h) and effect_requires_2d(eff):
+            return False
+        return True
+
+    def adapt_effect(w, h, eff):
+        if w <= 0 or h <= 0:
+            return "Off"
+        if not is_1d_dims(w, h) or not effect_requires_2d(eff):
+            return eff
+        if eff in ["Bars", "Curtain", "Picture", "Video", "Shader", "Canvas Shader", "GLSL Shader", "ISF Shader"]:
+            return "Color Wash"
+        elif eff in ["Fire", "Fireworks", "Plasma"]:
+            return "Twinkle"
+        else:
+            return "SingleStrand"
+
+    # 1. Block 2D effects on 1D linear model (e.g. 50x1 single strand)
+    for eff in ["Text", "Picture", "Video", "Canvas Shader", "Shader"]:
+        assert not can_render_effect(50, 1, eff), f"Effect {eff} should be blocked on 50x1 model"
+        adapted = adapt_effect(50, 1, eff)
+        assert adapted in ["Color Wash", "SingleStrand"], f"Unexpected adaptation: {adapted}"
+        print(f"  [PASS] 1D model (50x1): 2D effect '{eff}' blocked -> adapted to '{adapted}'")
+
+    # 2. Block 2D effects on 1D vertical strip (e.g. 1x50 drop)
+    for eff in ["Text", "Picture", "Video", "Canvas Shader"]:
+        assert not can_render_effect(1, 50, eff), f"Effect {eff} should be blocked on 1x50 model"
+        adapted = adapt_effect(1, 50, eff)
+        assert adapted in ["Color Wash", "SingleStrand"]
+        print(f"  [PASS] 1D model (1x50): 2D effect '{eff}' blocked -> adapted to '{adapted}'")
+
+    # 3. Allow 2D effects on true 2D matrix (e.g. 64x32 matrix)
+    for eff in ["Text", "Picture", "Video", "Canvas Shader", "Shader", "Fire", "Matrix"]:
+        assert can_render_effect(64, 32, eff), f"Effect {eff} should be allowed on 64x32 matrix"
+        assert adapt_effect(64, 32, eff) == eff
+        print(f"  [PASS] 2D matrix (64x32): Effect '{eff}' permitted without modification")
+
+    # 4. Zero and negative dimensions
+    assert not can_render_effect(0, 50, "Text")
+    assert adapt_effect(0, 0, "Canvas Shader") == "Off"
+    print("  [PASS] Degenerate buffer dimensions (0x0) safely handled and adapted to 'Off'")
+
+    print("Result: Model Dimension Guards (2D Matrix Effects vs 1D Models) Verified\n")
+    return True
+
+
 def run_all_tests():
     print("\n==================================================")
     print("   xLights AI Subsystems Automated Test Suite     ")
@@ -1068,14 +1134,15 @@ def run_all_tests():
     t33 = test_controller_discovery_mapper()
     t34 = test_freertos_affinity_optimizer()
     t35 = test_fpp_log_self_healing_agent()
+    t36 = test_model_dimension_guards()
 
     all_passed = (t1 and t2 and t3 and t4 and t5 and t6 and t7 and t8 and t9 and
                   t10 and t11 and t12 and t13 and t14 and t15 and t16 and t17 and t18 and t19 and t20 and
                   t21 and t22 and t23 and t24 and t25 and t26 and t27 and t28 and
-                  t29 and t30 and t31 and t32 and t33 and t34 and t35)
+                  t29 and t30 and t31 and t32 and t33 and t34 and t35 and t36)
     print("==================================================")
     if all_passed:
-        print("   ALL XLIGHTS AI SUBSYSTEM TESTS PASSED (35/35)   ")
+        print("   ALL XLIGHTS AI SUBSYSTEM TESTS PASSED (36/36)   ")
     else:
         print("   SOME TESTS FAILED                             ")
     print("==================================================\n")

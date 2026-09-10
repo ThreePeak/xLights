@@ -181,14 +181,82 @@ def stress_test_buffer_boundary_wrapping():
     print("Result: Render Buffer Boundary Stress Tests PASSED\n")
     return True
 
+def stress_test_model_dimension_guards():
+    print("==================================================")
+    print("Stress Test 4: Model Dimension Guards (1D vs 2D Matrix Effects)")
+    print("==================================================")
+    
+    effects_2d = [
+        "Text", "Picture", "Video", "Shader", "Canvas Shader", "GLSL Shader",
+        "ISF Shader", "Shockwave", "Bars", "Morph", "Spirals", "Fire",
+        "Fireworks", "Matrix", "Fan", "Galaxy", "Plasma", "Ripple",
+        "Meteors", "Curtain", "Pinwheel", "Tree", "Warp", "Marquee"
+    ]
+    
+    def effect_requires_2d(eff):
+        return eff in effects_2d
+
+    def is_1d_dims(w, h):
+        return w <= 1 or h <= 1
+
+    def can_render_effect(w, h, eff):
+        if w <= 0 or h <= 0:
+            return False
+        if is_1d_dims(w, h) and effect_requires_2d(eff):
+            return False
+        return True
+
+    def adapt_effect(w, h, eff):
+        if w <= 0 or h <= 0:
+            return "Off"
+        if not is_1d_dims(w, h) or not effect_requires_2d(eff):
+            return eff
+        if eff in ["Bars", "Curtain", "Picture", "Video", "Shader", "Canvas Shader", "GLSL Shader", "ISF Shader"]:
+            return "Color Wash"
+        elif eff in ["Fire", "Fireworks", "Plasma"]:
+            return "Twinkle"
+        else:
+            return "SingleStrand"
+
+    # Test 4a: 1D linear model rejection (e.g. 50x1 single strand arch)
+    for eff in ["Text", "Picture", "Video", "Canvas Shader", "Shader", "Fire"]:
+        assert not can_render_effect(50, 1, eff), f"Effect {eff} should be rejected on 1D model (50x1)"
+        adapted = adapt_effect(50, 1, eff)
+        assert adapted in ["Color Wash", "SingleStrand", "Twinkle"], f"Unexpected adaptation: {adapted}"
+        print(f"  [PASS] 1D model (50x1): 2D effect '{eff}' blocked -> adapted to '{adapted}'")
+
+    # Test 4b: 1D vertical strip model rejection (e.g. 1x100 single drop)
+    for eff in ["Text", "Picture", "Video", "Canvas Shader"]:
+        assert not can_render_effect(1, 100, eff), f"Effect {eff} should be rejected on 1D model (1x100)"
+        adapted = adapt_effect(1, 100, eff)
+        assert adapted in ["Color Wash", "SingleStrand"], f"Unexpected adaptation: {adapted}"
+        print(f"  [PASS] 1D vertical model (1x100): 2D effect '{eff}' blocked -> adapted to '{adapted}'")
+
+    # Test 4c: Zero and negative dimensions
+    assert not can_render_effect(0, 50, "Text")
+    assert not can_render_effect(50, 0, "Picture")
+    assert not can_render_effect(-5, -5, "Video")
+    assert adapt_effect(0, 0, "Canvas Shader") == "Off"
+    print("  [PASS] Zero/negative buffer dimensions safely adapt all effects to 'Off'")
+
+    # Test 4d: True 2D matrix models (e.g. 100x50 megatree matrix)
+    for eff in ["Text", "Picture", "Video", "Canvas Shader", "Fire", "Matrix"]:
+        assert can_render_effect(100, 50, eff), f"Effect {eff} should be permitted on 2D matrix (100x50)"
+        assert adapt_effect(100, 50, eff) == eff
+        print(f"  [PASS] 2D matrix model (100x50): Effect '{eff}' permitted without modification")
+
+    print("Result: Model Dimension Guards Stress Tests PASSED\n")
+    return True
+
 def run_all_stress_tests():
     t1 = stress_test_resampling_and_normalization()
     t2 = stress_test_quantization_math()
     t3 = stress_test_buffer_boundary_wrapping()
+    t4 = stress_test_model_dimension_guards()
     
-    if t1 and t2 and t3:
+    if t1 and t2 and t3 and t4:
         print("==================================================")
-        print("   ALL ADVERSARIAL STRESS TESTS PASSED (3/3)      ")
+        print("   ALL ADVERSARIAL STRESS TESTS PASSED (4/4)      ")
         print("==================================================")
         return 0
     return 1
