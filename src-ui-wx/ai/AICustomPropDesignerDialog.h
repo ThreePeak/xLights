@@ -74,6 +74,8 @@ private:
     void OnCanvasRightUp(wxMouseEvent& event);
     void OnCanvasMouseMove(wxMouseEvent& event);
     void OnCanvasMouseWheel(wxMouseEvent& event);
+    void OnOptimizeTSPClick(wxCommandEvent& event);
+    void OnBatchInsertClick(wxCommandEvent& event);
 
     // Toolbar
     wxButton* m_undoBtn = nullptr;
@@ -140,6 +142,13 @@ private:
     wxChoice* m_branchChoice = nullptr;
     wxButton* m_newBranchBtn = nullptr;
     wxButton* m_switchBranchBtn = nullptr;
+
+    // Batch and TSP
+    wxButton* m_optimizeTspBtn = nullptr;
+    wxSpinCtrl* m_batchCountSpin = nullptr;
+    wxChoice* m_batchPatternChoice = nullptr;
+    wxSpinCtrlDouble* m_batchSpacingSpin = nullptr;
+    wxButton* m_batchInsertBtn = nullptr;
 
     // 3D Canvas Viewport
     wxPanel* m_canvasPanel = nullptr;

@@ -48,12 +48,43 @@ struct AIPropAnalysisResult {
     bool isValid = true;
 };
 
+struct TSPOptimizationResult {
+    std::vector<PropNodeSuggestion> optimizedNodes;
+    float originalWireLength = 0.0f;
+    float optimizedWireLength = 0.0f;
+    float wireSavingsPercent = 0.0f;
+    std::string summary;
+};
+
+enum class BatchPlacementPattern {
+    LinearArray,
+    ArcFan,
+    GridMatrix
+};
+
+struct BatchModelSpec {
+    std::string baseModelName = "Prop";
+    int count = 4;
+    BatchPlacementPattern pattern = BatchPlacementPattern::ArcFan;
+    float spacingOrRadius = 50.0f; // separation distance or arc radius
+    float startAngle = -60.0f;
+    float endAngle = 60.0f;
+    int startChannelOffset = 0; // if 0, auto-chains channels
+};
+
 class CustomPropDesignerAI {
 public:
     AIPropAnalysisResult AnalyzePrompt(const std::string& description, int fallbackNodeCount = 100);
     std::vector<PropNodeSuggestion> GenerateFromSpec(const PropGenerationSpec& spec);
     std::vector<PropNodeSuggestion> GenerateNodeLayout(const std::string& propDescription, int nodeCount);
     std::string ExportToXLightsModelXML(const std::vector<PropNodeSuggestion>& nodes, const std::string& modelName, const PropGenerationSpec& spec = {});
+
+    TSPOptimizationResult OptimizeWirePathTSP(const std::vector<PropNodeSuggestion>& nodes);
+    std::string GenerateBatchPropModelsXML(
+        const std::vector<PropNodeSuggestion>& templateNodes,
+        const BatchModelSpec& batchSpec,
+        const PropGenerationSpec& propSpec = {}
+    );
 
 private:
     std::vector<PropNodeSuggestion> GenerateTreeLayout(const PropGenerationSpec& spec);

@@ -11,6 +11,7 @@ public:
     AIStatusBar(wxWindow* parent, wxWindowID id = wxID_ANY);
     void SetActiveModel(const wxString& modelName);
     void SetScanState(bool scanning);
+    void SetDiagnosticWarningCount(int count, const wxString& summary = wxEmptyString);
 
 private:
     void InitUI();
@@ -22,8 +23,11 @@ private:
     void OnOpenFPPSync(wxCommandEvent& evt);
     void OnOpenDMXAdvisor(wxCommandEvent& evt);
     void OnOpenSpotlight(wxCommandEvent& evt);
+    void OnOpenVideoEmulator(wxCommandEvent& evt);
+    void OnClickWarningPill(wxCommandEvent& evt);
 
     wxButton* m_toggleBtn = nullptr;
+    wxButton* m_warningPillBtn = nullptr;
     wxCheckBox* m_alwaysVisibleCheck = nullptr;
     wxStaticText* m_modelLabel = nullptr;
     wxStaticText* m_scanLabel = nullptr;

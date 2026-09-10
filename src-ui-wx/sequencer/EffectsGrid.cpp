@@ -145,6 +145,9 @@ const long EffectsGrid::ID_GRID_MNU_UNLINK_SYMBOL = wxNewId();
 const long EffectsGrid::ID_GRID_MNU_LINK_SYMBOL_BASE = wxNewId();
 const long EffectsGrid::ID_GRID_MNU_AI_GENERATE_EFFECT = wxNewId();
 const long EffectsGrid::ID_MENUITEM_AI_GENERATE_EFFECT_FOR_SELECTION = EffectsGrid::ID_GRID_MNU_AI_GENERATE_EFFECT;
+const long EffectsGrid::ID_GRID_MNU_AI_EFFECT_VARIATIONS = wxNewId();
+const long EffectsGrid::ID_GRID_MNU_AI_LAYER_BLENDING = wxNewId();
+const long EffectsGrid::ID_GRID_MNU_AI_VIDEO_EMULATOR = wxNewId();
 
 int findDataEffect::GetStrand() const {
     if (nl != nullptr) {
@@ -646,6 +649,14 @@ void EffectsGrid::rightClick(wxMouseEvent& event) {
             menu_effect_timing->Enable(false);
         }
 
+        mnuLayer.AppendSeparator();
+        wxMenu* mnuAICopilot = new wxMenu();
+        mnuAICopilot->Append(ID_GRID_MNU_AI_EFFECT_VARIATIONS, "🤖 Generate AI Effect Variations...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_LAYER_BLENDING, "🤖 AI Layer Blending Advisor...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_VIDEO_EMULATOR, "🎬 AI Video Sequence Emulation...");
+        mnuAICopilot->Connect(wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&EffectsGrid::OnGridPopup, nullptr, this);
+        mnuLayer.AppendSubMenu(mnuAICopilot, "AI Copilot");
+
         mnuLayer.Connect(wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&EffectsGrid::OnGridPopup, nullptr, this);
         Draw();
         PopupMenu(&mnuLayer);
@@ -707,6 +718,15 @@ void EffectsGrid::rightClick(wxMouseEvent& event) {
             menu_find_prior->Enable(false);
             menu_replace->Enable(false);
         }
+
+        mnuLayer.AppendSeparator();
+        wxMenu* mnuAICopilot = new wxMenu();
+        mnuAICopilot->Append(ID_GRID_MNU_AI_EFFECT_VARIATIONS, "🤖 Generate AI Effect Variations...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_LAYER_BLENDING, "🤖 AI Layer Blending Advisor...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_VIDEO_EMULATOR, "🎬 AI Video Sequence Emulation...");
+        mnuAICopilot->Connect(wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&EffectsGrid::OnGridPopup, nullptr, this);
+        mnuLayer.AppendSubMenu(mnuAICopilot, "AI Copilot");
+
         mnuLayer.Connect(wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&EffectsGrid::OnGridPopup, nullptr, this);
         Draw();
         PopupMenu(&mnuLayer);
@@ -1113,6 +1133,22 @@ void EffectsGrid::CreateTimingFromSelectedEffects() {
 void EffectsGrid::OnGridPopup(wxCommandEvent& event) {
     
     int id = event.GetId();
+    if (id == ID_GRID_MNU_AI_EFFECT_VARIATIONS) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, ID_GRID_MNU_AI_GENERATE_EFFECT);
+        wxPostEvent(this, cmd);
+        return;
+    } else if (id == ID_GRID_MNU_AI_LAYER_BLENDING) {
+        if (xlights) {
+            xlights->ShowHideLayerBlendingWindow(event);
+        }
+        return;
+    } else if (id == ID_GRID_MNU_AI_VIDEO_EMULATOR) {
+        if (xlights) {
+            wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, xLightsFrame::ID_MENUITEM_AI_VIDEO_EMULATOR);
+            wxPostEvent(xlights, cmd);
+        }
+        return;
+    }
     if (id == ID_GRID_MNU_CUT) {
         spdlog::debug("OnGridPopup - CUT");
         ((MainSequencer*)mParent)->Cut();

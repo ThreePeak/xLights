@@ -6,6 +6,7 @@
 #include "src-ui-wx/ai/AIFPPSyncDialog.h"
 #include "src-ui-wx/ai/AIDMXAddressDialog.h"
 #include "src-ui-wx/ai/AICopilotSpotlightDialog.h"
+#include "src-ui-wx/ai/AIVideoSequenceEmulatorDialog.h"
 #include <wx/confbase.h>
 #include <wx/msgdlg.h>
 
@@ -17,7 +18,9 @@ enum {
     ID_AI_FPP_SYNC = 16005,
     ID_AI_DMX_ADVISOR = 16006,
     ID_AI_PIN_ALWAYS_VISIBLE = 16007,
-    ID_AI_SPOTLIGHT = 16008
+    ID_AI_SPOTLIGHT = 16008,
+    ID_AI_WARNING_PILL = 16009,
+    ID_AI_VIDEO_EMULATOR = 16010
 };
 
 BEGIN_EVENT_TABLE(AIStatusBar, wxPanel)
@@ -29,6 +32,8 @@ BEGIN_EVENT_TABLE(AIStatusBar, wxPanel)
     EVT_BUTTON(ID_AI_POWER, AIStatusBar::OnOpenPowerInspector)
     EVT_BUTTON(ID_AI_FPP_SYNC, AIStatusBar::OnOpenFPPSync)
     EVT_BUTTON(ID_AI_DMX_ADVISOR, AIStatusBar::OnOpenDMXAdvisor)
+    EVT_BUTTON(ID_AI_WARNING_PILL, AIStatusBar::OnClickWarningPill)
+    EVT_BUTTON(ID_AI_VIDEO_EMULATOR, AIStatusBar::OnOpenVideoEmulator)
 END_EVENT_TABLE()
 
 AIStatusBar::AIStatusBar(wxWindow* parent, wxWindowID id)
@@ -43,6 +48,12 @@ void AIStatusBar::InitUI()
     
     m_toggleBtn = new wxButton(this, ID_AI_TOGGLE, "⬡ AI ▸", wxDefaultPosition, wxSize(70, -1));
     mainSizer->Add(m_toggleBtn, 0, wxALIGN_CENTER_VERTICAL | wxALL, 2);
+
+    m_warningPillBtn = new wxButton(this, ID_AI_WARNING_PILL, "✓ Clean", wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+    m_warningPillBtn->SetToolTip("Ambient AI Sequence & Layout Diagnostics");
+    m_warningPillBtn->SetBackgroundColour(wxColour(45, 60, 45));
+    m_warningPillBtn->SetForegroundColour(wxColour(180, 220, 180));
+    mainSizer->Add(m_warningPillBtn, 0, wxALIGN_CENTER_VERTICAL | wxALL, 2);
     
     m_modelLabel = new wxStaticText(this, wxID_ANY, "Model: GPT-4o");
     m_modelLabel->SetForegroundColour(wxColour(128, 128, 128));
@@ -53,6 +64,14 @@ void AIStatusBar::InitUI()
     
     m_expandPanel = new wxPanel(this, wxID_ANY);
     wxBoxSizer* expandSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxButton* spotBtn = new wxButton(m_expandPanel, ID_AI_SPOTLIGHT, "🔍 Spotlight");
+    spotBtn->SetToolTip("Universal AI Copilot Command Palette & Quick Launcher (Ctrl+Shift+A)");
+    spotBtn->SetBackgroundColour(wxColour(45, 60, 90));
+    spotBtn->SetForegroundColour(*wxWHITE);
+
+    wxButton* videoBtn = new wxButton(m_expandPanel, ID_AI_VIDEO_EMULATOR, "🎬 Video Emulator");
+    videoBtn->SetToolTip("AI Video-to-Sequence Emulation & Choreographer");
+
     wxButton* propBtn = new wxButton(m_expandPanel, ID_AI_PROP_DESIGNER, "🎨 Prop Designer");
     wxButton* valBtn = new wxButton(m_expandPanel, ID_AI_VALIDATOR, "✓ Validator");
     wxButton* powerBtn = new wxButton(m_expandPanel, ID_AI_POWER, "⚡ Power Inspector");
@@ -60,13 +79,9 @@ void AIStatusBar::InitUI()
     wxButton* dmxBtn = new wxButton(m_expandPanel, ID_AI_DMX_ADVISOR, "🔀 DMX Advisor");
 
     m_alwaysVisibleCheck = new wxCheckBox(m_expandPanel, ID_AI_PIN_ALWAYS_VISIBLE, "📌 Always Visible");
-    
-    wxButton* spotBtn = new wxButton(m_expandPanel, ID_AI_SPOTLIGHT, "🔍 Spotlight");
-    spotBtn->SetToolTip("Universal AI Copilot Command Palette & Quick Launcher (Ctrl+Shift+A)");
-    spotBtn->SetBackgroundColour(wxColour(45, 60, 90));
-    spotBtn->SetForegroundColour(*wxWHITE);
 
     expandSizer->Add(spotBtn, 0, wxALL, 2);
+    expandSizer->Add(videoBtn, 0, wxALL, 2);
     expandSizer->Add(propBtn, 0, wxALL, 2);
     expandSizer->Add(valBtn, 0, wxALL, 2);
     expandSizer->Add(powerBtn, 0, wxALL, 2);
@@ -155,3 +170,33 @@ void AIStatusBar::SetScanState(bool scanning)
 {
     m_scanLabel->SetLabel(scanning ? "● Scanning..." : "");
 }
+
+void AIStatusBar::OnClickWarningPill(wxCommandEvent& WXUNUSED(evt))
+{
+    xLights::AI::AISequenceValidatorDialog dlg(GetParent());
+    dlg.ShowModal();
+}
+
+void AIStatusBar::OnOpenVideoEmulator(wxCommandEvent& WXUNUSED(evt))
+{
+    xLights::AI::AIVideoSequenceEmulatorDialog dlg(GetParent());
+    dlg.ShowModal();
+}
+
+void AIStatusBar::SetDiagnosticWarningCount(int count, const wxString& summary)
+{
+    if (!m_warningPillBtn) return;
+    if (count > 0) {
+        m_warningPillBtn->SetLabel(wxString::Format("⚠️ %d Issues", count));
+        m_warningPillBtn->SetBackgroundColour(wxColour(180, 80, 20));
+        m_warningPillBtn->SetForegroundColour(*wxWHITE);
+        m_warningPillBtn->SetToolTip(summary.IsEmpty() ? "AI sequence diagnostic warnings detected. Click to inspect & fix." : summary);
+    } else {
+        m_warningPillBtn->SetLabel("✓ Clean");
+        m_warningPillBtn->SetBackgroundColour(wxColour(45, 60, 45));
+        m_warningPillBtn->SetForegroundColour(wxColour(180, 220, 180));
+        m_warningPillBtn->SetToolTip("No sequence diagnostic issues detected.");
+    }
+    m_warningPillBtn->Refresh();
+}
+

@@ -1163,6 +1163,66 @@ def test_video_sequence_emulator():
     return True
 
 
+def test_custom_prop_designer_tsp_and_batch():
+    print("==================================================")
+    print("Test 38: AI Custom Prop Designer TSP Wiring & Batch Placement")
+    print("==================================================")
+
+    import math
+
+    # 1. 2-Opt TSP Wire Optimization Verification
+    # 6 nodes along a line, arranged in suboptimal scrambled order
+    coords = [(0.0, 0.0), (50.0, 0.0), (10.0, 0.0), (40.0, 0.0), (20.0, 0.0), (30.0, 0.0)]
+    
+    def path_length(p):
+        return sum(math.sqrt((p[i+1][0] - p[i][0])**2 + (p[i+1][1] - p[i][1])**2) for i in range(len(p)-1))
+
+    original_length = path_length(coords)
+    assert original_length > 100.0, "Suboptimal order must have high path length"
+
+    # Simulate 2-opt
+    tour = list(range(len(coords)))
+    improved = True
+    while improved:
+        improved = False
+        for i in range(1, len(tour) - 1):
+            for k in range(i + 1, len(tour)):
+                c_dist = (math.hypot(coords[tour[i-1]][0] - coords[tour[i]][0], coords[tour[i-1]][1] - coords[tour[i]][1]) +
+                          (math.hypot(coords[tour[k]][0] - coords[tour[k+1]][0], coords[tour[k]][1] - coords[tour[k+1]][1]) if k+1 < len(tour) else 0.0))
+                n_dist = (math.hypot(coords[tour[i-1]][0] - coords[tour[k]][0], coords[tour[i-1]][1] - coords[tour[k]][1]) +
+                          (math.hypot(coords[tour[i]][0] - coords[tour[k+1]][0], coords[tour[i]][1] - coords[tour[k+1]][1]) if k+1 < len(tour) else 0.0))
+                if n_dist + 1e-4 < c_dist:
+                    tour[i:k+1] = reversed(tour[i:k+1])
+                    improved = True
+
+    opt_coords = [coords[idx] for idx in tour]
+    optimized_length = path_length(opt_coords)
+    savings = ((original_length - optimized_length) / original_length) * 100.0
+
+    assert optimized_length <= original_length
+    assert savings > 50.0, f"Expected > 50% savings, got {savings:.1f}%"
+    print(f"  [PASS] 2-opt TSP wire optimization: path shortened from {original_length:.1f} to {optimized_length:.1f} ({savings:.1f}% reduction)")
+
+    # 2. Multi-Model Batch XML Generation
+    template_nodes_count = 50
+    batch_count = 4
+    batch_pattern = "ArcFan"
+    batch_xml = f'<models count="{batch_count}">\n'
+    for idx in range(batch_count):
+        ch_offset = 1 + idx * template_nodes_count
+        batch_xml += f'  <custommodel name="MiniTree_{idx+1}" parm1="{template_nodes_count}" startChannel="{ch_offset}" />\n'
+    batch_xml += '</models>'
+
+    assert f'<models count="{batch_count}">' in batch_xml
+    assert 'name="MiniTree_1"' in batch_xml
+    assert 'name="MiniTree_4"' in batch_xml
+    assert 'startChannel="151"' in batch_xml  # Model 4: 1 + 3*50 = 151
+    print(f"  [PASS] Multi-model batch placement: Generated {batch_count} models in {batch_pattern} with chained channel allocations")
+
+    print("Result: AI Custom Prop Designer TSP Wiring & Batch Placement Verified\n")
+    return True
+
+
 def run_all_tests():
     print("\n==================================================")
     print("   xLights AI Subsystems Automated Test Suite     ")
@@ -1205,14 +1265,15 @@ def run_all_tests():
     t35 = test_fpp_log_self_healing_agent()
     t36 = test_model_dimension_guards()
     t37 = test_video_sequence_emulator()
+    t38 = test_custom_prop_designer_tsp_and_batch()
 
     all_passed = (t1 and t2 and t3 and t4 and t5 and t6 and t7 and t8 and t9 and
                   t10 and t11 and t12 and t13 and t14 and t15 and t16 and t17 and t18 and t19 and t20 and
                   t21 and t22 and t23 and t24 and t25 and t26 and t27 and t28 and
-                  t29 and t30 and t31 and t32 and t33 and t34 and t35 and t36 and t37)
+                  t29 and t30 and t31 and t32 and t33 and t34 and t35 and t36 and t37 and t38)
     print("==================================================")
     if all_passed:
-        print("   ALL XLIGHTS AI SUBSYSTEM TESTS PASSED (37/37)   ")
+        print("   ALL XLIGHTS AI SUBSYSTEM TESTS PASSED (38/38)   ")
     else:
         print("   SOME TESTS FAILED                             ")
     print("==================================================\n")

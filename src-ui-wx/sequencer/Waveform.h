@@ -226,6 +226,10 @@ class Waveform : public GRAPHICS_BASE_CLASS
 #endif
         // Audio track submenu: IDs are ID_WAVE_MNU_AUDIO_TRACK_BASE + index
         static const long ID_WAVE_MNU_AUDIO_TRACK_BASE;
+        static const long ID_WAVE_MNU_AI_AUDIO_STEMS;
+        static const long ID_WAVE_MNU_AI_AUDIO_CHOREOGRAPHER;
+        static const long ID_WAVE_MNU_AI_LYRIC_ALIGNER;
+        static const long ID_WAVE_MNU_AI_VIDEO_EMULATOR;
 
         class WaveView
         {

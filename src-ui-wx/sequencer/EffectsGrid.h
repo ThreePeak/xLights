@@ -478,6 +478,9 @@ private:
     static const long ID_GRID_MNU_LINK_SYMBOL_BASE;
     static const long ID_GRID_MNU_AI_GENERATE_EFFECT;
     static const long ID_MENUITEM_AI_GENERATE_EFFECT_FOR_SELECTION;
+    static const long ID_GRID_MNU_AI_EFFECT_VARIATIONS;
+    static const long ID_GRID_MNU_AI_LAYER_BLENDING;
+    static const long ID_GRID_MNU_AI_VIDEO_EMULATOR;
     EventPlayEffectArgs* playArgs = nullptr;
 
     const SequenceData *seqData = nullptr;

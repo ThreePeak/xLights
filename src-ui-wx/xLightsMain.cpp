@@ -133,6 +133,7 @@
 #include "src-ui-wx/ai/AIAudioChoreographerDialog.h"
 #include "src-ui-wx/ai/AIVideoSequenceEmulatorDialog.h"
 #include "src-ui-wx/ai/AISnapshotHistoryDialog.h"
+#include "src-ui-wx/ai/AIStatusBar.h"
 #include "diagnostics/ShowFolderSearchDialog.h"
 #include "sequencer/TopEffectsPanel.h"
 #include "utils/TraceLog.h"
@@ -976,6 +977,8 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     StatusBarSizer->Add(Panel1, wxGBPosition(0, 2), wxDefaultSpan, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 0);
     FileNameText = new wxStaticText(AUIStatusBar, ID_STATICTEXT7, _("Label"), wxDefaultPosition, wxDefaultSize, 0, _T("ID_STATICTEXT7"));
     StatusBarSizer->Add(FileNameText, wxGBPosition(0, 3), wxDefaultSpan, wxALL|wxEXPAND, 2);
+    m_aiStatusBar = new AIStatusBar(AUIStatusBar);
+    StatusBarSizer->Add(m_aiStatusBar, wxGBPosition(0, 4), wxDefaultSpan, wxALL|wxALIGN_CENTER_VERTICAL, 2);
     StatusBarSizer->AddGrowableRow(0);
     AUIStatusBar->SetSizer(StatusBarSizer);
     MainAuiManager->AddPane(AUIStatusBar, wxAuiPaneInfo().Name(_T("Status Bar")).DefaultPane().Caption(_("Status bar")).CaptionVisible(false).CloseButton(false).Bottom().DockFixed().Dockable(false).Floatable(false).FloatingPosition(wxPoint(0,0)).FloatingSize(wxSize(0,0)).Movable(false).PaneBorder(false));

@@ -111,6 +111,7 @@
 class wxDebugReport;
 
 class aiBase;
+class AIStatusBar;
 class BaseSerializingVisitor;
 class CopyFormat1;
 class Controller;
@@ -579,6 +580,7 @@ public:
     void OnmExportModelsMenuItemSelected(wxCommandEvent& event);
     void OnMenuItem_ViewLogSelected(wxCommandEvent& event);
     void OnMenuItemCheckSequenceSelected(wxCommandEvent& event);
+    AIStatusBar* GetAIStatusBar() const { return m_aiStatusBar; }
     void OnMenuAICopilotSpotlightSelected(wxCommandEvent& event);
     void OnMenuAISequenceValidatorSelected(wxCommandEvent& event);
     void OnToolsAISequenceValidator(wxCommandEvent& event) { OnMenuAISequenceValidatorSelected(event); }
@@ -1063,6 +1065,7 @@ public:
     wxMenuItem* mAltBackupMenuItem;
     wxMenuItem* mExportModelsMenuItem;
     wxPanel* AUIStatusBar;
+    AIStatusBar* m_aiStatusBar = nullptr;
     wxPanel* PanelPreview;
     wxPanel* PanelSequencer;
     wxStaticText* FileNameText;

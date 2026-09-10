@@ -51,6 +51,8 @@ enum {
     ID_PROP_ARC_270      = 15023,
     ID_PROP_ARC_360      = 15024,
     ID_PROP_INSERT_LAYOUT= 15025,
+    ID_PROP_OPTIMIZE_TSP = 15026,
+    ID_PROP_BATCH_INSERT = 15027,
 };
 
 BEGIN_EVENT_TABLE(AICustomPropDesignerDialog, wxDialog)
@@ -58,6 +60,8 @@ BEGIN_EVENT_TABLE(AICustomPropDesignerDialog, wxDialog)
     EVT_BUTTON(ID_PROP_GENERATE, AICustomPropDesignerDialog::OnGenerateClick)
     EVT_BUTTON(ID_PROP_EXPORT, AICustomPropDesignerDialog::OnExportXmlClick)
     EVT_BUTTON(ID_PROP_INSERT_LAYOUT, AICustomPropDesignerDialog::OnInsertLayoutClick)
+    EVT_BUTTON(ID_PROP_OPTIMIZE_TSP, AICustomPropDesignerDialog::OnOptimizeTSPClick)
+    EVT_BUTTON(ID_PROP_BATCH_INSERT, AICustomPropDesignerDialog::OnBatchInsertClick)
     EVT_BUTTON(ID_PROP_UNDO, AICustomPropDesignerDialog::OnUndoClick)
     EVT_BUTTON(ID_PROP_REDO, AICustomPropDesignerDialog::OnRedoClick)
     EVT_BUTTON(ID_PROP_TOGGLE_VIEW, AICustomPropDesignerDialog::On3DToggle)
@@ -133,6 +137,11 @@ void AICustomPropDesignerDialog::InitUI()
     m_showLabelsCheck->SetValue(false);
     toolbarSizer->Add(m_showLabelsCheck, 0, wxALL | wxALIGN_CENTER_VERTICAL, 3);
     
+    toolbarSizer->AddSpacer(8);
+    m_optimizeTspBtn = new wxButton(this, ID_PROP_OPTIMIZE_TSP, "⚡ Optimize Wiring (TSP)");
+    m_optimizeTspBtn->SetToolTip("2-opt Euclidean Traveling Salesperson optimizer to minimize wire length & voltage drop.");
+    toolbarSizer->Add(m_optimizeTspBtn, 0, wxALL | wxALIGN_CENTER_VERTICAL, 3);
+
     toolbarSizer->AddStretchSpacer(1);
     mainSizer->Add(toolbarSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 4);
     
@@ -355,7 +364,37 @@ void AICustomPropDesignerDialog::InitUI()
     m_switchBranchBtn = new wxButton(m_scrollPanel, ID_PROP_SWITCH_BRANCH, "Switch");
     brSizer->Add(m_switchBranchBtn, 0);
     branchBox->Add(brSizer, 0, wxEXPAND);
-    leftSizer->Add(branchBox, 0, wxEXPAND);
+    leftSizer->Add(branchBox, 0, wxEXPAND | wxBOTTOM, 6);
+
+    // Group 8: Multi-Model Batch Insertion
+    wxStaticBoxSizer* batchBox = new wxStaticBoxSizer(wxVERTICAL, m_scrollPanel, "📦 Multi-Model Batch Placement");
+    wxFlexGridSizer* batchGrid = new wxFlexGridSizer(3, 2, 3, 6);
+    batchGrid->AddGrowableCol(1, 1);
+
+    batchGrid->Add(new wxStaticText(m_scrollPanel, wxID_ANY, "Model Count:"), 0, wxALIGN_CENTER_VERTICAL);
+    m_batchCountSpin = new wxSpinCtrl(m_scrollPanel, wxID_ANY, "4", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 2, 64, 4);
+    batchGrid->Add(m_batchCountSpin, 1, wxEXPAND);
+
+    batchGrid->Add(new wxStaticText(m_scrollPanel, wxID_ANY, "Pattern:"), 0, wxALIGN_CENTER_VERTICAL);
+    wxArrayString patternOptions;
+    patternOptions.Add("Arc / Fan (e.g. 4 Mini-Trees)");
+    patternOptions.Add("Linear Array");
+    patternOptions.Add("Grid Matrix");
+    m_batchPatternChoice = new wxChoice(m_scrollPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, patternOptions);
+    m_batchPatternChoice->SetSelection(0);
+    batchGrid->Add(m_batchPatternChoice, 1, wxEXPAND);
+
+    batchGrid->Add(new wxStaticText(m_scrollPanel, wxID_ANY, "Spacing / Radius:"), 0, wxALIGN_CENTER_VERTICAL);
+    m_batchSpacingSpin = new wxSpinCtrlDouble(m_scrollPanel, wxID_ANY, "50.0", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 5.0, 500.0, 50.0, 5.0);
+    batchGrid->Add(m_batchSpacingSpin, 1, wxEXPAND);
+
+    batchBox->Add(batchGrid, 0, wxEXPAND | wxBOTTOM, 4);
+
+    m_batchInsertBtn = new wxButton(m_scrollPanel, ID_PROP_BATCH_INSERT, "📦 Batch Generate & Export XML");
+    m_batchInsertBtn->SetToolTip("Generates chained multi-model array / arc layout XML ready for import into xLights.");
+    batchBox->Add(m_batchInsertBtn, 0, wxEXPAND);
+
+    leftSizer->Add(batchBox, 0, wxEXPAND);
     
     m_scrollPanel->SetSizer(leftSizer);
     contentSizer->Add(m_scrollPanel, 0, wxEXPAND | wxALL, 4);
@@ -1143,6 +1182,72 @@ void AICustomPropDesignerDialog::OnInsertLayoutClick(wxCommandEvent& event)
         EndModal(wxID_OK);
     } else {
         wxMessageBox("Layout panel is not available.", "Error", wxOK | wxICON_ERROR, this);
+    }
+}
+
+void AICustomPropDesignerDialog::OnOptimizeTSPClick(wxCommandEvent& WXUNUSED(event))
+{
+    if (m_lastNodes.empty()) {
+        wxMessageBox("No model nodes to optimize. Please generate or load a prop first.", "AI TSP Wire Optimizer", wxOK | wxICON_INFORMATION, this);
+        return;
+    }
+
+    auto before = m_lastNodes;
+    xLights::AI::CustomPropDesignerAI ai;
+    auto tspRes = ai.OptimizeWirePathTSP(m_lastNodes);
+
+    if (tspRes.wireSavingsPercent > 0.01f) {
+        m_history.PushEdit(wxString::Format("Optimize Wire (TSP %.1f%% saved)", tspRes.wireSavingsPercent).ToStdString(), before, tspRes.optimizedNodes);
+        m_lastNodes = tspRes.optimizedNodes;
+        RefreshCanvas();
+        UpdateUndoRedoButtons();
+        m_statusLabel->SetLabel(wxString(tspRes.summary));
+        wxMessageBox(wxString(tspRes.summary), "AI Wire Path Optimization", wxICON_INFORMATION | wxOK, this);
+    } else {
+        m_statusLabel->SetLabel("Wire path is already optimal (0% reduction possible).");
+        wxMessageBox("The current wire order is already optimal or near-optimal.", "AI Wire Path Optimization", wxICON_INFORMATION | wxOK, this);
+    }
+}
+
+void AICustomPropDesignerDialog::OnBatchInsertClick(wxCommandEvent& WXUNUSED(event))
+{
+    if (m_lastNodes.empty()) {
+        wxMessageBox("Please generate or design a template prop model first before batch placing.", "Batch Model Placement", wxICON_WARNING | wxOK, this);
+        return;
+    }
+
+    xLights::AI::BatchModelSpec bSpec;
+    bSpec.baseModelName = m_currentSpec.propType;
+    if (bSpec.baseModelName.empty()) bSpec.baseModelName = "CustomProp";
+    bSpec.count = m_batchCountSpin ? m_batchCountSpin->GetValue() : 4;
+    int patSel = m_batchPatternChoice ? m_batchPatternChoice->GetSelection() : 0;
+    if (patSel == 1) {
+        bSpec.pattern = xLights::AI::BatchPlacementPattern::LinearArray;
+    } else if (patSel == 2) {
+        bSpec.pattern = xLights::AI::BatchPlacementPattern::GridMatrix;
+    } else {
+        bSpec.pattern = xLights::AI::BatchPlacementPattern::ArcFan;
+    }
+    bSpec.spacingOrRadius = m_batchSpacingSpin ? (float)m_batchSpacingSpin->GetValue() : 50.0f;
+
+    xLights::AI::CustomPropDesignerAI ai;
+    std::string batchXml = ai.GenerateBatchPropModelsXML(m_lastNodes, bSpec, m_currentSpec);
+
+    wxFileDialog saveDlg(this, "Export Multi-Model Batch XML", "", 
+                         wxString::Format("%s_Batch_%d.xml", bSpec.baseModelName, bSpec.count),
+                         "XML Files (*.xml)|*.xml", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (saveDlg.ShowModal() == wxID_OK) {
+        wxFile file(saveDlg.GetPath(), wxFile::write);
+        if (file.IsOpened()) {
+            file.Write(wxString(batchXml));
+            file.Close();
+            m_statusLabel->SetLabel(wxString::Format("Exported batch of %d models to %s", bSpec.count, saveDlg.GetPath()));
+            wxMessageBox(wxString::Format("Successfully exported %d '%s' models in a %s configuration to:\n%s",
+                                         bSpec.count, bSpec.baseModelName,
+                                         (patSel == 0 ? "Arc/Fan" : (patSel == 1 ? "Linear Array" : "Grid")),
+                                         saveDlg.GetPath()),
+                         "Batch Multi-Model Export Complete", wxICON_INFORMATION | wxOK, this);
+        }
     }
 }
 

@@ -528,4 +528,144 @@ std::string CustomPropDesignerAI::ExportToXLightsModelXML(const std::vector<Prop
     return oss.str();
 }
 
+TSPOptimizationResult CustomPropDesignerAI::OptimizeWirePathTSP(const std::vector<PropNodeSuggestion>& nodes) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    TSPOptimizationResult result;
+    if (nodes.empty()) {
+        result.summary = "No nodes provided to optimize.";
+        return result;
+    }
+    if (nodes.size() <= 2) {
+        result.optimizedNodes = nodes;
+        result.summary = "Node count too small for TSP optimization.";
+        return result;
+    }
+
+    auto dist = [](const PropNodeSuggestion& a, const PropNodeSuggestion& b) -> float {
+        float dx = a.x - b.x;
+        float dy = a.y - b.y;
+        float dz = a.z - b.z;
+        return std::sqrt(dx * dx + dy * dy + dz * dz);
+    };
+
+    size_t n = nodes.size();
+    std::vector<size_t> tour(n);
+    for (size_t i = 0; i < n; ++i) {
+        tour[i] = i;
+    }
+
+    auto calcTotalDistance = [&](const std::vector<size_t>& t) -> float {
+        float total = 0.0f;
+        for (size_t i = 0; i < t.size() - 1; ++i) {
+            total += dist(nodes[t[i]], nodes[t[i + 1]]);
+        }
+        return total;
+    };
+
+    result.originalWireLength = calcTotalDistance(tour);
+
+    // 2-opt heuristic, keeping node 0 anchored as the controller connection origin
+    bool improved = true;
+    int maxPasses = 50;
+    int pass = 0;
+
+    while (improved && pass++ < maxPasses) {
+        improved = false;
+        for (size_t i = 1; i < n - 1; ++i) {
+            for (size_t k = i + 1; k < n; ++k) {
+                float currentSegmentDist = dist(nodes[tour[i - 1]], nodes[tour[i]])
+                    + (k + 1 < n ? dist(nodes[tour[k]], nodes[tour[k + 1]]) : 0.0f);
+                float newSegmentDist = dist(nodes[tour[i - 1]], nodes[tour[k]])
+                    + (k + 1 < n ? dist(nodes[tour[i]], nodes[tour[k + 1]]) : 0.0f);
+
+                if (newSegmentDist + 1e-4f < currentSegmentDist) {
+                    // Reverse tour from i to k
+                    std::reverse(tour.begin() + i, tour.begin() + k + 1);
+                    improved = true;
+                }
+            }
+        }
+    }
+
+    result.optimizedWireLength = calcTotalDistance(tour);
+    if (result.originalWireLength > 0.0f) {
+        result.wireSavingsPercent = ((result.originalWireLength - result.optimizedWireLength) / result.originalWireLength) * 100.0f;
+        if (result.wireSavingsPercent < 0.0f) result.wireSavingsPercent = 0.0f;
+    }
+
+    result.optimizedNodes.resize(n);
+    for (size_t i = 0; i < n; ++i) {
+        PropNodeSuggestion node = nodes[tour[i]];
+        node.channelIndex = (int)i + 1;
+        node.label = "Node_" + std::to_string(i + 1);
+        result.optimizedNodes[i] = node;
+    }
+
+    std::ostringstream ss;
+    ss << "2-opt TSP wire optimization complete: Path shortened from "
+       << std::fixed << std::setprecision(1) << result.originalWireLength << " to "
+       << result.optimizedWireLength << " units ("
+       << result.wireSavingsPercent << "% wire length reduction).";
+    result.summary = ss.str();
+    spdlog::info("CustomPropDesignerAI: {}", result.summary);
+
+    return result;
+}
+
+std::string CustomPropDesignerAI::GenerateBatchPropModelsXML(
+    const std::vector<PropNodeSuggestion>& templateNodes,
+    const BatchModelSpec& batchSpec,
+    const PropGenerationSpec& propSpec
+) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (templateNodes.empty() || batchSpec.count <= 0) {
+        return "<models />";
+    }
+
+    std::ostringstream oss;
+    oss << "<models count=\"" << batchSpec.count << "\">\n";
+
+    int channelsPerModel = (int)templateNodes.size();
+    for (int idx = 0; idx < batchSpec.count; ++idx) {
+        std::string instanceName = batchSpec.baseModelName + "_" + std::to_string(idx + 1);
+        float offsetX = 0.0f;
+        float offsetY = 0.0f;
+        float offsetZ = 0.0f;
+
+        if (batchSpec.pattern == BatchPlacementPattern::LinearArray) {
+            offsetX = (float)idx * batchSpec.spacingOrRadius;
+        } else if (batchSpec.pattern == BatchPlacementPattern::ArcFan) {
+            float frac = (batchSpec.count > 1) ? (float)idx / (float)(batchSpec.count - 1) : 0.5f;
+            float angleDeg = batchSpec.startAngle + frac * (batchSpec.endAngle - batchSpec.startAngle);
+            float angleRad = angleDeg * (float)M_PI / 180.0f;
+            offsetX = batchSpec.spacingOrRadius * std::sin(angleRad);
+            offsetY = batchSpec.spacingOrRadius * (1.0f - std::cos(angleRad));
+        } else if (batchSpec.pattern == BatchPlacementPattern::GridMatrix) {
+            int cols = std::max(1, (int)std::ceil(std::sqrt((float)batchSpec.count)));
+            int row = idx / cols;
+            int col = idx % cols;
+            offsetX = (float)col * batchSpec.spacingOrRadius;
+            offsetY = (float)row * batchSpec.spacingOrRadius;
+        }
+
+        int chOffset = batchSpec.startChannelOffset > 0 
+            ? (batchSpec.startChannelOffset + idx * channelsPerModel)
+            : (1 + idx * channelsPerModel);
+
+        std::vector<PropNodeSuggestion> instNodes = templateNodes;
+        for (auto& n : instNodes) {
+            n.x += offsetX;
+            n.y += offsetY;
+            n.z += offsetZ;
+            n.channelIndex += (chOffset - 1);
+        }
+
+        std::string modelXml = ExportToXLightsModelXML(instNodes, instanceName, propSpec);
+        oss << "  " << modelXml << "\n";
+    }
+
+    oss << "</models>";
+    return oss.str();
+}
+
 } // namespace xLights::AI

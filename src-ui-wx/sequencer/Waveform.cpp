@@ -92,6 +92,10 @@ const long Waveform::ID_WAVE_MNU_CLASSIFY_CLEAR = wxNewId();
 #endif
 // Reserve 32 IDs for audio track submenu items (base + 0..31)
 const long Waveform::ID_WAVE_MNU_AUDIO_TRACK_BASE = wxNewId();
+const long Waveform::ID_WAVE_MNU_AI_AUDIO_STEMS = wxNewId();
+const long Waveform::ID_WAVE_MNU_AI_AUDIO_CHOREOGRAPHER = wxNewId();
+const long Waveform::ID_WAVE_MNU_AI_LYRIC_ALIGNER = wxNewId();
+const long Waveform::ID_WAVE_MNU_AI_VIDEO_EMULATOR = wxNewId();
 static long _audioTrackIdPool[32];
 static bool _audioTrackIdPoolInited = false;
 static void EnsureAudioTrackIds() {
@@ -343,6 +347,15 @@ void Waveform::rightClick(wxMouseEvent& event)
             mnuWave.AppendSubMenu(trackMenu, "Audio Track");
         }
     }
+    {
+        mnuWave.AppendSeparator();
+        wxMenu* aiMenu = new wxMenu();
+        aiMenu->Append(ID_WAVE_MNU_AI_AUDIO_STEMS, "🤖 AI Audio Stem Extractor...");
+        aiMenu->Append(ID_WAVE_MNU_AI_AUDIO_CHOREOGRAPHER, "🤖 AI Audio Stem Choreographer...");
+        aiMenu->Append(ID_WAVE_MNU_AI_LYRIC_ALIGNER, "🤖 AI Lyric & Viseme Lip-Sync...");
+        aiMenu->Append(ID_WAVE_MNU_AI_VIDEO_EMULATOR, "🎬 AI Video Sequence Emulation...");
+        mnuWave.AppendSubMenu(aiMenu, "AI Copilot");
+    }
     if (mnuWave.GetMenuItemCount() > 0) {
         mnuWave.Connect(wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)& Waveform::OnGridPopup, nullptr, this);
         render();
@@ -354,6 +367,23 @@ void Waveform::OnGridPopup(wxCommandEvent& event)
 {
     
     int id = event.GetId();
+    if (id == ID_WAVE_MNU_AI_AUDIO_STEMS) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, xLightsFrame::ID_MENUITEM_AI_AUDIO_STEMS);
+        wxPostEvent(xLightsFrame::GetFrame(), cmd);
+        return;
+    } else if (id == ID_WAVE_MNU_AI_AUDIO_CHOREOGRAPHER) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, xLightsFrame::ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER);
+        wxPostEvent(xLightsFrame::GetFrame(), cmd);
+        return;
+    } else if (id == ID_WAVE_MNU_AI_LYRIC_ALIGNER) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, xLightsFrame::ID_MENUITEM_AI_LYRIC_VISEME_ALIGNER);
+        wxPostEvent(xLightsFrame::GetFrame(), cmd);
+        return;
+    } else if (id == ID_WAVE_MNU_AI_VIDEO_EMULATOR) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, xLightsFrame::ID_MENUITEM_AI_VIDEO_EMULATOR);
+        wxPostEvent(xLightsFrame::GetFrame(), cmd);
+        return;
+    }
     if(id == ID_WAVE_MNU_RENDER) {
         spdlog::debug("OnGridPopup - ID_WAVE_MNU_RENDER");
         RenderCommandEvent rcEvent("", mTimeline->GetSelectedPositionStartMS(), mTimeline->GetSelectedPositionEndMS(), true, false);

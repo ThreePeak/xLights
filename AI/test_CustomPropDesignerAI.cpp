@@ -69,6 +69,42 @@ int main() {
         std::cout << " -> Test 3 (ExportToXLightsModelXML Validation): PASSED" << std::endl;
     }
 
+    // Test 4: OptimizeWirePathTSP
+    {
+        std::vector<xLights::AI::PropNodeSuggestion> scrambledNodes;
+        // 5 nodes in a line, but in zig-zag order 0, 4, 1, 3, 2
+        std::vector<float> xs = {0.0f, 40.0f, 10.0f, 30.0f, 20.0f};
+        for (int i = 0; i < 5; ++i) {
+            xLights::AI::PropNodeSuggestion n;
+            n.x = xs[i]; n.y = 0.0f; n.z = 0.0f;
+            n.channelIndex = i + 1;
+            scrambledNodes.push_back(n);
+        }
+        auto tspRes = designer.OptimizeWirePathTSP(scrambledNodes);
+        assert(tspRes.optimizedNodes.size() == 5);
+        assert(tspRes.optimizedWireLength <= tspRes.originalWireLength);
+        assert(tspRes.wireSavingsPercent > 0.0f);
+        std::cout << " -> Test 4 (2-Opt TSP Wire Optimization): PASSED (saved "
+                  << tspRes.wireSavingsPercent << "% wire length)" << std::endl;
+    }
+
+    // Test 5: GenerateBatchPropModelsXML
+    {
+        auto res = designer.AnalyzePrompt(prompt, 100);
+        auto nodes = designer.GenerateFromSpec(res.spec);
+        xLights::AI::BatchModelSpec bSpec;
+        bSpec.baseModelName = "MiniTree";
+        bSpec.count = 4;
+        bSpec.pattern = xLights::AI::BatchPlacementPattern::ArcFan;
+        bSpec.spacingOrRadius = 60.0f;
+
+        std::string batchXml = designer.GenerateBatchPropModelsXML(nodes, bSpec, res.spec);
+        assert(batchXml.find("<models count=\"4\">") != std::string::npos);
+        assert(batchXml.find("MiniTree_1") != std::string::npos);
+        assert(batchXml.find("MiniTree_4") != std::string::npos);
+        std::cout << " -> Test 5 (GenerateBatchPropModelsXML 4-Model Arc): PASSED" << std::endl;
+    }
+
     std::cout << "[Unit Test] CustomPropDesignerAI ALL TESTS PASSED!" << std::endl;
     return 0;
 }
