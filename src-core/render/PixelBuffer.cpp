@@ -65,21 +65,29 @@ namespace {
     };
 
     xlColor tex2D(const ColorBuffer& cb, float s, float t) {
+        if (cb.w <= 0 || cb.h <= 0) return xlBLACK;
+        if (std::isnan(s) || std::isnan(t) || std::isinf(s) || std::isinf(t)) return xlBLACK;
         s = CLAMP(0.f, s, 1.f);
         t = CLAMP(0.f, t, 1.f);
 
-        int x = int(s * (cb.w - 1));
-        int y = int(t * (cb.h - 1));
+        int maxW = std::max(0, cb.w - 1);
+        int maxH = std::max(0, cb.h - 1);
+        int x = int(s * maxW);
+        int y = int(t * maxH);
 
         return cb.GetPixel(x, y);
     }
 
     xlColor tex2D(const RenderBuffer& rb, float s, float t) {
+        if (rb.BufferWi <= 0 || rb.BufferHt <= 0) return xlBLACK;
+        if (std::isnan(s) || std::isnan(t) || std::isinf(s) || std::isinf(t)) return xlBLACK;
         s = CLAMP(0.f, s, 1.f);
         t = CLAMP(0.f, t, 1.f);
 
-        int x = int(s * (rb.BufferWi - 1));
-        int y = int(t * (rb.BufferHt - 1));
+        int maxW = std::max(0, rb.BufferWi - 1);
+        int maxH = std::max(0, rb.BufferHt - 1);
+        int x = int(s * maxW);
+        int y = int(t * maxH);
 
         return rb.GetPixel(x, y);
     }
@@ -318,11 +326,13 @@ namespace {
     void foldIn(RenderBuffer& rb0, const ColorBuffer& cb0, const RenderBuffer* rb1, float progress, bool isReverse) {
         if (progress < 0. || progress > 1.)
             return;
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, isReverse](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, isReverse, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, foldIn(cb0, rb1, s, t, progress, isReverse));
                 }
             },
@@ -331,11 +341,13 @@ namespace {
     void foldOut(RenderBuffer& rb0, const ColorBuffer& cb0, const RenderBuffer* rb1, float progress, bool isReverse) {
         if (progress < 0. || progress > 1.)
             return;
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, isReverse](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, isReverse, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, foldOut(cb0, rb1, s, t, progress, isReverse));
                 }
             },
@@ -362,11 +374,13 @@ namespace {
     void dissolveIn(RenderBuffer& rb0, const ColorBuffer& cb0, float progress) {
         if (progress < 0. || progress > 1.)
             return;
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, progress](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, progress, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, dissolveIn(cb0, s, t, progress));
                 }
             },
@@ -380,11 +394,13 @@ namespace {
     void dissolveOut(RenderBuffer& rb0, const ColorBuffer& cb0, float progress) {
         if (progress < 0. || progress > 1.)
             return;
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, progress](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, progress, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, dissolveOut(cb0, s, t, progress));
                 }
             },
@@ -412,11 +428,13 @@ namespace {
     void circularSwirl(RenderBuffer& rb0, const ColorBuffer& cb0, const Vec2D& xy, float speed, float progress) {
         if (progress < 0. || progress > 1.)
             return;
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, xy, speed, progress](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, xy, speed, progress, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, circularSwirl(cb0, xy, speed, s, t, progress));
                 }
             },
@@ -477,11 +495,13 @@ namespace {
         if (progress < 0. || progress > 1.)
             return;
         double bowTieAdjust = 0.01 * adjust;
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, bowTieAdjust, isReversed](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, bowTieAdjust, isReversed, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, bowTie(cb0, rb1, s, t, progress, bowTieAdjust, isReversed));
                 }
             },
@@ -498,11 +518,13 @@ namespace {
     void zoomTransition(RenderBuffer& rb0, const ColorBuffer& cb0, float progress) {
         if (progress < 0. || progress > 1.)
             return;
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, progress](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, progress, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, zoomTransition(cb0, s, t, progress));
                 }
             },
@@ -555,11 +577,13 @@ namespace {
     void doorway(RenderBuffer& rb0, const ColorBuffer& cb0, const RenderBuffer* rb1, float progress) {
         if (progress < 0. || progress > 1.)
             return;
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, doorway(cb0, rb1, s, t, progress));
                 }
             },
@@ -618,11 +642,13 @@ namespace {
             return;
         double scale = interpolate(double(adjust), 0., 4., 100., 14., LinearInterpolater());
         float smoothness = blobsSmoothness + (blur / 25.0f) * 0.49f;
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, scale, smoothness](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, scale, smoothness, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, blobs(cb0, rb1, s, t, progress, scale, smoothness));
                 }
             },
@@ -647,12 +673,14 @@ namespace {
         if (progress < 0. || progress > 1.)
             return;
         double adjust = std::floor(interpolate(wheelAdjust, 0., 3.0, 100., 10.0, LinearInterpolater()));
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
 
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, adjust](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, adjust, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, pinwheelTransition(cb0, rb1, s, t, progress, adjust));
                 }
             },
@@ -691,11 +719,13 @@ namespace {
         // for this transition, we fudge the progress a bit b/c not much happens at the end
         progress = interpolate(progress, 0.0, 0.0, 1.0, 0.85, LinearInterpolater());
 
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, numSegments, shouldReverse](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, numSegments, shouldReverse, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, starTransition(cb0, rb1, s, t, progress, numSegments, shouldReverse));
                 }
             },
@@ -761,11 +791,13 @@ namespace {
         if (progress < 0. || progress > 1.)
             return;
 
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, swapTransition(cb0, rb1, s, t, progress));
                 }
             },
@@ -839,11 +871,13 @@ namespace {
         if (progress < 0. || progress > 1.)
             return;
 
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, shatterTransition(cb0, rb1, s, t, progress));
                 }
             },
@@ -874,12 +908,14 @@ namespace {
         if (progress < 0. || progress > 1.)
             return;
         double n = std::floor(interpolate(double(adjustValue), 0., 2., 100., 8., LinearInterpolater()));
+        const int denomHt = std::max(1, rb0.BufferHt - 1);
+        const int denomWi = std::max(1, rb0.BufferWi - 1);
 
         parallel_for(
-            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, n](int y) {
-                float t = float(y) / (rb0.BufferHt - 1);
+            0, rb0.BufferHt, [&rb0, &cb0, &rb1, progress, n, denomHt, denomWi](int y) {
+                float t = float(y) / denomHt;
                 for (int x = 0; x < rb0.BufferWi; ++x) {
-                    float s = float(x) / (rb0.BufferWi - 1);
+                    float s = float(x) / denomWi;
                     rb0.SetPixel(x, y, circlesTransition(cb0, rb1, s, t, progress, n));
                 }
             },

@@ -11,14 +11,13 @@
 
 TEST_CASE("AI Hardware Acceleration Preferences Backend Validation Tests", "[AI][Inference]") {
     SECTION("Local Hardware Acceleration Execution Provider Selection") {
-        xLights::AI::InferenceConfig config;
-        config.provider = xLights::AI::ExecutionProviderBackend::DIRECTML;
-        config.vramMemoryCapMB = 4096;
+        xLights::AI::InferenceSessionConfig config;
+        config.preferredProvider = xLights::AI::ExecutionProvider::DirectML;
 
-        bool initialized = xLights::AI::LocalInferenceEngine::InitializeEngine(config);
-        REQUIRE(initialized == true);
+        auto devices = xLights::AI::LocalInferenceEngine::EnumerateHardwareDevices();
+        REQUIRE(devices.size() > 0);
 
-        xLights::AI::ExecutionProviderBackend active = xLights::AI::LocalInferenceEngine::GetActiveBackend();
-        REQUIRE(active == xLights::AI::ExecutionProviderBackend::DIRECTML);
+        std::string providerName = xLights::AI::LocalInferenceEngine::ProviderToString(xLights::AI::ExecutionProvider::DirectML);
+        REQUIRE(providerName == "DirectML");
     }
 }

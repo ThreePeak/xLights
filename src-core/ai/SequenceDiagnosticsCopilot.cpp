@@ -6,8 +6,8 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
-#include "ai/SequenceDiagnosticsCopilot.h"
-#include "ai/aiBase.h"
+#include "SequenceDiagnosticsCopilot.h"
+#include "aiBase.h"
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <filesystem>

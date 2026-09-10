@@ -6,7 +6,7 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
-#include "ai/ShowLogDiagnosticsAnalyzer.h"
+#include "ShowLogDiagnosticsAnalyzer.h"
 #include <spdlog/spdlog.h>
 #include <pugixml.hpp>
 

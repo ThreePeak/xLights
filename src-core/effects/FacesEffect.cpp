@@ -8,6 +8,7 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
+#include <algorithm>
 #include <filesystem>
 #include <mutex>
 #include <spdlog/fmt/fmt.h>
@@ -571,8 +572,8 @@ void FacesEffect::mouth(RenderBuffer& buffer, int Phoneme, int BufferHt, int Buf
      */
 
     double offset = 0.0;
-    int Ht = BufferHt - 1;
-    int Wt = BufferWi - 1;
+    int Ht = std::max(1, BufferHt - 1);
+    int Wt = std::max(1, BufferWi - 1);
     int x1 = (int)(offset + Wt * 0.25);
     int x2 = (int)(offset + Wt * 0.75);
     int x3 = (int)(offset + Wt * 0.30);
@@ -674,8 +675,8 @@ void FacesEffect::drawoutline(RenderBuffer& buffer, int Phoneme, bool outline, c
     std::string eyeBlinkFreq = eyeBlinkFreqIn;
     std::string eyeBlinkDuration = eyeBlinkDurationIn;
 
-    int Ht = BufferHt - 1;
-    int Wt = BufferWi - 1;
+    int Ht = std::max(1, BufferHt - 1);
+    int Wt = std::max(1, BufferWi - 1);
 
     size_t colorcnt = buffer.GetColorCount();
 

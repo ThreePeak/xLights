@@ -19,8 +19,8 @@ TEST_CASE("AI Audio Stem Extractor Backend Validation Tests", "[AI][Audio]") {
 
         xLights::AI::AudioStemResult result = xLights::AI::AudioStemExtractor::ExtractStems("test_audio.wav", config);
 
-        REQUIRE(result.isSuccess == true);
-        REQUIRE(result.extractedStemPaths.size() >= 3);
+        REQUIRE(result.success == true);
+        REQUIRE(result.stemFiles.size() >= 3);
         REQUIRE(result.detectedBpm > 0.0f);
     }
 }

@@ -8,6 +8,8 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
+#include <algorithm>
+#include <cmath>
 #include <spdlog/fmt/fmt.h>
 #include <sstream>
 
@@ -155,8 +157,10 @@ namespace
 
    void RenderSampleOn(RenderBuffer& rb, double x, double y)
    {
-       int xx = x * (rb.BufferWi - 1);
-       int yy = y * (rb.BufferHt - 1);
+       if (rb.BufferWi <= 0 || rb.BufferHt <= 0) return;
+       if (std::isnan(x) || std::isnan(y) || std::isinf(x) || std::isinf(y)) return;
+       int xx = static_cast<int>(x * std::max(0, rb.BufferWi - 1));
+       int yy = static_cast<int>(y * std::max(0, rb.BufferHt - 1));
        xlColor c = rb.GetPixel(xx, yy);
 
        for (int yyy = 0; yyy < rb.BufferHt; ++yyy)

@@ -131,13 +131,6 @@ void AIAudioStemExtractorDialog::InitUI() {
     Center();
 }
 
-AIAudioStemExtractorDialog::~AIAudioStemExtractorDialog() {
-    m_workerCancel = true;
-    if (m_workerThread.joinable()) {
-        m_workerThread.join();
-    }
-}
-
 void AIAudioStemExtractorDialog::OnExtractButtonClick(wxCommandEvent& WXUNUSED(event)) {
     if (m_isProcessing.load()) {
         wxMessageBox(wxT("Extraction is already in progress."), wxT("Please Wait"), wxOK | wxICON_INFORMATION, this);

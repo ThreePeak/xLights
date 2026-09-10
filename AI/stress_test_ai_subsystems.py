@@ -100,6 +100,20 @@ def stress_test_quantization_math():
             end_frame = start_frame + 1
         return (start_frame * frame_ms, end_frame * frame_ms, start_frame, end_frame)
 
+    def time_to_frame_index(raw_sec, step_sec, max_frames=-1):
+        """Mirror of AIQuantizationUtils::TimeToFrameIndex - guards NaN, Inf, zero step."""
+        import math
+        if math.isnan(raw_sec) or math.isinf(raw_sec) or raw_sec < 0.0:
+            raw_sec = 0.0
+        if math.isnan(step_sec) or math.isinf(step_sec) or step_sec <= 0.0:
+            step_sec = 0.05  # 50ms default
+        frame_idx = int(round(raw_sec / step_sec))
+        if frame_idx < 0:
+            frame_idx = 0
+        if max_frames >= 0 and frame_idx >= max_frames:
+            frame_idx = max(0, max_frames - 1)
+        return frame_idx
+
     def clamp_frames(frame_idx, total_frames):
         if total_frames <= 0:
             return 0
@@ -126,6 +140,32 @@ def stress_test_quantization_math():
     assert clamp_frames(50, 0) == 0
     assert clamp_frames(50, -10) == 0
     print("  [PASS] Clamping invariants hold across negative and out-of-bounds indices")
+
+    # TimeToFrameIndex: NaN input -> frame 0
+    assert time_to_frame_index(float('nan'), 0.05) == 0
+    print("  [PASS] TimeToFrameIndex: NaN rawSeconds -> frame 0")
+
+    # TimeToFrameIndex: Inf input -> frame 0
+    assert time_to_frame_index(float('inf'), 0.05) == 0
+    print("  [PASS] TimeToFrameIndex: Inf rawSeconds -> frame 0")
+
+    # TimeToFrameIndex: zero stepSeconds -> fallback 50ms default
+    assert time_to_frame_index(1.0, 0.0) == 20  # 1.0 / 0.05 = 20
+    print("  [PASS] TimeToFrameIndex: zero stepSeconds -> fallback 50ms (1.0s -> frame 20)")
+
+    # TimeToFrameIndex: negative rawSeconds -> frame 0
+    assert time_to_frame_index(-5.0, 0.05) == 0
+    print("  [PASS] TimeToFrameIndex: negative rawSeconds -> frame 0")
+
+    # TimeToFrameIndex: maxFrames clamping
+    assert time_to_frame_index(10.0, 0.05, 100) == 99  # would be 200 without clamp
+    print("  [PASS] TimeToFrameIndex: maxFrames clamp applied (200->99)")
+
+    # QuantizeTimeInterval: NaN start/end -> safe frame 0
+    q_nan = quantize_time_interval(0, 0, 50)
+    assert q_nan[2] == 0
+    print("  [PASS] QuantizeTimeInterval: zero-start/zero-end -> frame 0 start")
+
     print("Result: Timeline Quantization Stress Tests PASSED\n")
     return True
 

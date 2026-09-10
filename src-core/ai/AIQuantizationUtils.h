@@ -27,7 +27,54 @@ public:
      * @param stepTimeMS Frame duration in milliseconds (typically 50ms for 20fps or 25ms for 40fps).
      * @param maxDurationSec Total sequence duration in seconds (or <= 0 if unconstrained).
      */
+    /**
+     * Safely calculate frame index from raw seconds and step seconds.
+     * Prevents NaN, Inf, zero/negative step division, and negative indices.
+     */
+    static int32_t TimeToFrameIndex(double rawSeconds, double stepSeconds, int32_t maxFrames = -1) {
+        if (std::isnan(rawSeconds) || std::isinf(rawSeconds) || rawSeconds < 0.0) {
+            rawSeconds = 0.0;
+        }
+        if (std::isnan(stepSeconds) || std::isinf(stepSeconds) || stepSeconds <= 0.0) {
+            stepSeconds = 0.05; // default 50ms (20fps)
+        }
+        int32_t frameIndex = static_cast<int32_t>(std::round(rawSeconds / stepSeconds));
+        if (frameIndex < 0) {
+            frameIndex = 0;
+        }
+        if (maxFrames >= 0 && frameIndex >= maxFrames) {
+            frameIndex = std::max(0, maxFrames - 1);
+        }
+        return frameIndex;
+    }
+
+    /**
+     * Safely calculate timestamp (seconds) from frame index and step seconds.
+     */
+    static double FrameIndexToTime(int32_t frameIndex, double stepSeconds) {
+        if (frameIndex < 0) frameIndex = 0;
+        if (std::isnan(stepSeconds) || std::isinf(stepSeconds) || stepSeconds <= 0.0) {
+            stepSeconds = 0.05;
+        }
+        return static_cast<double>(frameIndex) * stepSeconds;
+    }
+
+    /**
+     * Quantize raw start and end timestamps (seconds) to exact sequence frame boundaries.
+     * Prevents negative timestamps, zero-length intervals, and exceeding max sequence duration.
+     * 
+     * @param startSec Raw start time in seconds.
+     * @param endSec Raw end time in seconds.
+     * @param stepTimeMS Frame duration in milliseconds (typically 50ms for 20fps or 25ms for 40fps).
+     * @param maxDurationSec Total sequence duration in seconds (or <= 0 if unconstrained).
+     */
     static QuantizedInterval QuantizeTimeInterval(double startSec, double endSec, int stepTimeMS, double maxDurationSec = -1.0) {
+        if (std::isnan(startSec) || std::isinf(startSec) || startSec < 0.0) {
+            startSec = 0.0;
+        }
+        if (std::isnan(endSec) || std::isinf(endSec)) {
+            endSec = 0.0;
+        }
         if (stepTimeMS <= 0) {
             stepTimeMS = 50; // default 50ms (20fps)
         }
@@ -40,8 +87,7 @@ public:
         }
 
         // Calculate start frame
-        int32_t sFrame = static_cast<int32_t>(std::round(startSec / stepSec));
-        if (sFrame < 0) sFrame = 0;
+        int32_t sFrame = TimeToFrameIndex(startSec, stepSec);
 
         // Ensure endSec is at least startSec + stepSec
         if (endSec <= startSec) {
@@ -49,7 +95,7 @@ public:
         }
 
         // Calculate end frame
-        int32_t eFrame = static_cast<int32_t>(std::round(endSec / stepSec));
+        int32_t eFrame = TimeToFrameIndex(endSec, stepSec);
         if (eFrame <= sFrame) {
             eFrame = sFrame + 1;
         }

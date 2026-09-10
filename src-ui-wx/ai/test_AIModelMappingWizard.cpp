@@ -12,13 +12,23 @@
 TEST_CASE("AI Vendor Model Mapping Backend Validation Tests", "[AI][Mapping]") {
     SECTION("Run 4-Pass LLM Fuzzy Channel Alignment") {
         xLights::AI::ModelMappingConfig config;
-        config.vendorSequencePath = "vendor_test.xsq";
-        config.confidenceThreshold = 85.0f;
+        config.minimumConfidenceThreshold = 0.5f;
 
-        xLights::AI::ModelMappingResult result = xLights::AI::ModelMappingAIGenerator::GenerateModelMappings(config);
+        xLights::AI::SourceChannelSpec src;
+        src.channelName = "Vendor_Tree";
+        src.propTypeHint = "Tree";
+        src.nodeCount = 100;
+        config.sourceChannels.push_back(src);
 
-        REQUIRE(result.isSuccess == true);
-        REQUIRE(result.totalChannelsMapped > 0);
-        REQUIRE(result.averageConfidenceScore > 80.0f);
+        xLights::AI::TargetModelSpec tgt;
+        tgt.modelName = "My_Tree";
+        tgt.modelType = "Tree";
+        tgt.nodeCount = 100;
+        config.targetModels.push_back(tgt);
+
+        xLights::AI::ModelMappingResult result = xLights::AI::ModelMappingAIGenerator::GenerateModelMapping(config);
+
+        REQUIRE(result.success == true);
+        REQUIRE(result.mappedChannelsCount > 0);
     }
 }

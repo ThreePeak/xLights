@@ -6,7 +6,7 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
-#include "ai/SequenceRemappingAgent.h"
+#include "SequenceRemappingAgent.h"
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <cmath>
