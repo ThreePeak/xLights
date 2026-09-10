@@ -804,6 +804,7 @@ void xLightsFrame::OpenSequence(const wxString& passed_filename, ConvertLogDialo
                              _("Sequence Outside Show Directory"), wxOK | wxICON_INFORMATION, this);
             }
         }
+        RunAmbientSequenceLinter();
     }
 }
 

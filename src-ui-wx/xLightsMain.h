@@ -581,6 +581,7 @@ public:
     void OnMenuItem_ViewLogSelected(wxCommandEvent& event);
     void OnMenuItemCheckSequenceSelected(wxCommandEvent& event);
     AIStatusBar* GetAIStatusBar() const { return m_aiStatusBar; }
+    void RunAmbientSequenceLinter();
     void OnMenuAICopilotSpotlightSelected(wxCommandEvent& event);
     void OnMenuAISequenceValidatorSelected(wxCommandEvent& event);
     void OnToolsAISequenceValidator(wxCommandEvent& event) { OnMenuAISequenceValidatorSelected(event); }

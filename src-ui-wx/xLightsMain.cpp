@@ -134,6 +134,7 @@
 #include "src-ui-wx/ai/AIVideoSequenceEmulatorDialog.h"
 #include "src-ui-wx/ai/AISnapshotHistoryDialog.h"
 #include "src-ui-wx/ai/AIStatusBar.h"
+#include "AI/AIModelGeometryUtils.h"
 #include "diagnostics/ShowFolderSearchDialog.h"
 #include "sequencer/TopEffectsPanel.h"
 #include "utils/TraceLog.h"
@@ -4932,6 +4933,7 @@ void xLightsFrame::OnTimer_AutoSaveTrigger(wxTimerEvent& event)
             AutoSaveTimer.StartOnce(1000); // try again in a short period of time as we did not actually save this time
         }
     }
+    RunAmbientSequenceLinter();
 }
 
 void xLightsFrame::SetAutoSaveInterval(int nasi)
@@ -6238,6 +6240,65 @@ void xLightsFrame::OnMenuAIVideoEmulatorSelected(wxCommandEvent& WXUNUSED(event)
 void xLightsFrame::OnMenuAISnapshotHistorySelected(wxCommandEvent& WXUNUSED(event)) {
     xLights::AISnapshotHistoryDialog dlg(this);
     dlg.ShowModal();
+}
+
+void xLightsFrame::RunAmbientSequenceLinter() {
+    if (!m_aiStatusBar) return;
+
+    int issueCount = 0;
+    std::string firstIssue;
+
+    // 1. Check models in AllModels for geometry / node bounds anomalies
+    for (const auto& it : AllModels) {
+        Model* modelPtr = it.second;
+        if (!modelPtr) continue;
+        int bufW = modelPtr->GetBufferWidth();
+        int bufH = modelPtr->GetBufferHeight();
+        if (bufW <= 0 || bufH <= 0) {
+            issueCount++;
+            if (firstIssue.empty()) {
+                firstIssue = it.first + ": Invalid buffer (" + std::to_string(bufW) + "x" + std::to_string(bufH) + ")";
+            }
+        }
+        if (modelPtr->GetNodeCount() == 0) {
+            issueCount++;
+            if (firstIssue.empty()) {
+                firstIssue = it.first + ": 0 nodes defined";
+            }
+        }
+    }
+
+    // 2. Check active sequence elements for 2D matrix effects placed on 1D linear props
+    if (CurrentSeqXmlFile != nullptr) {
+        for (size_t i = 0; i < _sequenceElements.GetElementCount(MASTER_VIEW); ++i) {
+            Element* e = _sequenceElements.GetElement(i);
+            if (e == nullptr || e->GetType() == ElementType::ELEMENT_TYPE_TIMING)
+                continue;
+            ModelElement* me = dynamic_cast<ModelElement*>(e);
+            Model* model = me ? AllModels[me->GetModelName()] : nullptr;
+            if (model == nullptr) continue;
+            bool is1D = xLights::AI::AIModelGeometryUtils::Is1DModel(model);
+            if (is1D) {
+                for (const auto& el : e->GetEffectLayers()) {
+                    for (const auto& ef : el->GetEffects()) {
+                        std::string effName = ef->GetEffectName();
+                        if (xLights::AI::AIModelGeometryUtils::EffectRequires2D(effName)) {
+                            issueCount++;
+                            if (firstIssue.empty()) {
+                                firstIssue = me->GetModelName() + ": 2D '" + effName + "' on 1D prop";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    wxString summary = wxEmptyString;
+    if (issueCount > 0) {
+        summary = wxString::Format(wxT("%d issues found (%s)"), issueCount, wxString::FromUTF8(firstIssue));
+    }
+    m_aiStatusBar->SetDiagnosticWarningCount(issueCount, summary);
 }
 
 void xLightsFrame::ShiftEffectsOnLayer(EffectLayer* el, int milliseconds)

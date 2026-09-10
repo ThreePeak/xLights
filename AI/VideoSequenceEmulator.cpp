@@ -13,12 +13,72 @@
 #include <algorithm>
 #include <cmath>
 #include <regex>
-#include <iomanip>
+#include <filesystem>
+#include <cstdlib>
 
 namespace xLights::AI {
 
 VideoSequenceEmulator::VideoSequenceEmulator() {
     spdlog::info("VideoSequenceEmulator: AI Video Sequence Emulation Subsystem initialized.");
+}
+
+bool VideoSequenceEmulator::DownloadVideoUrlToTemp(const std::string& url, std::string& outLocalPath, std::string& outError) {
+    if (url.empty()) {
+        outError = "Video URL is empty.";
+        return false;
+    }
+    if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0) {
+        outError = "Unsupported protocol. URL must begin with http:// or https://";
+        return false;
+    }
+
+    try {
+        std::filesystem::path tempDir = std::filesystem::temp_directory_path();
+        auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        std::filesystem::path targetFile = tempDir / ("xlights_ai_video_" + std::to_string(timestamp) + ".mp4");
+        std::string targetPathStr = targetFile.string();
+
+        spdlog::info("VideoSequenceEmulator::DownloadVideoUrlToTemp: Attempting video download from '{}' to '{}'", url, targetPathStr);
+
+        // 1. Try yt-dlp (supports YouTube, Vimeo, Facebook, and hundreds of web video hosts)
+        std::string cmd = "yt-dlp --no-warnings -f \"best[ext=mp4]/best\" --no-playlist -o \"" + targetPathStr + "\" \"" + url + "\" >nul 2>&1";
+        int ret = std::system(cmd.c_str());
+        if (ret == 0 && std::filesystem::exists(targetFile) && std::filesystem::file_size(targetFile) > 1024) {
+            outLocalPath = targetPathStr;
+            outError.clear();
+            spdlog::info("VideoSequenceEmulator::DownloadVideoUrlToTemp: Download succeeded via yt-dlp: {}", targetPathStr);
+            return true;
+        }
+
+        // 2. Try curl (installed natively on modern Windows 10/11 and Linux/macOS)
+        cmd = "curl -L -s -S -o \"" + targetPathStr + "\" \"" + url + "\" >nul 2>&1";
+        ret = std::system(cmd.c_str());
+        if (ret == 0 && std::filesystem::exists(targetFile) && std::filesystem::file_size(targetFile) > 1024) {
+            outLocalPath = targetPathStr;
+            outError.clear();
+            spdlog::info("VideoSequenceEmulator::DownloadVideoUrlToTemp: Download succeeded via curl: {}", targetPathStr);
+            return true;
+        }
+
+        // 3. Try ffmpeg as secondary fallback
+        cmd = "ffmpeg -y -loglevel error -i \"" + url + "\" -c copy \"" + targetPathStr + "\" >nul 2>&1";
+        ret = std::system(cmd.c_str());
+        if (ret == 0 && std::filesystem::exists(targetFile) && std::filesystem::file_size(targetFile) > 1024) {
+            outLocalPath = targetPathStr;
+            outError.clear();
+            spdlog::info("VideoSequenceEmulator::DownloadVideoUrlToTemp: Download succeeded via ffmpeg: {}", targetPathStr);
+            return true;
+        }
+
+        outError = "Could not download video from URL. Please ensure yt-dlp, curl, or ffmpeg is available in your PATH.";
+        spdlog::warn("VideoSequenceEmulator::DownloadVideoUrlToTemp: {}", outError);
+        return false;
+    } catch (const std::exception& ex) {
+        outError = std::string("Download error: ") + ex.what();
+        spdlog::error("VideoSequenceEmulator::DownloadVideoUrlToTemp: Exception: {}", outError);
+        return false;
+    }
 }
 
 std::vector<std::string> VideoSequenceEmulator::ParseLayoutModelNames(const std::string& layoutXml) const {
@@ -105,19 +165,29 @@ VideoAnalysisResult VideoSequenceEmulator::AnalyzeVideoSource(const VideoSourceI
 
     VideoAnalysisResult result;
     
+    VideoSourceInput effectiveInput = input;
+    if (effectiveInput.filePath.empty() && !effectiveInput.videoUrl.empty()) {
+        std::string downloadedPath;
+        std::string downloadErr;
+        if (DownloadVideoUrlToTemp(effectiveInput.videoUrl, downloadedPath, downloadErr)) {
+            effectiveInput.filePath = downloadedPath;
+            spdlog::info("VideoSequenceEmulator::AnalyzeVideoSource: URL staged to local file: {}", downloadedPath);
+        }
+    }
+
     // Determine title
-    if (!input.filePath.empty()) {
-        size_t lastSlash = input.filePath.find_last_of("/\\");
-        result.sourceTitle = (lastSlash == std::string::npos) ? input.filePath : input.filePath.substr(lastSlash + 1);
-    } else if (!input.videoUrl.empty()) {
-        result.sourceTitle = "Stream: " + input.videoUrl.substr(0, 45) + "...";
+    if (!effectiveInput.filePath.empty()) {
+        size_t lastSlash = effectiveInput.filePath.find_last_of("/\\");
+        result.sourceTitle = (lastSlash == std::string::npos) ? effectiveInput.filePath : effectiveInput.filePath.substr(lastSlash + 1);
+    } else if (!effectiveInput.videoUrl.empty()) {
+        result.sourceTitle = "Stream: " + effectiveInput.videoUrl.substr(0, 45) + "...";
     } else {
         result.sourceTitle = "Sequencing Clip Inspiration";
     }
 
     // Time window calculation
-    int startMs = input.hasTimeRange ? std::max(0, input.timeStartMs) : 0;
-    int endMs = input.hasTimeRange ? std::max(startMs + 5000, input.timeEndMs) : 60000;
+    int startMs = effectiveInput.hasTimeRange ? std::max(0, effectiveInput.timeStartMs) : 0;
+    int endMs = effectiveInput.hasTimeRange ? std::max(startMs + 5000, effectiveInput.timeEndMs) : 60000;
     result.detectedDurationMs = endMs - startMs;
 
     // Estimate BPM from user prompt keywords or musical conventions

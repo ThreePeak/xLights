@@ -1,4 +1,4 @@
-﻿/***************************************************************
+/***************************************************************
  * This source file comes from the xLights project
  * https://www.xlights.org
  * https://github.com/xLightsSequencer/xLights
@@ -50,6 +50,13 @@ AIVideoSequenceEmulatorDialog::AIVideoSequenceEmulatorDialog(
 ) : wxDialog(parent, id, title, pos, size, style) {
     InitUI();
     PopulateModelList();
+}
+
+AIVideoSequenceEmulatorDialog::~AIVideoSequenceEmulatorDialog() {
+    m_workerCancel = true;
+    if (m_workerThread.joinable()) {
+        m_workerThread.join();
+    }
 }
 
 void AIVideoSequenceEmulatorDialog::InitUI() {
@@ -339,12 +346,25 @@ void AIVideoSequenceEmulatorDialog::OnAnalyzeVideoClick(wxCommandEvent& WXUNUSED
     }
     fakeLayoutXml += "</models>";
 
-    std::thread([this, fakeLayoutXml]() {
-        m_currentAnalysis = m_emulator.AnalyzeVideoSource(m_currentInput, fakeLayoutXml);
-        m_currentStrategies = m_emulator.SuggestStrategies(m_currentAnalysis, fakeLayoutXml);
-        m_currentQuestions = m_emulator.GenerateConsultationQuestions(m_currentAnalysis, fakeLayoutXml);
+    if (m_workerThread.joinable()) {
+        m_workerThread.join();
+    }
+    m_workerCancel = false;
 
-        wxTheApp->CallAfter([this]() {
+    m_workerThread = std::thread([this, fakeLayoutXml]() {
+        auto analysis = m_emulator.AnalyzeVideoSource(m_currentInput, fakeLayoutXml);
+        if (m_workerCancel.load()) return;
+        auto strategies = m_emulator.SuggestStrategies(analysis, fakeLayoutXml);
+        if (m_workerCancel.load()) return;
+        auto questions = m_emulator.GenerateConsultationQuestions(analysis, fakeLayoutXml);
+        if (m_workerCancel.load()) return;
+
+        wxTheApp->CallAfter([this, analysis, strategies, questions]() {
+            if (m_workerCancel.load()) return;
+            m_currentAnalysis = analysis;
+            m_currentStrategies = strategies;
+            m_currentQuestions = questions;
+
             m_progressGauge->Hide();
             m_analyzeBtn->Enable(true);
 
@@ -373,9 +393,8 @@ void AIVideoSequenceEmulatorDialog::OnAnalyzeVideoClick(wxCommandEvent& WXUNUSED
                 wxString::FromUTF8(m_currentAnalysis.sourceTitle), (int)m_currentAnalysis.detectedBpm, m_currentAnalysis.visualTracks.size()));
 
             m_notebook->SetSelection(1);
-            Layout();
         });
-    }).detach();
+    });
 }
 
 void AIVideoSequenceEmulatorDialog::OnGenerateSequenceClick(wxCommandEvent& WXUNUSED(evt)) {
@@ -495,6 +514,10 @@ void AIVideoSequenceEmulatorDialog::OnApplyPolishClick(wxCommandEvent& WXUNUSED(
 }
 
 void AIVideoSequenceEmulatorDialog::OnCloseClick(wxCommandEvent& WXUNUSED(evt)) {
+    m_workerCancel = true;
+    if (m_workerThread.joinable()) {
+        m_workerThread.join();
+    }
     EndModal(wxID_CANCEL);
 }
 

@@ -22,6 +22,8 @@
 #include <wx/filepicker.h>
 #include <wx/sizer.h>
 #include <wx/checkbox.h>
+#include <atomic>
+#include <thread>
 #include "AI/VideoSequenceEmulator.h"
 
 namespace xLights::AI {
@@ -36,7 +38,7 @@ public:
         const wxSize& size = wxSize(980, 740),
         long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER
     );
-    virtual ~AIVideoSequenceEmulatorDialog() = default;
+    virtual ~AIVideoSequenceEmulatorDialog();
 
 private:
     void InitUI();
@@ -91,6 +93,9 @@ private:
     std::vector<AdaptationStrategy> m_currentStrategies;
     std::vector<ConsultationQuestion> m_currentQuestions;
     VideoSequencePlan m_currentPlan;
+
+    std::atomic<bool> m_workerCancel{false};
+    std::thread m_workerThread;
 
     DECLARE_EVENT_TABLE()
 };

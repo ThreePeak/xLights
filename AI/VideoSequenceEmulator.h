@@ -1,4 +1,4 @@
-﻿/***************************************************************
+/***************************************************************
  * This source file comes from the xLights project
  * https://www.xlights.org
  * https://github.com/xLightsSequencer/xLights
@@ -108,6 +108,7 @@ public:
     VideoSequenceEmulator();
     ~VideoSequenceEmulator() = default;
 
+    static bool DownloadVideoUrlToTemp(const std::string& url, std::string& outLocalPath, std::string& outError);
     VideoAnalysisResult AnalyzeVideoSource(const VideoSourceInput& input, const std::string& layoutXml);
     std::vector<AdaptationStrategy> SuggestStrategies(const VideoAnalysisResult& analysis, const std::string& layoutXml);
     std::vector<ConsultationQuestion> GenerateConsultationQuestions(const VideoAnalysisResult& analysis, const std::string& layoutXml);
