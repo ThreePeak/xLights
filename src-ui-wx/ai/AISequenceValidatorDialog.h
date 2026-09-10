@@ -46,6 +46,7 @@ private:
     void OnAutoRemediateButtonClick(wxCommandEvent& event);
     void OnExportJSONButtonClick(wxCommandEvent& event);
     void OnPersonaChoiceSelected(wxCommandEvent& event);
+    void OnIssueItemActivated(wxListEvent& event);
     void OnCloseButtonClick(wxCommandEvent& event);
 
     SequenceValidationConfig m_config;

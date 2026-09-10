@@ -5,6 +5,7 @@
 #include "src-ui-wx/ai/AIPowerInjectionDialog.h"
 #include "src-ui-wx/ai/AIFPPSyncDialog.h"
 #include "src-ui-wx/ai/AIDMXAddressDialog.h"
+#include "src-ui-wx/ai/AICopilotSpotlightDialog.h"
 #include <wx/confbase.h>
 #include <wx/msgdlg.h>
 
@@ -15,12 +16,14 @@ enum {
     ID_AI_POWER = 16004,
     ID_AI_FPP_SYNC = 16005,
     ID_AI_DMX_ADVISOR = 16006,
-    ID_AI_PIN_ALWAYS_VISIBLE = 16007
+    ID_AI_PIN_ALWAYS_VISIBLE = 16007,
+    ID_AI_SPOTLIGHT = 16008
 };
 
 BEGIN_EVENT_TABLE(AIStatusBar, wxPanel)
     EVT_BUTTON(ID_AI_TOGGLE, AIStatusBar::OnToggleExpand)
     EVT_CHECKBOX(ID_AI_PIN_ALWAYS_VISIBLE, AIStatusBar::OnPinAlwaysVisible)
+    EVT_BUTTON(ID_AI_SPOTLIGHT, AIStatusBar::OnOpenSpotlight)
     EVT_BUTTON(ID_AI_PROP_DESIGNER, AIStatusBar::OnOpenPropDesigner)
     EVT_BUTTON(ID_AI_VALIDATOR, AIStatusBar::OnOpenValidator)
     EVT_BUTTON(ID_AI_POWER, AIStatusBar::OnOpenPowerInspector)
@@ -58,6 +61,12 @@ void AIStatusBar::InitUI()
 
     m_alwaysVisibleCheck = new wxCheckBox(m_expandPanel, ID_AI_PIN_ALWAYS_VISIBLE, "📌 Always Visible");
     
+    wxButton* spotBtn = new wxButton(m_expandPanel, ID_AI_SPOTLIGHT, "🔍 Spotlight");
+    spotBtn->SetToolTip("Universal AI Copilot Command Palette & Quick Launcher (Ctrl+Shift+A)");
+    spotBtn->SetBackgroundColour(wxColour(45, 60, 90));
+    spotBtn->SetForegroundColour(*wxWHITE);
+
+    expandSizer->Add(spotBtn, 0, wxALL, 2);
     expandSizer->Add(propBtn, 0, wxALL, 2);
     expandSizer->Add(valBtn, 0, wxALL, 2);
     expandSizer->Add(powerBtn, 0, wxALL, 2);
@@ -128,6 +137,12 @@ void AIStatusBar::OnOpenFPPSync(wxCommandEvent& WXUNUSED(evt))
 void AIStatusBar::OnOpenDMXAdvisor(wxCommandEvent& WXUNUSED(evt))
 {
     xLights::AI::AIDMXAddressDialog dlg(GetParent());
+    dlg.ShowModal();
+}
+
+void AIStatusBar::OnOpenSpotlight(wxCommandEvent& WXUNUSED(evt))
+{
+    xLights::AI::AICopilotSpotlightDialog dlg(GetParent());
     dlg.ShowModal();
 }
 

@@ -113,6 +113,7 @@
 #include "src-ui-wx/ai/AISubmodelDetectorDialog.h"
 #include "src-ui-wx/ai/AIGrayCodePixelMapperDialog.h"
 #include "src-ui-wx/ai/AIAudioStemExtractorDialog.h"
+#include "src-ui-wx/ai/AICopilotSpotlightDialog.h"
 #include "src-ui-wx/ai/AICustomPropDesignerDialog.h"
 #include "src-ui-wx/ai/AIFPPSyncDialog.h"
 #include "src-ui-wx/ai/AIDMXAddressDialog.h"
@@ -325,6 +326,7 @@ const wxWindowID xLightsFrame::ID_MENU_GENERATE2DPATH = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_GenerateCustomModel = wxNewId();
 const wxWindowID xLightsFrame::ID_MNU_REMAPCUSTOM = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_GenerateAIImage = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_COPILOT_SPOTLIGHT = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_FPP_SYNC = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_DMX_ADVISOR = wxNewId();
@@ -1123,6 +1125,8 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     MenuItemFindShowFolder = new wxMenuItem(Menu1, ID_MENU_FIND_SHOW_FOLDER, _("Search for Show Folders"), wxEmptyString, wxITEM_NORMAL);
     Menu1->Append(MenuItemFindShowFolder);
     wxMenu* MenuAITools = new wxMenu();
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_COPILOT_SPOTLIGHT, _("AI Copilot Universal Spotlight...\tCtrl+Shift+A"), _("Quick launcher and search palette for all 53 AI Copilot capabilities"), wxITEM_NORMAL));
+    MenuAITools->AppendSeparator();
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER, _("AI Custom Prop Designer..."), _("Design, refine, and 3D preview custom props using AI"), wxITEM_NORMAL));
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SEQUENCE_VALIDATOR, _("AI Sequence Validator..."), _("Validate sequence against physical rules and bounds"), wxITEM_NORMAL));
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SHOW_DIAGNOSTICS, _("AI Show Health & Log Diagnostics..."), _("Pre-show health check, spdlog triage, and duplicate universe detection"), wxITEM_NORMAL));
@@ -1390,6 +1394,7 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     Connect(ID_MNU_EFFECTSYMBOLS, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_EffectSymbolsSelected);
     Connect(ID_MNU_CONVERTSYMBOLS, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_ConvertSymbolsSelected);
     Connect(ID_MENUITEM_GenerateAIImage, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_GenerateAIImageSelected);
+    Connect(ID_MENUITEM_AI_COPILOT_SPOTLIGHT, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAICopilotSpotlightSelected);
     Connect(ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAICustomPropDesignerSelected);
     Connect(ID_MENUITEM_AI_SEQUENCE_VALIDATOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAISequenceValidatorSelected);
     Connect(ID_MENUITEM_AI_POWER_INSPECTOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIPowerInspectorSelected);
@@ -6120,6 +6125,11 @@ void xLightsFrame::OnMenuAISubmodelDetectorSelected(wxCommandEvent& WXUNUSED(eve
 
 void xLightsFrame::OnMenuAICameraMapperSelected(wxCommandEvent& WXUNUSED(event)) {
     xLights::AI::AIGrayCodePixelMapperDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAICopilotSpotlightSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AICopilotSpotlightDialog dlg(this);
     dlg.ShowModal();
 }
 

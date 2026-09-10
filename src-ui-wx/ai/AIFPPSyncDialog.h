@@ -24,6 +24,7 @@ private:
 
     void OnAnalyzeClick(wxCommandEvent& event);
     void OnExportJsonClick(wxCommandEvent& event);
+    void OnPushFppClick(wxCommandEvent& event);
     void OnHelpClick(wxCommandEvent& event);
     void OnCloseClick(wxCommandEvent& event);
 
@@ -31,6 +32,7 @@ private:
     wxFilePickerCtrl* m_showXmlPicker = nullptr;
     wxButton* m_analyzeBtn = nullptr;
     wxButton* m_exportJsonBtn = nullptr;
+    wxButton* m_pushFppBtn = nullptr;
     wxButton* m_closeBtn = nullptr;
     wxListCtrl* m_resultsListCtrl = nullptr;
     wxGauge* m_progressGauge = nullptr;

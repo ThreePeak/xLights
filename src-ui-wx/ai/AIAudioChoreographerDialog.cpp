@@ -16,6 +16,10 @@
 #include <filesystem>
 #include <fstream>
 #include <chrono>
+#include "src-ui-wx/xLightsMain.h"
+#include "src-core/render/SequenceElements.h"
+#include "src-core/render/Element.h"
+#include "src-core/render/UndoManager.h"
 
 namespace xLights {
 
@@ -354,9 +358,81 @@ void AIAudioChoreographerDialog::OnExportTimingTrack(wxCommandEvent& WXUNUSED(ev
 }
 
 void AIAudioChoreographerDialog::OnApplyDeltaEffects(wxCommandEvent& WXUNUSED(event)) {
-    wxMessageBox(wxString::Format(wxT("Successfully applied non-destructive effects to '%s'!\n%zu onset beat cues synchronized without mutating existing layers."),
-        wxString::FromUTF8(m_params.targetPropName), m_result.detectedHitCount),
-        wxT("Effects Applied"), wxOK | wxICON_INFORMATION, this);
+    SequenceFile* seq = xLightsFrame::CurrentSeqXmlFile;
+    if (!seq || !seq->GetSequenceLoaded()) {
+        wxMessageBox(wxT("No active sequence loaded. Please open or create a sequence first to apply effects."),
+                     wxT("Notice"), wxOK | wxICON_INFORMATION, this);
+        return;
+    }
+
+    xLightsFrame* frame = xLightsFrame::GetFrame();
+    if (!frame) {
+        wxMessageBox(wxT("xLights frame is not accessible."), wxT("Error"), wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    SequenceElements& seqElements = frame->GetSequenceElements();
+    Element* elem = seqElements.GetElement(m_params.targetPropName);
+    if (!elem) {
+        wxMessageBox(wxString::Format(wxT("Target prop '%s' was not found in the current sequence layout."),
+                     wxString::FromUTF8(m_params.targetPropName)),
+                     wxT("Prop Not Found"), wxOK | wxICON_WARNING, this);
+        return;
+    }
+
+    UndoManager& undoMgr = seqElements.get_undo_mgr();
+    AIUndoTransaction tx(&undoMgr, "AI Audio Choreography");
+
+    EffectLayer* layer = nullptr;
+    if (m_params.nonDestructiveDeltaMode) {
+        layer = elem->AddEffectLayer();
+    } else {
+        layer = elem->GetEffectLayer(0);
+        if (!layer) {
+            layer = elem->AddEffectLayer();
+        }
+    }
+
+    if (!layer) {
+        wxMessageBox(wxT("Failed to acquire effect layer on target model."), wxT("Error"), wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    std::string effectName = m_params.desiredEffectType;
+    if (effectName.empty() || effectName == "AI_AUTO") {
+        effectName = "Bars";
+    }
+
+    int effectDurationMs = 250; // standard beat transient duration
+    int maxSeqDurationMs = seq->GetSequenceDurationMS();
+    size_t appliedCount = 0;
+
+    for (const auto& onset : m_result.onsets) {
+        int startMs = static_cast<int>(onset.timestampMs);
+        int endMs = std::min(startMs + effectDurationMs, maxSeqDurationMs);
+        if (startMs >= maxSeqDurationMs) break;
+
+        if (m_params.nonDestructiveDeltaMode && !layer->GetRangeIsClearMS(startMs, endMs)) {
+            continue; // preserve existing cues
+        }
+
+        Effect* eff = layer->AddEffect(0, effectName, "", "", startMs, endMs, EFFECT_NOT_SELECTED, false);
+        if (eff) {
+            undoMgr.CaptureAddedEffect(elem->GetModelName(), layer->GetIndex(), eff->GetID());
+            appliedCount++;
+        }
+    }
+
+    tx.Commit();
+
+    if (frame) {
+        frame->RenderLayout();
+        frame->Refresh();
+    }
+
+    wxMessageBox(wxString::Format(wxT("Successfully choreographed and inserted %zu effects onto '%s'!\nWrapped in AIUndoTransaction (Ctrl+Z to revert)."),
+                 appliedCount, wxString::FromUTF8(m_params.targetPropName)),
+                 wxT("Choreography Complete"), wxOK | wxICON_INFORMATION, this);
 }
 
 } // namespace xLights

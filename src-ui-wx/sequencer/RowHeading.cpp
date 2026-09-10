@@ -37,6 +37,8 @@
 #include "graphics/opengl/xlGLCanvas.h"
 #include "sequencer/MetronomeLabelDialog.h"
 #include "AI/PredictiveDiagnosticWorker.h"
+#include "src-ui-wx/ai/AIPowerInjectionDialog.h"
+#include "src-ui-wx/ai/AIDMXAddressDialog.h"
 
 #include <log.h>
 #include "shared/utils/wxUtilities.h"
@@ -480,6 +482,24 @@ void RowHeading::mouseLeftDown(wxMouseEvent& event)
     }
     mSelectedRow = event.GetY() / DEFAULT_ROW_HEADING_HEIGHT;
     if (mSelectedRow < (int)mSequenceElements->GetVisibleRowInformationSize()) {
+        // Interactive AI Diagnostic Badges: Click badge to resolve power or channel conflicts
+        if (event.GetX() >= 4 && event.GetX() <= 24) {
+            for (const auto& badge : m_lastDiagnosticReport.badges) {
+                if (badge.rowId == mSelectedRow) {
+                    if (badge.type == xLights::AI::DiagnosticBadgeType::POWER_DROP_WARNING) {
+                        xLights::AI::AIPowerInjectionDialog dlg(this);
+                        dlg.SetModelContext(badge.propName);
+                        dlg.ShowModal();
+                        return;
+                    } else if (badge.type == xLights::AI::DiagnosticBadgeType::CHANNEL_OVERLAP_ERROR) {
+                        xLights::AI::AIDMXAddressDialog dlg(this);
+                        dlg.ShowModal();
+                        return;
+                    }
+                }
+            }
+        }
+
         bool result;
         Row_Information_Struct* rowInfo = mSequenceElements->GetVisibleRowInformation(mSelectedRow);
         if (rowInfo == nullptr) {
@@ -2903,8 +2923,8 @@ void RowHeading::RenderPredictiveTelemetryBadges(wxDC& dc) {
         }
     }
 
-    auto report = xLights::AI::PredictiveDiagnosticWorker::RunBackgroundDiagnosticScan("", 60000, modelNames);
-    for (const auto& badge : report.badges) {
+    m_lastDiagnosticReport = xLights::AI::PredictiveDiagnosticWorker::RunBackgroundDiagnosticScan("", 60000, modelNames);
+    for (const auto& badge : m_lastDiagnosticReport.badges) {
         if (badge.rowId >= 0 && badge.rowId < mSequenceElements->GetRowInformationSize()) {
             int yPos = badge.rowId * DEFAULT_ROW_HEADING_HEIGHT + 4;
             if (badge.type == xLights::AI::DiagnosticBadgeType::POWER_DROP_WARNING) {

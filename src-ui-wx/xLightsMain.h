@@ -579,6 +579,7 @@ public:
     void OnmExportModelsMenuItemSelected(wxCommandEvent& event);
     void OnMenuItem_ViewLogSelected(wxCommandEvent& event);
     void OnMenuItemCheckSequenceSelected(wxCommandEvent& event);
+    void OnMenuAICopilotSpotlightSelected(wxCommandEvent& event);
     void OnMenuAISequenceValidatorSelected(wxCommandEvent& event);
     void OnToolsAISequenceValidator(wxCommandEvent& event) { OnMenuAISequenceValidatorSelected(event); }
     void OnMenuAILuaGeneratorSelected(wxCommandEvent& event);
@@ -827,6 +828,7 @@ public:
     static const wxWindowID ID_MENUITEM_GenerateAIImage;
     static const wxWindowID ID_MENUITEM_AI_SEQUENCE_VALIDATOR;
     static const wxWindowID ID_MENUITEM_AI_LUA_GENERATOR;
+    static const wxWindowID ID_MENUITEM_AI_COPILOT_SPOTLIGHT;
     static const wxWindowID ID_MENUITEM_AI_POWER_INSPECTOR;
     static const wxWindowID ID_MENUITEM_AI_MODEL_MAPPER;
     static const wxWindowID ID_MENUITEM_AI_SUBMODEL_DETECTOR;

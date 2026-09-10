@@ -21,6 +21,7 @@ private:
     void OnOpenPowerInspector(wxCommandEvent& evt);
     void OnOpenFPPSync(wxCommandEvent& evt);
     void OnOpenDMXAdvisor(wxCommandEvent& evt);
+    void OnOpenSpotlight(wxCommandEvent& evt);
 
     wxButton* m_toggleBtn = nullptr;
     wxCheckBox* m_alwaysVisibleCheck = nullptr;

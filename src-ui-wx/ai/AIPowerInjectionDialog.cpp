@@ -33,6 +33,15 @@ AIPowerInjectionDialog::AIPowerInjectionDialog(wxWindow* parent, wxWindowID id, 
     InitUI();
 }
 
+void AIPowerInjectionDialog::SetModelContext(const std::string& modelName, int pixelCount) {
+    if (m_pixelCountCtrl && pixelCount > 0) {
+        m_pixelCountCtrl->SetValue(std::to_string(pixelCount));
+    }
+    if (!modelName.empty()) {
+        SetTitle(wxString::Format(wxT("AI Power Injection Inspector — Model: %s"), wxString::FromUTF8(modelName)));
+    }
+}
+
 void AIPowerInjectionDialog::InitUI() {
     SetMinSize(wxSize(760, 580));
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);

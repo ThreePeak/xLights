@@ -17,6 +17,8 @@ public:
     AIDMXAddressDialog(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("AI DMX E1.31 Address Conflict Advisor"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(760, 540), long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~AIDMXAddressDialog() = default;
 
+    void SetUniverseContext(const std::string& universeXml);
+
 private:
     void InitUI();
 

@@ -15,6 +15,7 @@
 #include "render/SequenceElements.h"
 #include "wx/wx.h"
 #include "Color.h"
+#include "AI/PredictiveDiagnosticWorker.h"
 
 #define HORIZONTAL_PADDING          10
 #define PIXELS_PER_MAJOR_HASH       100
@@ -93,6 +94,7 @@ private:
     int _scrollDir = 0;
     wxTimer _scrollTimer;
     bool groupEffectIndicator = true;
+    xLights::AI::TelemetryReport m_lastDiagnosticReport;
 
     
     static const long ID_ROW_MNU_INSERT_LAYER_ABOVE;

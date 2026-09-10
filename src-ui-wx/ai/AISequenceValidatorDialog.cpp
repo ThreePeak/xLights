@@ -9,6 +9,10 @@
 #include "src-ui-wx/ai/AISequenceValidatorDialog.h"
 #include "xLightsMain.h"
 #include "xLightsApp.h"
+#include "src-ui-wx/sequencer/MainSequencer.h"
+#include "src-ui-wx/sequencer/TimeLine.h"
+#include "src-core/render/SequenceElements.h"
+#include "src-core/render/Element.h"
 #include <spdlog/spdlog.h>
 #include <fstream>
 #include <wx/msgdlg.h>
@@ -21,7 +25,8 @@ enum {
     ID_AUTO_REMEDIATE_BTN,
     ID_EXPORT_JSON_BTN,
     ID_PERSONA_CHOICE,
-    ID_CATEGORY_CHOICE
+    ID_CATEGORY_CHOICE,
+    ID_ISSUES_LIST_CTRL
 };
 
 wxBEGIN_EVENT_TABLE(AISequenceValidatorDialog, wxDialog)
@@ -29,6 +34,7 @@ wxBEGIN_EVENT_TABLE(AISequenceValidatorDialog, wxDialog)
     EVT_BUTTON(ID_AUTO_REMEDIATE_BTN, AISequenceValidatorDialog::OnAutoRemediateButtonClick)
     EVT_BUTTON(ID_EXPORT_JSON_BTN, AISequenceValidatorDialog::OnExportJSONButtonClick)
     EVT_CHOICE(ID_PERSONA_CHOICE, AISequenceValidatorDialog::OnPersonaChoiceSelected)
+    EVT_LIST_ITEM_ACTIVATED(ID_ISSUES_LIST_CTRL, AISequenceValidatorDialog::OnIssueItemActivated)
     EVT_BUTTON(wxID_CANCEL, AISequenceValidatorDialog::OnCloseButtonClick)
 wxEND_EVENT_TABLE()
 
@@ -148,7 +154,7 @@ void AISequenceValidatorDialog::InitUI() {
     // Tab 1: Diagnostic Findings
     wxPanel* issuesPanel = new wxPanel(notebook);
     wxBoxSizer* issuesSizer = new wxBoxSizer(wxVERTICAL);
-    m_issuesListCtrl = new wxListCtrl(issuesPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxBORDER_SUNKEN);
+    m_issuesListCtrl = new wxListCtrl(issuesPanel, ID_ISSUES_LIST_CTRL, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxBORDER_SUNKEN);
     m_issuesListCtrl->InsertColumn(0, wxT("Issue ID"), wxLIST_FORMAT_LEFT, 80);
     m_issuesListCtrl->InsertColumn(1, wxT("Severity"), wxLIST_FORMAT_LEFT, 80);
     m_issuesListCtrl->InsertColumn(2, wxT("Category"), wxLIST_FORMAT_LEFT, 110);
@@ -303,6 +309,40 @@ void AISequenceValidatorDialog::OnExportJSONButtonClick(wxCommandEvent& WXUNUSED
 void AISequenceValidatorDialog::OnPersonaChoiceSelected(wxCommandEvent& event) {
     if (m_lastResult.success) {
         OnRunAuditButtonClick(event);
+    }
+}
+
+void AISequenceValidatorDialog::OnIssueItemActivated(wxListEvent& event) {
+    long itemIdx = event.GetIndex();
+    if (itemIdx < 0 || itemIdx >= (long)m_lastResult.issues.size()) return;
+
+    const auto& issue = m_lastResult.issues[itemIdx];
+    auto* frame = xLightsFrame::GetFrame();
+    if (!frame) return;
+
+    auto* mainSeq = frame->GetMainSequencer();
+    if (!mainSeq) return;
+
+    // Switch to Sequencer tab (index 1)
+    if (frame->Notebook1) {
+        frame->Notebook1->SetSelection(1);
+    }
+
+    int targetTime = (issue.timeMs >= 0) ? issue.timeMs : issue.startMs;
+    if (targetTime >= 0 && mainSeq->PanelTimeLine) {
+        mainSeq->PanelTimeLine->SetStartTimeMS(std::max(0, targetTime - 500));
+        mainSeq->PanelTimeLine->RaiseChangeTimeline();
+    }
+
+    if (!issue.affectedModelName.empty()) {
+        auto& seqElements = frame->GetSequenceElements();
+        for (size_t r = 0; r < seqElements.GetVisibleRowInformationSize(); ++r) {
+            auto* info = seqElements.GetVisibleRowInformation(r);
+            if (info && info->element && info->element->GetModelName() == issue.affectedModelName) {
+                mainSeq->ScrollToRow(static_cast<int>(r));
+                break;
+            }
+        }
     }
 }
 

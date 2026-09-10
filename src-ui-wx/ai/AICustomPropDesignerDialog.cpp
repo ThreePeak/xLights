@@ -7,6 +7,11 @@
 #include <wx/dc.h>
 #include <wx/textdlg.h>
 #include <wx/colour.h>
+#include <wx/stdpaths.h>
+#include <wx/filename.h>
+#include <wx/time.h>
+#include "src-ui-wx/xLightsMain.h"
+#include "src-ui-wx/layout/LayoutPanel.h"
 #include <spdlog/spdlog.h>
 #include <cmath>
 #include <algorithm>
@@ -45,12 +50,14 @@ enum {
     ID_PROP_ARC_240      = 15022,
     ID_PROP_ARC_270      = 15023,
     ID_PROP_ARC_360      = 15024,
+    ID_PROP_INSERT_LAYOUT= 15025,
 };
 
 BEGIN_EVENT_TABLE(AICustomPropDesignerDialog, wxDialog)
     EVT_BUTTON(ID_PROP_ANALYZE, AICustomPropDesignerDialog::OnAnalyzeClick)
     EVT_BUTTON(ID_PROP_GENERATE, AICustomPropDesignerDialog::OnGenerateClick)
     EVT_BUTTON(ID_PROP_EXPORT, AICustomPropDesignerDialog::OnExportXmlClick)
+    EVT_BUTTON(ID_PROP_INSERT_LAYOUT, AICustomPropDesignerDialog::OnInsertLayoutClick)
     EVT_BUTTON(ID_PROP_UNDO, AICustomPropDesignerDialog::OnUndoClick)
     EVT_BUTTON(ID_PROP_REDO, AICustomPropDesignerDialog::OnRedoClick)
     EVT_BUTTON(ID_PROP_TOGGLE_VIEW, AICustomPropDesignerDialog::On3DToggle)
@@ -378,7 +385,10 @@ void AICustomPropDesignerDialog::InitUI()
     
     wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
     m_exportXmlBtn = new wxButton(this, ID_PROP_EXPORT, "Export Model XML (.xmodel)");
+    m_insertLayoutBtn = new wxButton(this, ID_PROP_INSERT_LAYOUT, "📥 Insert into Current Layout");
+    m_insertLayoutBtn->SetToolTip("Generate and prime this model directly on the Layout Panel canvas for 1-click placement.");
     btnSizer->Add(m_exportXmlBtn, 0, wxALL, 4);
+    btnSizer->Add(m_insertLayoutBtn, 0, wxALL, 4);
     btnSizer->AddStretchSpacer(1);
     m_closeBtn = new wxButton(this, wxID_CANCEL, "Close");
     btnSizer->Add(m_closeBtn, 0, wxALL, 4);
@@ -1094,6 +1104,45 @@ void AICustomPropDesignerDialog::OnExportXmlClick(wxCommandEvent& event)
         wxMessageBox("Model exported successfully with submodels!", "Success");
     } else {
         wxMessageBox("Failed to open file for writing.", "Error", wxICON_ERROR);
+    }
+}
+
+void AICustomPropDesignerDialog::OnInsertLayoutClick(wxCommandEvent& event)
+{
+    if (m_lastNodes.empty()) {
+        wxMessageBox("No model nodes to insert into layout. Please generate or load a prop first.", "Notice", wxOK | wxICON_INFORMATION, this);
+        return;
+    }
+    
+    std::string modelName = "AI_" + m_currentSpec.propType;
+    if (modelName.empty() || modelName == "AI_") {
+        modelName = "AI_CustomProp";
+    }
+    std::replace_if(modelName.begin(), modelName.end(), [](char c) { return !isalnum(c) && c != '_'; }, '_');
+
+    CustomPropDesignerAI ai;
+    std::string xml = ai.ExportToXLightsModelXML(m_lastNodes, modelName, m_currentSpec);
+
+    wxString tempDir = wxStandardPaths::Get().GetTempDir();
+    wxFileName tempFile(tempDir, wxString::Format("AI_Prop_%lld.xmodel", (long long)wxGetLocalTimeMillis().GetValue()));
+    wxString tempPath = tempFile.GetFullPath();
+
+    wxFile file(tempPath, wxFile::write);
+    if (!file.IsOpened()) {
+        wxMessageBox("Could not create temporary model file for insertion.", "Error", wxOK | wxICON_ERROR, this);
+        return;
+    }
+    file.Write(wxString(xml));
+    file.Close();
+
+    xLightsFrame* frame = xLightsFrame::GetFrame();
+    if (frame && frame->GetLayoutPanel()) {
+        frame->Notebook1->SetSelection(LAYOUTTAB);
+        frame->GetLayoutPanel()->BeginImportModelFromFile(tempPath.ToStdString());
+        m_statusLabel->SetLabel("Primed prop for layout insertion. Click layout to place.");
+        EndModal(wxID_OK);
+    } else {
+        wxMessageBox("Layout panel is not available.", "Error", wxOK | wxICON_ERROR, this);
     }
 }
 

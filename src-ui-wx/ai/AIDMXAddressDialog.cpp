@@ -31,6 +31,12 @@ AIDMXAddressDialog::AIDMXAddressDialog(wxWindow* parent, wxWindowID id, const wx
     InitUI();
 }
 
+void AIDMXAddressDialog::SetUniverseContext(const std::string& universeXml) {
+    if (m_universeXmlCtrl && !universeXml.empty()) {
+        m_universeXmlCtrl->SetValue(wxString::FromUTF8(universeXml));
+    }
+}
+
 void AIDMXAddressDialog::InitUI() {
     SetMinSize(wxSize(740, 560));
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);

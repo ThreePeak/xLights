@@ -43,6 +43,7 @@ private:
     void OnAnalyzeClick(wxCommandEvent& event);
     void OnGenerateClick(wxCommandEvent& event);
     void OnExportXmlClick(wxCommandEvent& event);
+    void OnInsertLayoutClick(wxCommandEvent& event);
     void OnCloseClick(wxCommandEvent& event);
     void OnUndoClick(wxCommandEvent& event);
     void OnRedoClick(wxCommandEvent& event);
@@ -146,6 +147,7 @@ private:
     // Bottom Bar
     wxStaticText* m_statusLabel = nullptr;
     wxButton* m_exportXmlBtn = nullptr;
+    wxButton* m_insertLayoutBtn = nullptr;
     wxButton* m_closeBtn = nullptr;
 
     // State

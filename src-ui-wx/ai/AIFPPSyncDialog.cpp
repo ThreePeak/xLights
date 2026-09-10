@@ -1,22 +1,27 @@
 #include "src-ui-wx/ai/AIFPPSyncDialog.h"
 #include "src-ui-wx/ai/AIHelpGuideDialog.h"
+#include <wx/app.h>
 #include <wx/filedlg.h>
 #include <wx/msgdlg.h>
 #include <wx/file.h>
 #include <wx/filepicker.h>
 #include <spdlog/spdlog.h>
+#include <curl/curl.h>
+#include <thread>
 
 namespace xLights::AI {
 
 enum {
     ID_FPP_ANALYZE_BTN = 13001,
     ID_FPP_EXPORT_JSON_BTN = 13002,
-    ID_FPP_HELP_BTN = 13003
+    ID_FPP_HELP_BTN = 13003,
+    ID_FPP_PUSH_REST_BTN = 13004
 };
 
 wxBEGIN_EVENT_TABLE(AIFPPSyncDialog, wxDialog)
     EVT_BUTTON(ID_FPP_ANALYZE_BTN, AIFPPSyncDialog::OnAnalyzeClick)
     EVT_BUTTON(ID_FPP_EXPORT_JSON_BTN, AIFPPSyncDialog::OnExportJsonClick)
+    EVT_BUTTON(ID_FPP_PUSH_REST_BTN, AIFPPSyncDialog::OnPushFppClick)
     EVT_BUTTON(ID_FPP_HELP_BTN, AIFPPSyncDialog::OnHelpClick)
     EVT_BUTTON(wxID_CANCEL, AIFPPSyncDialog::OnCloseClick)
 wxEND_EVENT_TABLE()
@@ -108,10 +113,16 @@ void AIFPPSyncDialog::InitUI() {
     m_exportJsonBtn = new wxButton(this, ID_FPP_EXPORT_JSON_BTN, wxT("📄 Export FPP JSON Manifest..."));
     m_exportJsonBtn->SetToolTip(wxT("Export universe definitions in standard Falcon Player JSON format."));
 
+    m_pushFppBtn = new wxButton(this, ID_FPP_PUSH_REST_BTN, wxT("🌐 Push to FPP (REST)"));
+    m_pushFppBtn->SetToolTip(wxT("Upload generated channel manifest directly to Falcon Player over HTTP REST API."));
+    m_pushFppBtn->SetBackgroundColour(wxColour(40, 160, 90));
+    m_pushFppBtn->SetForegroundColour(*wxWHITE);
+
     m_closeBtn = new wxButton(this, wxID_CANCEL, wxT("Close"));
     
     btnSizer->Add(m_analyzeBtn, 0, wxALL, 5);
     btnSizer->Add(m_exportJsonBtn, 0, wxALL, 5);
+    btnSizer->Add(m_pushFppBtn, 0, wxALL, 5);
     btnSizer->AddStretchSpacer();
     btnSizer->Add(m_closeBtn, 0, wxALL, 5);
     
@@ -171,6 +182,73 @@ void AIFPPSyncDialog::OnExportJsonClick(wxCommandEvent& event) {
     } else {
         spdlog::error("AIFPPSyncDialog: Failed to open file for writing JSON");
     }
+}
+
+void AIFPPSyncDialog::OnPushFppClick(wxCommandEvent& event) {
+    if (m_lastResults.empty()) {
+        wxMessageBox(wxT("Please analyze controllers first before pushing to FPP."), wxT("Notice"), wxICON_INFORMATION | wxOK, this);
+        return;
+    }
+
+    wxString host = m_fppHostCtrl ? m_fppHostCtrl->GetValue().Trim() : wxString();
+    if (host.empty()) {
+        wxMessageBox(wxT("Please enter a valid FPP Host or IP address."), wxT("Missing Host"), wxICON_WARNING | wxOK, this);
+        return;
+    }
+
+    FPPControllerSyncAdvisor advisor;
+    std::string jsonManifest = advisor.GenerateFPPJsonManifest(m_lastResults);
+
+    m_progressGauge->Show();
+    m_progressGauge->Pulse();
+    m_statusLabel->SetLabel(wxString::Format(wxT("Pushing configuration to FPP at %s..."), host));
+    Layout();
+
+    std::string hostStr = host.ToStdString();
+    std::thread([this, hostStr, jsonManifest]() {
+        std::string url = "http://" + hostStr + "/api/channel/output/co-other";
+        CURL* curl = curl_easy_init();
+        bool success = false;
+        long httpCode = 0;
+        std::string respStr;
+
+        if (curl) {
+            struct curl_slist* headers = nullptr;
+            headers = curl_slist_append(headers, "Content-Type: application/json");
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonManifest.c_str());
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)jsonManifest.length());
+            curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 4000L);
+            curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 10000L);
+
+            CURLcode res = curl_easy_perform(curl);
+            if (res == CURLE_OK) {
+                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+                success = (httpCode >= 200 && httpCode < 300);
+            } else {
+                respStr = curl_easy_strerror(res);
+            }
+            curl_slist_free_all(headers);
+            curl_easy_cleanup(curl);
+        }
+
+        wxTheApp->CallAfter([this, success, httpCode, hostStr, respStr]() {
+            m_progressGauge->Hide();
+            Layout();
+            if (success) {
+                m_statusLabel->SetLabel(wxString::Format(wxT("✓ Successfully pushed manifest to FPP at %s (HTTP %ld)"), wxString::FromUTF8(hostStr), httpCode));
+                wxMessageBox(wxString::Format(wxT("FPP at %s updated successfully!\nChannel output configuration applied."), wxString::FromUTF8(hostStr)),
+                             wxT("FPP Sync Complete"), wxOK | wxICON_INFORMATION, this);
+            } else {
+                m_statusLabel->SetLabel(wxString::Format(wxT("✗ FPP sync failed: %s"), wxString::FromUTF8(respStr.empty() ? ("HTTP " + std::to_string(httpCode)) : respStr)));
+                wxMessageBox(wxString::Format(wxT("Failed to sync with FPP at %s.\n%s\nPlease verify FPP is reachable and FPPD is running."),
+                             wxString::FromUTF8(hostStr), wxString::FromUTF8(respStr)),
+                             wxT("FPP Sync Error"), wxOK | wxICON_ERROR, this);
+            }
+        });
+    }).detach();
 }
 
 void AIFPPSyncDialog::OnHelpClick(wxCommandEvent& event) {

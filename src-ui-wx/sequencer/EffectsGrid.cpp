@@ -39,6 +39,7 @@
 #include "render/SongStructureManager.h"
 #include "TimeLine.h"
 #include "AI/LuaScriptGenerator.h"
+#include "AI/AIModelGeometryUtils.h"
 #include "sequencer/AutoLabelDialog.h"
 #include "shared/utils/BitmapCache.h"
 #include "sequencer/DuplicateDialog.h"
@@ -2005,6 +2006,26 @@ void EffectsGrid::DropEffectAt(int row, const std::string& effectName, const std
     EffectLayer* el = mSequenceElements->GetVisibleEffectLayer(row);
     if (el == nullptr || el->GetParentElement()->GetType() == ElementType::ELEMENT_TYPE_TIMING) return;
 
+    std::string finalEffectName = effectName;
+    std::string finalEffectSettings = effectSettings;
+
+    // AI Model Dimension Guard: Validate & adapt 2D effects on 1D props
+    const std::string& modelName = el->GetParentElement()->GetModelName();
+    Model* targetModel = xlights ? xlights->GetModel(modelName) : nullptr;
+    if (targetModel != nullptr) {
+        auto guard = xLights::AI::AIModelGeometryUtils::ValidateEffectPlacement(
+            targetModel->GetBufferWidth(), targetModel->GetBufferHeight(), effectName);
+        if (!guard.isAllowed && guard.adaptedEffect != effectName) {
+            finalEffectName = guard.adaptedEffect;
+            finalEffectSettings = ""; // Reset incompatible 2D settings for adapted 1D effect
+            spdlog::info("EffectsGrid: Adapted effect '{}' -> '{}' for 1D model '{}'",
+                         effectName, finalEffectName, modelName);
+            if (xlights != nullptr) {
+                xlights->SetStatusText(wxString::Format("AI Copilot: %s", guard.reason.c_str()));
+            }
+        }
+    }
+
     xlights->UnselectEffect();
 
     mSequenceElements->get_undo_mgr().CreateUndoStep();
@@ -2012,20 +2033,20 @@ void EffectsGrid::DropEffectAt(int row, const std::string& effectName, const std
     el->SelectEffectsInTimeRange(startTime, endTime);
     el->DeleteSelectedEffects(mSequenceElements->get_undo_mgr());
 
-    Effect* effect = el->AddEffect(0, effectName, effectSettings, "", startTime, endTime, EFFECT_SELECTED, false);
+    Effect* effect = el->AddEffect(0, finalEffectName, finalEffectSettings, "", startTime, endTime, EFFECT_SELECTED, false);
 
     if (effect != nullptr) {
-        if (!effectSettings.empty() &&
-            xlights->GetEffectManager().GetEffect(effectName) != nullptr &&
-            xlights->GetEffectManager().GetEffect(effectName)->needToAdjustSettings(effectVersion)) {
-            xlights->GetEffectManager().GetEffect(effectName)->adjustSettings(effectVersion, effect, false);
+        if (!finalEffectSettings.empty() &&
+            xlights->GetEffectManager().GetEffect(finalEffectName) != nullptr &&
+            xlights->GetEffectManager().GetEffect(finalEffectName)->needToAdjustSettings(effectVersion)) {
+            xlights->GetEffectManager().GetEffect(finalEffectName)->adjustSettings(effectVersion, effect, false);
         }
         PrepareEffectFiles(effect);
 
         mSequenceElements->get_undo_mgr().CaptureAddedEffect(el->GetParentElement()->GetModelName(), el->GetIndex(), effect->GetID());
         
         mDropRow = row;
-        xlights->ResetPanelDefaultSettings(effectName, nullptr, true);
+        xlights->ResetPanelDefaultSettings(finalEffectName, nullptr, true);
         ProcessDroppedEffect(effect);
 
         if (xlights->GetBufferPanel() != nullptr) {
