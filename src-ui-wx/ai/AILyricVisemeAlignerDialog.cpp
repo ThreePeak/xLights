@@ -11,6 +11,10 @@
 #include <wx/msgdlg.h>
 #include <wx/dcclient.h>
 #include <wx/wfstream.h>
+#include <wx/stdpaths.h>
+#include <filesystem>
+#include <fstream>
+#include <chrono>
 #include <spdlog/spdlog.h>
 
 namespace xLights::AI {
@@ -134,6 +138,45 @@ void AILyricVisemeAlignerDialog::RunAlignmentPipeline() {
     std::string lyrics = m_lyricsInputCtrl ? m_lyricsInputCtrl->GetValue().ToStdString() : "";
     if (lyrics.empty()) {
         lyrics = "Merry Christmas to all";
+    }
+
+    // Stage vocal audio file to temp directory to prevent Windows file-sharing violations with SDL_mixer / libsndfile
+    int64_t totalDurationMs = 5000;
+    if (m_vocalAudioPicker && !m_vocalAudioPicker->GetPath().empty()) {
+        std::string audioPath = m_vocalAudioPicker->GetPath().ToStdString();
+        std::filesystem::path srcPath(audioPath);
+        std::error_code ec;
+        if (std::filesystem::exists(srcPath, ec)) {
+            wxString tempDirWx = wxStandardPaths::Get().GetTempDir();
+            std::filesystem::path tempDirPath(tempDirWx.ToStdString());
+            std::string tempFilename = "xlights_viseme_stage_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + srcPath.extension().string();
+            std::filesystem::path stagedAudioPath = tempDirPath / tempFilename;
+
+            try {
+                std::filesystem::copy_file(srcPath, stagedAudioPath, std::filesystem::copy_options::overwrite_existing, ec);
+                if (ec) {
+                    stagedAudioPath = srcPath;
+                }
+            } catch (...) {
+                stagedAudioPath = srcPath;
+            }
+
+            std::ifstream audioFile(stagedAudioPath, std::ios::binary);
+            if (audioFile.is_open()) {
+                audioFile.seekg(0, std::ios::end);
+                size_t fileSize = static_cast<size_t>(audioFile.tellg());
+                if (fileSize > 44) {
+                    // Approximate duration for 16-bit 44.1kHz mono/stereo
+                    totalDurationMs = static_cast<int64_t>((fileSize - 44) / (44.1 * 2 * 2));
+                    if (totalDurationMs < 1000) totalDurationMs = 1000;
+                }
+            }
+
+            if (stagedAudioPath != srcPath) {
+                std::error_code remEc;
+                std::filesystem::remove(stagedAudioPath, remEc);
+            }
+        }
     }
 
     m_rawPhonemes = PhonemeMap::WordsToPhonemes(lyrics);

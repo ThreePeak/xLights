@@ -12,7 +12,10 @@
 #include <wx/combobox.h>
 #include <wx/msgdlg.h>
 #include <spdlog/spdlog.h>
+#include <wx/stdpaths.h>
+#include <filesystem>
 #include <fstream>
+#include <chrono>
 
 namespace xLights {
 
@@ -216,8 +219,55 @@ void AIAudioChoreographerDialog::OnAnalyzeAndChoreograph(wxCommandEvent& WXUNUSE
     if (m_chkNonDestructiveDelta) m_params.nonDestructiveDeltaMode = m_chkNonDestructiveDelta->IsChecked();
     if (m_txtRefinementPrompt) m_params.naturalLanguagePrompt = m_txtRefinementPrompt->GetValue().ToStdString();
 
+    std::string audioPath = m_pickerAudioFile ? m_pickerAudioFile->GetPath().ToStdString() : "";
+    std::vector<float> pcmBuffer;
+    int sampleRate = 44100;
+
+    // Stage audio file to temp directory to prevent Windows file-sharing violations with SDL_mixer / libsndfile
+    if (!audioPath.empty()) {
+        std::filesystem::path srcPath(audioPath);
+        std::error_code ec;
+        if (std::filesystem::exists(srcPath, ec)) {
+            wxString tempDirWx = wxStandardPaths::Get().GetTempDir();
+            std::filesystem::path tempDirPath(tempDirWx.ToStdString());
+            std::string tempFilename = "xlights_choreo_stage_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + srcPath.extension().string();
+            std::filesystem::path stagedAudioPath = tempDirPath / tempFilename;
+
+            try {
+                std::filesystem::copy_file(srcPath, stagedAudioPath, std::filesystem::copy_options::overwrite_existing, ec);
+                if (ec) {
+                    stagedAudioPath = srcPath;
+                }
+            } catch (...) {
+                stagedAudioPath = srcPath;
+            }
+
+            std::ifstream audioFile(stagedAudioPath, std::ios::binary);
+            if (audioFile.is_open()) {
+                audioFile.seekg(0, std::ios::end);
+                size_t fileSize = static_cast<size_t>(audioFile.tellg());
+                audioFile.seekg((fileSize > 44) ? 44 : 0, std::ios::beg);
+
+                size_t sampleCount = (fileSize > 44) ? (fileSize - 44) / 2 : (44100 * 5);
+                pcmBuffer.resize(sampleCount);
+
+                std::vector<int16_t> rawSamples(sampleCount);
+                audioFile.read(reinterpret_cast<char*>(rawSamples.data()), sampleCount * sizeof(int16_t));
+                for (size_t i = 0; i < sampleCount; ++i) {
+                    pcmBuffer[i] = static_cast<float>(rawSamples[i]) / 32768.0f;
+                }
+            }
+
+            // Clean up temporary staged file
+            if (stagedAudioPath != srcPath) {
+                std::error_code remEc;
+                std::filesystem::remove(stagedAudioPath, remEc);
+            }
+        }
+    }
+
     auto prev = m_result;
-    m_result = AI::AudioChoreographerAI::AnalyzeAndChoreograph({}, 44100, m_params);
+    m_result = AI::AudioChoreographerAI::AnalyzeAndChoreograph(pcmBuffer, sampleRate, m_params);
 
     auto cmd = std::make_unique<AI::LambdaAICommand>(
         "Choreograph Stem: " + m_result.audioStemName,
