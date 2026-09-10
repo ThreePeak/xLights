@@ -13,10 +13,11 @@
 #include <wx/msgdlg.h>
 #include <wx/filedlg.h>
 #include <fstream>
+#include <cstdint>
 
 namespace xLights::AI {
 
-enum {
+enum : std::uint16_t {
     ID_BTN_FETCH = 27001,
     ID_BTN_SIMULATE,
     ID_BTN_APPLY_HEAL,
@@ -154,7 +155,7 @@ void AIFPPLogSelfHealingDialog::OnSimulateErrorsClick(wxCommandEvent& WXUNUSED(e
     m_listProposals->DeleteAllItems();
     for (size_t i = 0; i < m_lastReport.healingProposals.size(); ++i) {
         const auto& p = m_lastReport.healingProposals[i];
-        long idx = m_listProposals->InsertItem(i, wxString::FromUTF8(p.actionId));
+        long idx = m_listProposals->InsertItem(static_cast<long>(i), wxString::FromUTF8(p.actionId));
         m_listProposals->SetItem(idx, 1, wxString::FromUTF8(p.controllerHost));
         m_listProposals->SetItem(idx, 2, wxString::FromUTF8(p.issueSummary));
         m_listProposals->SetItem(idx, 3, wxString::FromUTF8(AIFPPLogSelfHealingAgent::GetActionTypeName(p.actionType)));
@@ -198,7 +199,7 @@ void AIFPPLogSelfHealingDialog::OnApplyRemediationClick(wxCommandEvent& WXUNUSED
     m_txtLogViewer->SetValue(wxString::FromUTF8(m_lastReport.GenerateFormattedReport()));
 
     for (size_t i = 0; i < m_lastReport.healingProposals.size(); ++i) {
-        m_listProposals->SetItem(i, 4, wxT("[REMEDIATED ✓]"));
+        m_listProposals->SetItem(static_cast<long>(i), 4, wxT("[REMEDIATED ✓]"));
     }
 
     wxMessageBox(wxString::Format(wxT("Successfully executed %zu fleet healing actions!\n- Configured 4KB sparse FSEQ re-export\n- Disabled WiFi sleep latency\n- Tuned DDP MTU chunk size"),
@@ -212,7 +213,7 @@ void AIFPPLogSelfHealingDialog::OnUndoRemediationClick(wxCommandEvent& WXUNUSED(
         m_lastReport = m_agent.AnalyzeFleetLogs();
         m_txtLogViewer->SetValue(wxString::FromUTF8(m_lastReport.GenerateFormattedReport()));
         for (size_t i = 0; i < m_lastReport.healingProposals.size(); ++i) {
-            m_listProposals->SetItem(i, 4, wxT("[ACTION READY]"));
+            m_listProposals->SetItem(static_cast<long>(i), 4, wxT("[ACTION READY]"));
         }
         wxMessageBox(wxT("Fleet remediations rolled back to initial state."), wxT("Undo Complete"), wxOK | wxICON_INFORMATION, this);
     }
