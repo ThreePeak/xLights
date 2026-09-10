@@ -260,6 +260,8 @@ std::string AudioStemExtractor::GenerateVocalLipSyncPhonemesXML(
     const std::vector<float>& vocalBuffer,
     int sampleRate)
 {
+    if (sampleRate <= 0 || vocalBuffer.empty()) return "";
+
     pugi::xml_document doc;
     pugi::xml_node decl = doc.prepend_child(pugi::node_declaration);
     decl.append_attribute("version").set_value("1.0");
@@ -272,7 +274,7 @@ std::string AudioStemExtractor::GenerateVocalLipSyncPhonemesXML(
     pugi::xml_node dbNode = rootNode.append_child("EffectDB");
     dbNode.append_attribute("version").set_value("1");
 
-    size_t step = sampleRate / 20; // 50ms frame intervals
+    size_t step = std::max<size_t>(1, static_cast<size_t>(sampleRate / 20)); // 50ms frame intervals
     int timeMS = 0;
 
     for (size_t i = 0; i < vocalBuffer.size(); i += step) {

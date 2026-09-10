@@ -86,6 +86,9 @@ public:
         if (maxFrames > 0 && startFrame >= maxFrames) {
             startFrame = std::max(0, maxFrames - 1);
         }
+        if (startFrame >= INT32_MAX - 1) {
+            startFrame = INT32_MAX - 1;
+        }
         if (endFrame <= startFrame) {
             endFrame = startFrame + 1;
         }

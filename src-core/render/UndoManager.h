@@ -185,9 +185,7 @@ public:
 
     ~AIUndoTransaction()
     {
-        if (m_mgr && !m_committed) {
-            m_mgr->CancelLastStep();
-        }
+        Rollback();
     }
 
     void Commit()
@@ -198,7 +196,12 @@ public:
     void Rollback()
     {
         if (m_mgr && !m_committed) {
-            m_mgr->CancelLastStep();
+            if (m_mgr->ChangeCaptured()) {
+                m_mgr->UndoLastStep();
+                m_mgr->ClearRedo();
+            } else {
+                m_mgr->CancelLastStep();
+            }
             m_committed = true; // Mark as resolved
         }
     }

@@ -148,7 +148,7 @@ void AILyricVisemeAlignerDialog::RunAlignmentPipeline() {
         std::error_code ec;
         if (std::filesystem::exists(srcPath, ec)) {
             wxString tempDirWx = wxStandardPaths::Get().GetTempDir();
-            std::filesystem::path tempDirPath(tempDirWx.ToStdString());
+            std::filesystem::path tempDirPath(tempDirWx.wc_str());
             std::string tempFilename = "xlights_viseme_stage_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + srcPath.extension().string();
             std::filesystem::path stagedAudioPath = tempDirPath / tempFilename;
 
@@ -161,16 +161,18 @@ void AILyricVisemeAlignerDialog::RunAlignmentPipeline() {
                 stagedAudioPath = srcPath;
             }
 
-            std::ifstream audioFile(stagedAudioPath, std::ios::binary);
-            if (audioFile.is_open()) {
-                audioFile.seekg(0, std::ios::end);
-                size_t fileSize = static_cast<size_t>(audioFile.tellg());
-                if (fileSize > 44) {
-                    // Approximate duration for 16-bit 44.1kHz mono/stereo
-                    totalDurationMs = static_cast<int64_t>((fileSize - 44) / (44.1 * 2 * 2));
-                    if (totalDurationMs < 1000) totalDurationMs = 1000;
+            {
+                std::ifstream audioFile(stagedAudioPath, std::ios::binary);
+                if (audioFile.is_open()) {
+                    audioFile.seekg(0, std::ios::end);
+                    size_t fileSize = static_cast<size_t>(audioFile.tellg());
+                    if (fileSize > 44) {
+                        // Approximate duration for 16-bit 44.1kHz mono/stereo
+                        totalDurationMs = static_cast<int64_t>((fileSize - 44) / (44.1 * 2 * 2));
+                        if (totalDurationMs < 1000) totalDurationMs = 1000;
+                    }
                 }
-            }
+            } // audioFile closed before deletion
 
             if (stagedAudioPath != srcPath) {
                 std::error_code remEc;

@@ -229,7 +229,7 @@ void AIAudioChoreographerDialog::OnAnalyzeAndChoreograph(wxCommandEvent& WXUNUSE
         std::error_code ec;
         if (std::filesystem::exists(srcPath, ec)) {
             wxString tempDirWx = wxStandardPaths::Get().GetTempDir();
-            std::filesystem::path tempDirPath(tempDirWx.ToStdString());
+            std::filesystem::path tempDirPath(tempDirWx.wc_str());
             std::string tempFilename = "xlights_choreo_stage_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + srcPath.extension().string();
             std::filesystem::path stagedAudioPath = tempDirPath / tempFilename;
 
@@ -242,21 +242,23 @@ void AIAudioChoreographerDialog::OnAnalyzeAndChoreograph(wxCommandEvent& WXUNUSE
                 stagedAudioPath = srcPath;
             }
 
-            std::ifstream audioFile(stagedAudioPath, std::ios::binary);
-            if (audioFile.is_open()) {
-                audioFile.seekg(0, std::ios::end);
-                size_t fileSize = static_cast<size_t>(audioFile.tellg());
-                audioFile.seekg((fileSize > 44) ? 44 : 0, std::ios::beg);
+            {
+                std::ifstream audioFile(stagedAudioPath, std::ios::binary);
+                if (audioFile.is_open()) {
+                    audioFile.seekg(0, std::ios::end);
+                    size_t fileSize = static_cast<size_t>(audioFile.tellg());
+                    audioFile.seekg((fileSize > 44) ? 44 : 0, std::ios::beg);
 
-                size_t sampleCount = (fileSize > 44) ? (fileSize - 44) / 2 : (44100 * 5);
-                pcmBuffer.resize(sampleCount);
+                    size_t sampleCount = (fileSize > 44) ? (fileSize - 44) / 2 : (44100 * 5);
+                    pcmBuffer.resize(sampleCount);
 
-                std::vector<int16_t> rawSamples(sampleCount);
-                audioFile.read(reinterpret_cast<char*>(rawSamples.data()), sampleCount * sizeof(int16_t));
-                for (size_t i = 0; i < sampleCount; ++i) {
-                    pcmBuffer[i] = static_cast<float>(rawSamples[i]) / 32768.0f;
+                    std::vector<int16_t> rawSamples(sampleCount);
+                    audioFile.read(reinterpret_cast<char*>(rawSamples.data()), sampleCount * sizeof(int16_t));
+                    for (size_t i = 0; i < sampleCount; ++i) {
+                        pcmBuffer[i] = static_cast<float>(rawSamples[i]) / 32768.0f;
+                    }
                 }
-            }
+            } // audioFile closed before deletion
 
             // Clean up temporary staged file
             if (stagedAudioPath != srcPath) {
