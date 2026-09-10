@@ -537,6 +537,8 @@ xcopy /Y /S /I "$(SolutionDir)..\resources\meshobjects\*" "$(TargetDir)meshobjec
     <ClCompile Include="..\src-ui-wx\ai\WxServiceSettingsStore.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIAudienceViewingOptimizerDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIAudioChoreographerDialog.cpp" />
+    <ClCompile Include="..\src-ui-wx\ai\AIVideoSequenceEmulatorDialog.cpp" />
+    <ClCompile Include="..\AI\VideoSequenceEmulator.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIControllerDiscoveryDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIEngineSettingsDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIESP32HardwareOptimizerDialog.cpp" />

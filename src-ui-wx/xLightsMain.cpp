@@ -131,6 +131,7 @@
 #include "src-ui-wx/ai/AIVRShowSpatialCopilotDialog.h"
 #include "src-ui-wx/ai/AISequenceVisualGitDialog.h"
 #include "src-ui-wx/ai/AIAudioChoreographerDialog.h"
+#include "src-ui-wx/ai/AIVideoSequenceEmulatorDialog.h"
 #include "src-ui-wx/ai/AISnapshotHistoryDialog.h"
 #include "diagnostics/ShowFolderSearchDialog.h"
 #include "sequencer/TopEffectsPanel.h"
@@ -344,6 +345,7 @@ const wxWindowID xLightsFrame::ID_MENUITEM_AI_NEURAL_SHADER_SYNTHESIZER = wxNewI
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_VR_SPATIAL_COPILOT = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_SEQUENCE_VISUAL_GIT = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_VIDEO_EMULATOR = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_SNAPSHOT_HISTORY = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_SEQUENCE_VALIDATOR = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_LUA_GENERATOR = wxNewId();
@@ -1143,6 +1145,7 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_VR_SPATIAL_COPILOT, _("AI 3D Layout VR/AR Spatial Walkthrough Copilot..."), _("1:1 Scale XR yard walkthrough and conversational obstacle clearance assistant"), wxITEM_NORMAL));
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SEQUENCE_VISUAL_GIT, _("AI Sequence Visual Git & Timeline Diff Merge..."), _("Collaborative sequence version control, timeline diffing, and 4-way merge resolver"), wxITEM_NORMAL));
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER, _("AI Audio Stem Intelligence & Effect Choreographer..."), _("Stem peak extraction, timing mark generation, and non-destructive delta effect choreographer"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_VIDEO_EMULATOR, _("AI Video Sequence Emulation & Choreographer..."), _("Multimodal sequence video clip/URL analysis, layout adaptation, pre-flight consultation, and automated sequence generation"), wxITEM_NORMAL));
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SNAPSHOT_HISTORY, _("AI Visual History Timeline & Snapshot State Manager..."), _("Photoshop-style state snapshots, time-travel restore, and granular component package exporter"), wxITEM_NORMAL));
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_POWER_INSPECTOR, _("AI Power Injection Inspector..."), _("Calculate voltage drops and optimal power injection"), wxITEM_NORMAL));
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_FPP_SYNC, _("AI FPP Controller Sync Advisor..."), _("Analyze and optimize FPP controller channel layouts"), wxITEM_NORMAL));
@@ -1414,6 +1417,7 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     Connect(ID_MENUITEM_AI_VR_SPATIAL_COPILOT, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIVRShowSpatialCopilotSelected);
     Connect(ID_MENUITEM_AI_SEQUENCE_VISUAL_GIT, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAISequenceVisualGitSelected);
     Connect(ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIAudioChoreographerSelected);
+    Connect(ID_MENUITEM_AI_VIDEO_EMULATOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIVideoEmulatorSelected);
     Connect(ID_MENUITEM_AI_SNAPSHOT_HISTORY, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAISnapshotHistorySelected);
     Connect(ID_MENUITEM_AI_LUA_GENERATOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAILuaGeneratorSelected);
     Connect(ID_MENUITEM_AI_MODEL_MAPPER, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIModelMapperSelected);
@@ -6220,6 +6224,11 @@ void xLightsFrame::OnMenuAISequenceVisualGitSelected(wxCommandEvent& WXUNUSED(ev
 
 void xLightsFrame::OnMenuAIAudioChoreographerSelected(wxCommandEvent& WXUNUSED(event)) {
     xLights::AIAudioChoreographerDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAIVideoEmulatorSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIVideoSequenceEmulatorDialog dlg(this);
     dlg.ShowModal();
 }
 

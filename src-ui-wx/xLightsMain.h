@@ -605,6 +605,7 @@ public:
     void OnMenuAIVRShowSpatialCopilotSelected(wxCommandEvent& event);
     void OnMenuAISequenceVisualGitSelected(wxCommandEvent& event);
     void OnMenuAIAudioChoreographerSelected(wxCommandEvent& event);
+    void OnMenuAIVideoEmulatorSelected(wxCommandEvent& event);
     void OnMenuAISnapshotHistorySelected(wxCommandEvent& event);
     void OnMenuItem_Help_ForumSelected(wxCommandEvent& event);
     void OnMenuItem_Help_DownloadSelected(wxCommandEvent& event);
@@ -851,6 +852,7 @@ public:
     static const wxWindowID ID_MENUITEM_AI_VR_SPATIAL_COPILOT;
     static const wxWindowID ID_MENUITEM_AI_SEQUENCE_VISUAL_GIT;
     static const wxWindowID ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER;
+    static const wxWindowID ID_MENUITEM_AI_VIDEO_EMULATOR;
     static const wxWindowID ID_MENUITEM_AI_SNAPSHOT_HISTORY;
     static const wxWindowID ID_MNU_GENERATELYRICS;
     static const wxWindowID ID_MENUITEM_CONVERT;

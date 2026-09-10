@@ -1,4 +1,4 @@
-﻿// Copyright (c) xLights Project
+// Copyright (c) xLights Project
 #include "src-ui-wx/ai/AICopilotSpotlightDialog.h"
 #include "src-ui-wx/ai/AICustomPropDesignerDialog.h"
 #include "src-ui-wx/ai/AISequenceValidatorDialog.h"
@@ -15,6 +15,7 @@
 #include "src-ui-wx/ai/AIPacketLossInterpolatorDialog.h"
 #include "src-ui-wx/ai/AIThermalSafetyThrottlerDialog.h"
 #include "src-ui-wx/ai/AIEngineSettingsDialog.h"
+#include "src-ui-wx/ai/AIVideoSequenceEmulatorDialog.h"
 #include <spdlog/spdlog.h>
 #include <wx/msgdlg.h>
 #include <algorithm>
@@ -156,7 +157,11 @@ void AICopilotSpotlightDialog::PopulateCommands()
 
         {15, "⚙️", "AI Engine & Inference Settings", "Configuration",
          "Configure local ONNX models, DirectML / GPU acceleration, and API keys",
-         {"settings", "inference", "directml", "gpu", "npu", "onnx", "api", "key", "model", "config"}}
+         {"settings", "inference", "directml", "gpu", "npu", "onnx", "api", "key", "model", "config"}},
+
+        {16, "🎬", "AI Video Sequence Emulation & Choreographer", "Choreography & Vision",
+         "Multimodal sequence video analysis, layout adaptation, pre-flight consultation, and automated sequence generation",
+         {"video", "youtube", "clip", "emulate", "film", "recording", "vision", "transcribe", "transduce", "choreo"}}
     };
 }
 
@@ -330,6 +335,11 @@ void AICopilotSpotlightDialog::ExecuteSelectedCommand()
         }
         case 15: {
             AIEngineSettingsDialog dlg(p);
+            dlg.ShowModal();
+            break;
+        }
+        case 16: {
+            AIVideoSequenceEmulatorDialog dlg(p);
             dlg.ShowModal();
             break;
         }
