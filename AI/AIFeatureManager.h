@@ -81,6 +81,11 @@ public:
     [[nodiscard]] std::vector<std::string> GetRegisteredFeatureNames() const;
 
     /**
+     * @brief Requests cooperative cancellation across all active AI subsystems.
+     */
+    void CancelAll();
+
+    /**
      * @brief Gracefully shuts down all AI subsystems and releases GPU/memory handles.
      */
     void ShutdownAll();

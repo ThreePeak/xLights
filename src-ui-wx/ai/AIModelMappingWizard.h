@@ -16,6 +16,7 @@
 #include <wx/checkbox.h>
 #include <wx/listctrl.h>
 #include <wx/sizer.h>
+#include <wx/filepicker.h>
 
 #include "AI/ModelMappingAIGenerator.h"
 
@@ -36,7 +37,6 @@ private:
     wxWizardPageSimple* m_page1 = nullptr;
     wxWizardPageSimple* m_page2 = nullptr;
 
-    class wxFilePickerCtrl;
     wxFilePickerCtrl* m_pickerVendorSeq = nullptr;
     wxSlider* m_confidenceThresholdSlider = nullptr;
     wxCheckBox* m_pass1ExactChk = nullptr;

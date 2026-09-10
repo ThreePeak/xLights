@@ -333,4 +333,59 @@ AudioStemResult AudioStemExtractor::ExtractStems(
     return res;
 }
 
+std::vector<float> AudioStemExtractor::ResampleAndNormalize16kMono(
+    const std::vector<float>& inputSamples,
+    int sourceSampleRate,
+    bool isStereo)
+{
+    if (inputSamples.empty() || sourceSampleRate <= 0) return {};
+
+    // 1. Convert to mono if stereo
+    std::vector<float> monoSamples;
+    if (isStereo) {
+        size_t frameCount = inputSamples.size() / 2;
+        monoSamples.reserve(frameCount);
+        for (size_t i = 0; i < frameCount; ++i) {
+            monoSamples.push_back((inputSamples[i * 2] + inputSamples[i * 2 + 1]) * 0.5f);
+        }
+    } else {
+        monoSamples = inputSamples;
+    }
+
+    // 2. Resample to 16,000 Hz using linear interpolation
+    const int targetSampleRate = 16000;
+    std::vector<float> resampled;
+    if (sourceSampleRate == targetSampleRate) {
+        resampled = std::move(monoSamples);
+    } else {
+        double ratio = static_cast<double>(sourceSampleRate) / static_cast<double>(targetSampleRate);
+        size_t targetLength = static_cast<size_t>(std::floor(monoSamples.size() / ratio));
+        resampled.reserve(targetLength);
+
+        for (size_t i = 0; i < targetLength; ++i) {
+            double srcIdx = i * ratio;
+            size_t idx0 = static_cast<size_t>(std::floor(srcIdx));
+            size_t idx1 = std::min(idx0 + 1, monoSamples.size() - 1);
+            float frac = static_cast<float>(srcIdx - idx0);
+            float sample = monoSamples[idx0] * (1.0f - frac) + monoSamples[idx1] * frac;
+            resampled.push_back(sample);
+        }
+    }
+
+    // 3. Find peak absolute amplitude
+    float maxPeak = 0.0f;
+    for (float s : resampled) {
+        float a = std::abs(s);
+        if (a > maxPeak) maxPeak = a;
+    }
+
+    // 4. Normalize and clamp to [-1.0f, 1.0f]
+    float scale = (maxPeak > 1e-6f) ? (0.95f / maxPeak) : 1.0f;
+    for (float& s : resampled) {
+        s = std::clamp(s * scale, -1.0f, 1.0f);
+    }
+
+    return resampled;
+}
+
 } // namespace xLights::AI

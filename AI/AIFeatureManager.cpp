@@ -90,6 +90,16 @@ std::vector<std::string> AIFeatureManager::GetRegisteredFeatureNames() const {
     return names;
 }
 
+void AIFeatureManager::CancelAll() {
+    std::lock_guard<std::mutex> lock(m_managerMutex);
+    spdlog::info("[AIFeatureManager] Requesting cooperative cancellation across all AI subsystems...");
+    for (auto& [name, subsystem] : m_subsystems) {
+        if (subsystem) {
+            subsystem->RequestCancel();
+        }
+    }
+}
+
 void AIFeatureManager::ShutdownAll() {
     std::lock_guard<std::mutex> lock(m_managerMutex);
     spdlog::info("[AIFeatureManager] Shutting down all AI subsystems...");

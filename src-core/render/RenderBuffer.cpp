@@ -507,19 +507,13 @@ void RenderBuffer::SetPixel(int x, int y, const xlColor &color, bool wrap, bool 
         return;
     }
 
+    if (BufferWi <= 0 || BufferHt <= 0) return;
+
     if (wrap) {
-        while (x < 0) {
-            x += BufferWi;
-        }
-        while (y < 0) {
-            y += BufferHt;
-        }
-        while (x > BufferWi) {
-            x -= BufferWi;
-        }
-        while (y > BufferHt) {
-            y -= BufferHt;
-        }
+        x = x % BufferWi;
+        if (x < 0) x += BufferWi;
+        y = y % BufferHt;
+        if (y < 0) y += BufferHt;
     }
 
     // I dont like this ... it should actually never happen
@@ -584,19 +578,13 @@ void RenderBuffer::SetPixel(int x, int y, const HSVValue& hsv, bool wrap)
         return;
     }
 
+    if (BufferWi <= 0 || BufferHt <= 0) return;
+
     if (wrap) {
-        while (x < 0) {
-            x += BufferWi;
-        }
-        while (y < 0) {
-            y += BufferHt;
-        }
-        while (x > BufferWi) {
-            x -= BufferWi;
-        }
-        while (y > BufferHt) {
-            y -= BufferHt;
-        }
+        x = x % BufferWi;
+        if (x < 0) x += BufferWi;
+        y = y % BufferHt;
+        if (y < 0) y += BufferHt;
     }
     if (x >= 0 && x < BufferWi && y >= 0 && y < BufferHt && (size_t)(y*BufferWi + x) < pixelVector.size())
     {

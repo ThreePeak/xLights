@@ -163,6 +163,16 @@ public:
         const std::vector<float>& vocalBuffer,
         int sampleRate = 44100
     );
+
+    /**
+     * @brief Resamples audio samples to 16kHz mono and normalizes peak amplitudes to [-1.0, 1.0].
+     * Standard normalization for Whisper / speech-to-text and Demucs neural network inputs.
+     */
+    [[nodiscard]] static std::vector<float> ResampleAndNormalize16kMono(
+        const std::vector<float>& inputSamples,
+        int sourceSampleRate,
+        bool isStereo = false
+    );
 };
 
 } // namespace xLights::AI

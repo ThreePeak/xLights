@@ -16,13 +16,15 @@
 
 namespace xLights::AI {
 
-enum class AudioStemType {
+enum class ChoreoStemType {
     KICK_DRUM = 0,       ///< 40Hz-120Hz sub-bass transient hits
     SNARE_CLAP = 1,      ///< 1kHz-3kHz mid-frequency punch
     VOCAL_LEAD = 2,      ///< 300Hz-3.5kHz vocal harmonics
     HIHAT_CYMBAL = 3,    ///< 6kHz-16kHz high-frequency shimmer
     FULL_MIX_BEAT = 4    ///< Aggregate musical downbeats
 };
+
+using MusicalStemType = ChoreoStemType;
 
 enum class ChoreographyOutputMode {
     GENERATE_TIMING_MARK_TRACK = 0, ///< Emits native .xtiming Mark Track for alignment
@@ -49,7 +51,7 @@ struct GeneratedChoreographyResult {
 };
 
 struct ChoreographyParameters {
-    AudioStemType stemType{AudioStemType::KICK_DRUM};
+    ChoreoStemType stemType{ChoreoStemType::KICK_DRUM};
     ChoreographyOutputMode outputMode{ChoreographyOutputMode::GENERATE_PROP_EFFECTS};
     std::string targetPropName{"MegaTree"};
     std::string desiredEffectType{"Bars"}; ///< "Bars", "Strobe", "Butterfly", "Shockwave", "AI_AUTO"

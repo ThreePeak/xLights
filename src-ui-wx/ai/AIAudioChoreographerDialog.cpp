@@ -209,7 +209,7 @@ void AIAudioChoreographerDialog::OnAnalyzeAndChoreograph(wxCommandEvent& WXUNUSE
         return;
     }
 
-    if (m_choiceStem) m_params.stemType = static_cast<AI::AudioStemType>(m_choiceStem->GetSelection());
+    if (m_choiceStem) m_params.stemType = static_cast<AI::ChoreoStemType>(m_choiceStem->GetSelection());
     if (m_comboTargetProp) m_params.targetPropName = m_comboTargetProp->GetValue().ToStdString();
     if (m_choiceEffectType) m_params.desiredEffectType = m_choiceEffectType->GetStringSelection().ToStdString();
     if (m_sliderSensitivity) m_params.sensitivityThreshold = m_sliderSensitivity->GetValue() / 100.0f;

@@ -12,6 +12,7 @@
 #include <wx/notebook.h>
 #include <wx/listctrl.h>
 #include <wx/choice.h>
+#include <wx/filepicker.h>
 #include "src-core/ai/SequenceVisualGitAI.h"
 #include "src-core/ai/AICommandHistory.h"
 
@@ -52,7 +53,6 @@ private:
     long m_contextItemIndex{-1};
 
     // UI Widgets
-    class wxFilePickerCtrl;
     wxFilePickerCtrl* m_pickerBaseSeq{nullptr};
     wxFilePickerCtrl* m_pickerIncomingSeq{nullptr};
 

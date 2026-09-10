@@ -14,6 +14,8 @@
 #include <wx/choice.h>
 #include <wx/slider.h>
 #include <wx/checkbox.h>
+#include <wx/filepicker.h>
+#include <wx/combobox.h>
 #include "src-core/media/AudioChoreographerAI.h"
 #include "src-core/ai/AICommandHistory.h"
 
@@ -51,11 +53,9 @@ private:
     AI::AICommandHistory m_commandHistory;
 
     // UI Widgets
-    class wxFilePickerCtrl;
     wxFilePickerCtrl* m_pickerAudioFile{nullptr};
     
     wxChoice* m_choiceStem{nullptr};
-    class wxComboBox;
     wxComboBox* m_comboTargetProp{nullptr};
     wxChoice* m_choiceEffectType{nullptr};
     wxSlider* m_sliderSensitivity{nullptr};

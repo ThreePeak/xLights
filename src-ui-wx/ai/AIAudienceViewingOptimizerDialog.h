@@ -33,6 +33,7 @@ public:
     const AI::SightlineOptimizationResult& GetSightlineResult() const { return m_sightlineResult; }
 
     void RunSightlineEvaluation();
+    void OnEvaluateSightlines(wxCommandEvent& event) { RunSightlineEvaluation(); }
 
     void OnAddVantagePhoto(wxCommandEvent& event);
     void OnRemoveVantagePhoto(wxCommandEvent& event);

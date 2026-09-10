@@ -73,3 +73,11 @@ plans/private-**
 src-core/effects/vulkan/shaders/compiled/*.spv.h
 src-core/graphics/vulkan/shaders/compiled/*.spv.h
 dependencies/glslang-build/
+*.exe
+tools/7z/
+tools/*.7z
+tools/*.zip
+tools/*.exe
+tools/vulkan_bin/
+tools/vulkan_extracted/
+.vscode/

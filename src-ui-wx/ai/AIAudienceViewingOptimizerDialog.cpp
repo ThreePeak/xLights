@@ -98,7 +98,7 @@ void AIAudienceViewingOptimizerDialog::CreateControls() {
     SetSizer(mainSizer);
 
     // Event Bindings
-    Bind(wxEVT_BUTTON, &AIAudienceViewingOptimizerDialog::RunSightlineEvaluation, this, ID_BTN_EVALUATE_SIGHTLINES);
+    Bind(wxEVT_BUTTON, &AIAudienceViewingOptimizerDialog::OnEvaluateSightlines, this, ID_BTN_EVALUATE_SIGHTLINES);
     Bind(wxEVT_BUTTON, &AIAudienceViewingOptimizerDialog::OnAddVantagePhoto, this, ID_BTN_ADD_PHOTO);
     Bind(wxEVT_BUTTON, &AIAudienceViewingOptimizerDialog::OnRemoveVantagePhoto, this, ID_BTN_REMOVE_PHOTO);
     Bind(wxEVT_BUTTON, &AIAudienceViewingOptimizerDialog::OnUndo, this, ID_BTN_UNDO);

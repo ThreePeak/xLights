@@ -7,6 +7,7 @@
  **************************************************************/
 
 #include "src-core/media/ShowNarrativeComposerAI.h"
+#include "src-core/ai/AIQuantizationUtils.h"
 #include <sstream>
 #include <iomanip>
 #include <spdlog/spdlog.h>
@@ -91,8 +92,9 @@ std::vector<NarrativeTimingMark> ShowNarrativeComposerAI::GenerateAlignedTimings
         }
 
         NarrativeTimingMark mark;
-        mark.startMs = currentMs;
-        mark.endMs = currentMs + static_cast<uint32_t>(baseWordDurationMs);
+        auto interval = AIQuantizationUtils::QuantizeTimeInterval(currentMs / 1000.0, (currentMs + baseWordDurationMs) / 1000.0, 50);
+        mark.startMs = static_cast<uint32_t>(std::round(interval.startSec * 1000.0));
+        mark.endMs = static_cast<uint32_t>(std::round(interval.endSec * 1000.0));
         mark.word = word;
 
         // Phoneme viseme hint heuristic
@@ -106,7 +108,7 @@ std::vector<NarrativeTimingMark> ShowNarrativeComposerAI::GenerateAlignedTimings
         mark.audioIntensity = 0.9f;
         marks.push_back(mark);
 
-        currentMs = mark.endMs + 80; // 80ms word gap
+        currentMs = mark.endMs + 100; // 100ms frame-aligned word gap (2 frames at 50ms)
     }
 
     return marks;

@@ -56,6 +56,8 @@ private:
     std::function<bool()> m_undoFn;
 };
 
+using AIActionCommand = LambdaAICommand;
+
 /**
  * @brief Thread-safe Multi-level Undo/Redo Manager for AI and tool actions.
  */

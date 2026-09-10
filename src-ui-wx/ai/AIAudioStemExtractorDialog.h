@@ -17,6 +17,9 @@
 #include <wx/spinctrl.h>
 #include <wx/gauge.h>
 #include <wx/sizer.h>
+#include <wx/filepicker.h>
+#include <atomic>
+#include <thread>
 
 #include "AI/AudioStemExtractor.h"
 
@@ -25,7 +28,7 @@ namespace xLights::AI {
 class AIAudioStemExtractorDialog : public wxDialog {
 public:
     AIAudioStemExtractorDialog(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("AI Audio Stem & Feature Extractor"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(750, 560), long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
-    virtual ~AIAudioStemExtractorDialog() = default;
+    virtual ~AIAudioStemExtractorDialog();
 
 private:
     void InitUI();
@@ -35,7 +38,6 @@ private:
     void OnPhonemeMapButtonClick(wxCommandEvent& event);
     void OnCloseButtonClick(wxCommandEvent& event);
 
-    class wxFilePickerCtrl;
     wxFilePickerCtrl* m_audioFilePicker = nullptr;
     wxChoice* m_stemModelChoice = nullptr;
     wxSlider* m_transientSensitivitySlider = nullptr;
@@ -52,6 +54,11 @@ private:
 
     wxButton* m_extractBtn = nullptr;
     wxButton* m_closeBtn = nullptr;
+
+    // Worker lifecycle & thread safety
+    std::atomic<bool> m_isProcessing{false};
+    std::atomic<bool> m_workerCancel{false};
+    std::thread m_workerThread;
 
     DECLARE_EVENT_TABLE()
 };

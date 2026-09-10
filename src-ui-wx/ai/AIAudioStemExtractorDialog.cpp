@@ -15,6 +15,10 @@
 #include <wx/msgdlg.h>
 #include <wx/filepicker.h>
 #include <wx/filename.h>
+#include <wx/stdpaths.h>
+#include <wx/app.h>
+#include <filesystem>
+#include <fstream>
 
 namespace xLights::AI {
 
@@ -120,7 +124,19 @@ void AIAudioStemExtractorDialog::InitUI() {
     Center();
 }
 
+AIAudioStemExtractorDialog::~AIAudioStemExtractorDialog() {
+    m_workerCancel = true;
+    if (m_workerThread.joinable()) {
+        m_workerThread.join();
+    }
+}
+
 void AIAudioStemExtractorDialog::OnExtractButtonClick(wxCommandEvent& WXUNUSED(event)) {
+    if (m_isProcessing.load()) {
+        wxMessageBox(wxT("Extraction is already in progress."), wxT("Please Wait"), wxOK | wxICON_INFORMATION, this);
+        return;
+    }
+
     std::string audioPath = m_audioFilePicker ? m_audioFilePicker->GetPath().ToStdString() : "";
     if (audioPath.empty()) {
         if (xLightsFrame::CurrentSeqXmlFile) {
@@ -137,7 +153,23 @@ void AIAudioStemExtractorDialog::OnExtractButtonClick(wxCommandEvent& WXUNUSED(e
         return;
     }
 
-    m_progressGauge->SetValue(100);
+    // Stage temporary copy to eliminate exclusive file locks on active sequence audio
+    std::error_code ec;
+    std::filesystem::path srcPath(audioPath);
+    wxString tempDirWx = wxStandardPaths::Get().GetTempDir();
+    std::filesystem::path tempDirPath(tempDirWx.ToStdString());
+    std::string tempFilename = "xlights_stem_stage_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + srcPath.extension().string();
+    std::filesystem::path stagedAudioPath = tempDirPath / tempFilename;
+
+    try {
+        std::filesystem::copy_file(srcPath, stagedAudioPath, std::filesystem::copy_options::overwrite_existing, ec);
+        if (ec) {
+            spdlog::warn("AIAudioStemExtractorDialog: Failed to copy audio to temp: {}. Using original path.", ec.message());
+            stagedAudioPath = srcPath;
+        }
+    } catch (...) {
+        stagedAudioPath = srcPath;
+    }
 
     AudioStemConfig config;
     config.extractVocals = m_vocalsChk->IsChecked();
@@ -145,36 +177,71 @@ void AIAudioStemExtractorDialog::OnExtractButtonClick(wxCommandEvent& WXUNUSED(e
     config.extractBass = m_bassChk->IsChecked();
     config.generateBpmTimings = m_bpmTimingChk->IsChecked();
 
-    AudioStemResult result = AudioStemExtractor::ExtractStems(audioPath, config);
+    m_isProcessing = true;
+    m_workerCancel = false;
+    m_extractBtn->Enable(false);
+    m_progressGauge->SetValue(20);
+    m_statusText->SetLabel(wxT("Status: Running neural stem separation in background..."));
 
-    if (config.extractVocals) {
-        std::vector<float> pcmBuffer;
-        std::ifstream audioFile(audioPath, std::ios::binary);
-        if (audioFile.is_open()) {
-            audioFile.seekg(0, std::ios::end);
-            size_t fileSize = static_cast<size_t>(audioFile.tellg());
-            audioFile.seekg((fileSize > 44) ? 44 : 0, std::ios::beg);
-
-            size_t sampleCount = (fileSize > 44) ? (fileSize - 44) / 2 : (44100 * 5);
-            pcmBuffer.resize(sampleCount);
-
-            std::vector<int16_t> rawSamples(sampleCount);
-            audioFile.read(reinterpret_cast<char*>(rawSamples.data()), sampleCount * sizeof(int16_t));
-            for (size_t i = 0; i < sampleCount; ++i) {
-                pcmBuffer[i] = static_cast<float>(rawSamples[i]) / 32768.0f;
-            }
-        }
-        if (pcmBuffer.empty()) {
-            pcmBuffer.resize(44100 * 5, 0.05f);
-        }
-        std::string lipSyncXml = AudioStemExtractor::GenerateVocalLipSyncPhonemesXML(pcmBuffer, 44100);
-        spdlog::info("AIAudioStemExtractorDialog: Created 'AI Vocals Lip-Sync' timing track with {} samples.", pcmBuffer.size());
+    if (m_workerThread.joinable()) {
+        m_workerThread.join();
     }
 
-    m_statusText->SetLabel(wxT("Status: Stem separation & Lip-Sync track complete. Added to sequence."));
-    wxMessageBox(wxString::Format(wxT("AI Audio Stem Extraction Complete!\n\nTarget File: %s\nExtracted: Vocals, Drums, Bass\nLip-Sync: Created 'AI Vocals Lip-Sync' timing track\nDetected BPM: %.1f"),
-                 wxString::FromUTF8(audioPath), result.detectedBpm), wxT("Extraction Complete"), wxOK | wxICON_INFORMATION, this);
-    spdlog::info("AIAudioStemExtractorDialog: Stem separation complete for {}", audioPath);
+    m_workerThread = std::thread([this, stagedAudioPath, audioPath, config]() {
+        spdlog::info("AIAudioStemExtractorDialog: Background worker started for {}", stagedAudioPath.string());
+        AudioStemResult result = AudioStemExtractor::ExtractStems(stagedAudioPath.string(), config);
+
+        if (m_workerCancel.load()) {
+            std::error_code remEc;
+            if (stagedAudioPath != std::filesystem::path(audioPath)) {
+                std::filesystem::remove(stagedAudioPath, remEc);
+            }
+            m_isProcessing = false;
+            return;
+        }
+
+        if (config.extractVocals) {
+            std::vector<float> pcmBuffer;
+            std::ifstream audioFile(stagedAudioPath, std::ios::binary);
+            if (audioFile.is_open()) {
+                audioFile.seekg(0, std::ios::end);
+                size_t fileSize = static_cast<size_t>(audioFile.tellg());
+                audioFile.seekg((fileSize > 44) ? 44 : 0, std::ios::beg);
+
+                size_t sampleCount = (fileSize > 44) ? (fileSize - 44) / 2 : (44100 * 5);
+                pcmBuffer.resize(sampleCount);
+
+                std::vector<int16_t> rawSamples(sampleCount);
+                audioFile.read(reinterpret_cast<char*>(rawSamples.data()), sampleCount * sizeof(int16_t));
+                for (size_t i = 0; i < sampleCount; ++i) {
+                    pcmBuffer[i] = static_cast<float>(rawSamples[i]) / 32768.0f;
+                }
+            }
+            if (pcmBuffer.empty()) {
+                pcmBuffer.resize(44100 * 5, 0.05f);
+            }
+            std::string lipSyncXml = AudioStemExtractor::GenerateVocalLipSyncPhonemesXML(pcmBuffer, 44100);
+            spdlog::info("AIAudioStemExtractorDialog: Created 'AI Vocals Lip-Sync' timing track with {} samples.", pcmBuffer.size());
+        }
+
+        // Clean up staged temporary file
+        std::error_code remEc;
+        if (stagedAudioPath != std::filesystem::path(audioPath)) {
+            std::filesystem::remove(stagedAudioPath, remEc);
+        }
+
+        wxTheApp->CallAfter([this, audioPath, result]() {
+            if (!m_isProcessing.load()) return;
+            m_progressGauge->SetValue(100);
+            m_statusText->SetLabel(wxT("Status: Stem separation & Lip-Sync track complete. Added to sequence."));
+            m_extractBtn->Enable(true);
+            m_isProcessing = false;
+
+            wxMessageBox(wxString::Format(wxT("AI Audio Stem Extraction Complete!\n\nTarget File: %s\nExtracted: Vocals, Drums, Bass\nLip-Sync: Created 'AI Vocals Lip-Sync' timing track\nDetected BPM: %.1f"),
+                         wxString::FromUTF8(audioPath), result.detectedBpm), wxT("Extraction Complete"), wxOK | wxICON_INFORMATION, this);
+            spdlog::info("AIAudioStemExtractorDialog: Stem separation complete for {}", audioPath);
+        });
+    });
 }
 
 void AIAudioStemExtractorDialog::OnPhonemeMapButtonClick(wxCommandEvent& WXUNUSED(event)) {
@@ -188,6 +255,10 @@ void AIAudioStemExtractorDialog::OnPhonemeMapButtonClick(wxCommandEvent& WXUNUSE
 }
 
 void AIAudioStemExtractorDialog::OnCloseButtonClick(wxCommandEvent& WXUNUSED(event)) {
+    m_workerCancel = true;
+    if (m_workerThread.joinable()) {
+        m_workerThread.join();
+    }
     EndModal(wxID_CANCEL);
 }
 

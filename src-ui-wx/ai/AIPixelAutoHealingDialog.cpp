@@ -11,6 +11,7 @@
 #include <wx/msgdlg.h>
 #include <spdlog/spdlog.h>
 #include <fstream>
+#include <unordered_set>
 
 namespace xLights {
 

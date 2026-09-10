@@ -81,6 +81,7 @@
 #include "klightmapper/CustomModelMethodPickerDialog.h"
 #include "klightmapper/KLightMapperBridge.h"
 #include "sequencer/GenerateLyricsDialog.h"
+#include "src-core/ai/AIFeatureManager.h"
 #include "layout/HousePreviewExportOptionsDialog.h"
 #include "layout/HousePreviewPanel.h"
 #include "setup/IPEntryDialog.h"
@@ -3260,6 +3261,9 @@ void xLightsFrame::OnClose(wxCloseEvent& event)
 
     spdlog::info("xLights Closing");
 
+    // Signal cancellation across all AI copilot background tasks upfront
+    xLights::AI::AIFeatureManager::GetInstance().CancelAll();
+
     // Mark the frame as exiting up front so the teardown that CloseSequence drives
     // (e.g. EffectsGrid::SetRCToolTip touching an already half-destroyed window/peer)
     // can bail. Reset it if the close is vetoed below.
@@ -3274,6 +3278,9 @@ void xLightsFrame::OnClose(wxCloseEvent& event)
         inClose = false;
         return;
     }
+
+    // Gracefully release all AI subsystem resources now that sequence is closed
+    xLights::AI::AIFeatureManager::GetInstance().ShutdownAll();
 
     selectedEffect = nullptr;
 

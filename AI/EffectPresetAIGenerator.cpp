@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <filesystem>
 
 namespace xLights::AI {
 
@@ -160,10 +161,10 @@ std::optional<EffectPresetSpec> EffectPresetAIGenerator::ParseJSONToSpec(const s
 bool EffectPresetAIGenerator::ValidateParametersAgainstMetadata(EffectLayerSpec& layerSpec, const std::string& metadataDir) {
     if (metadataDir.empty() || layerSpec.effectName.empty()) return true;
 
-    std::string metaPath = metadataDir + "/" + layerSpec.effectName + ".json";
+    std::filesystem::path metaPath = std::filesystem::u8path(metadataDir) / (layerSpec.effectName + ".json");
     std::ifstream metaFile(metaPath);
     if (!metaFile.is_open()) {
-        spdlog::warn("[EffectPresetAIGenerator] Effect metadata file missing for '{}' at {}", layerSpec.effectName, metaPath);
+        spdlog::warn("[EffectPresetAIGenerator] Effect metadata file missing for '{}' at {}", layerSpec.effectName, metaPath.string());
         return true;
     }
 

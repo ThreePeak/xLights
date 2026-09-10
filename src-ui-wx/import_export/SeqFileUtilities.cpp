@@ -46,6 +46,7 @@
 #include "media/MediaCompatibility.h"
 #include "media/VideoTranscoder.h"
 #include "utils/FileUtils.h"
+#include "src-core/ai/AIFeatureManager.h"
 #include <set>
 #include <wx/textdlg.h>
 #include <wx/richmsgdlg.h>
@@ -910,6 +911,9 @@ void xLightsFrame::AddToMRU(const std::string& filename)
 bool xLightsFrame::CloseSequence()
 {
     spdlog::debug("Closing sequence.");
+
+    // Signal cooperative cancellation to all AI background workers upfront
+    xLights::AI::AIFeatureManager::GetInstance().CancelAll();
 
     // Stem separation runs a worker thread holding raw PCM pointers into the
     // sequence's AudioManager for the whole run, and its progress dialog pumps

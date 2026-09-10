@@ -290,6 +290,10 @@ public:
     std::string ComputeStringStartChannel(int x);
     int ComputeStringStartNode(int x) const;
 
+    [[nodiscard]] int GetBufferHeight() const { return BufferHt; }
+    [[nodiscard]] int GetBufferWidth() const { return BufferWi; }
+    [[nodiscard]] int GetBufferDepth() const { return BufferDp; }
+
 protected:
     void ApplyTransform(const std::string& transform,
         std::vector<NodeBaseClassPtr>& Nodes,

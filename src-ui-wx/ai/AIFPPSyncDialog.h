@@ -7,6 +7,7 @@
 #include <wx/gauge.h>
 #include <wx/stattext.h>
 #include <wx/sizer.h>
+#include <wx/filepicker.h>
 
 #include "AI/FPPControllerSyncAdvisor.h"
 #include "AI/AIConfigurationManager.h"
@@ -27,7 +28,6 @@ private:
     void OnCloseClick(wxCommandEvent& event);
 
     wxTextCtrl* m_fppHostCtrl = nullptr;
-    class wxFilePickerCtrl;
     wxFilePickerCtrl* m_showXmlPicker = nullptr;
     wxButton* m_analyzeBtn = nullptr;
     wxButton* m_exportJsonBtn = nullptr;

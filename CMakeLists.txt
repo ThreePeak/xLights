@@ -305,10 +305,17 @@ file(GLOB_RECURSE SRC_CORE
     AI/ModelMappingAIGenerator.cpp
     AI/LuaScriptAIGenerator.cpp
     AI/SequenceDiagnosticsCopilot.cpp
-    AI/LocalInferenceEngine.cpp
-    AI/LuaScriptGenerator.cpp
     AI/SequenceValidatorAI.cpp
 )
+
+# Filter out standalone test files (containing main()) from SRC_CORE
+file(GLOB _ai_test_sources
+    ${CMAKE_SOURCE_DIR}/AI/test_*.cpp
+    ${CMAKE_SOURCE_DIR}/AI/*_test.cpp
+    AI/test_*.cpp
+    AI/*_test.cpp
+)
+list(REMOVE_ITEM SRC_CORE ${_ai_test_sources})
 if(WIN32)
     list(APPEND SRC_CORE src-core/media/WindowsHardwareVideoReader.cpp)
     list(REMOVE_ITEM SRC_CORE
@@ -1067,7 +1074,7 @@ xlights_ai_test(test_AudioStemExtractor AI/AudioStemExtractor.cpp)
 xlights_ai_test(test_AutoPropMapper AI/AutoPropMapper.cpp)
 xlights_ai_test(test_CustomPropDesignerAI AI/CustomPropDesignerAI.cpp AI/PropModelEditEngine.cpp AI/PropNodeEditHistory.cpp AI/AINodeEditInterpreter.cpp)
 xlights_ai_test(test_DMXAddressAdvisor AI/DMXAddressAdvisor.cpp)
-xlights_ai_test(test_DynamicsContourMapper AI/DynamicsContourMapper.cpp)
+xlights_ai_test(test_DynamicsContourMapper AI/DynamicsContourMapper.cpp AI/AudioDynamicsMapper.cpp)
 xlights_ai_test(test_EffectPresetAIGenerator AI/EffectPresetAIGenerator.cpp)
 xlights_ai_test(test_FPPControllerSyncAdvisor AI/FPPControllerSyncAdvisor.cpp)
 xlights_ai_test(test_LayerBlendAdvisor AI/LayerBlendAdvisor.cpp)

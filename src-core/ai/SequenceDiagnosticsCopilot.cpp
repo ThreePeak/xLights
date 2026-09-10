@@ -108,12 +108,12 @@ AssistantCopilotResponse SequenceDiagnosticsCopilot::QueryAssistantCopilot(const
 int SequenceDiagnosticsCopilot::RemoveUnusedMedia(const std::string& showFolder, const std::vector<std::string>& unusedMediaFiles) {
     int removedCount = 0;
     for (const auto& media : unusedMediaFiles) {
-        std::string fullPath = showFolder + "/" + media;
+        std::filesystem::path fullPath = std::filesystem::u8path(showFolder) / media;
         if (std::filesystem::exists(fullPath)) {
             std::error_code ec;
             if (std::filesystem::remove(fullPath, ec)) {
                 removedCount++;
-                spdlog::info("SequenceDiagnosticsCopilot: Removed unused media file: {}", fullPath);
+                spdlog::info("SequenceDiagnosticsCopilot: Removed unused media file: {}", fullPath.string());
             }
         }
     }

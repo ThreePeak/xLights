@@ -56,6 +56,27 @@ public:
     }
 
     /**
+     * @brief Requests cooperative cancellation of any ongoing background work.
+     */
+    virtual void RequestCancel() {
+        m_cancelRequested.store(true);
+    }
+
+    /**
+     * @brief Checks if cancellation has been requested for this subsystem.
+     */
+    [[nodiscard]] virtual bool IsCancelled() const {
+        return m_cancelRequested.load();
+    }
+
+    /**
+     * @brief Resets the cancellation flag before starting a new task.
+     */
+    virtual void ResetCancel() {
+        m_cancelRequested.store(false);
+    }
+
+    /**
      * @brief Returns the human-readable identifier of the AI subsystem.
      */
     [[nodiscard]] virtual std::string GetSubsystemName() const = 0;
@@ -68,5 +89,6 @@ public:
 protected:
     ServiceManager* m_serviceManager{nullptr};
     std::atomic<bool> m_isInitialized{false};
+    std::atomic<bool> m_cancelRequested{false};
     mutable std::mutex m_subsystemMutex;
 };

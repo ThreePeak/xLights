@@ -7,6 +7,7 @@
  **************************************************************/
 
 #include "src-core/media/AudioChoreographerAI.h"
+#include "src-core/ai/AIQuantizationUtils.h"
 #include <sstream>
 #include <iomanip>
 #include <spdlog/spdlog.h>
@@ -67,11 +68,11 @@ GeneratedChoreographyResult AudioChoreographerAI::AnalyzeAndChoreograph(
     GeneratedChoreographyResult result;
 
     switch (params.stemType) {
-        case AudioStemType::KICK_DRUM: result.audioStemName = "Kick Drum / Sub-Bass"; break;
-        case AudioStemType::SNARE_CLAP: result.audioStemName = "Snare / Clap Punch"; break;
-        case AudioStemType::VOCAL_LEAD: result.audioStemName = "Vocal Lead Melody"; break;
-        case AudioStemType::HIHAT_CYMBAL: result.audioStemName = "Hi-Hat / Cymbal Transients"; break;
-        case AudioStemType::FULL_MIX_BEAT: result.audioStemName = "Full Mix Beat Grid"; break;
+        case ChoreoStemType::KICK_DRUM: result.audioStemName = "Kick Drum / Sub-Bass"; break;
+        case ChoreoStemType::SNARE_CLAP: result.audioStemName = "Snare / Clap Punch"; break;
+        case ChoreoStemType::VOCAL_LEAD: result.audioStemName = "Vocal Lead Melody"; break;
+        case ChoreoStemType::HIHAT_CYMBAL: result.audioStemName = "Hi-Hat / Cymbal Transients"; break;
+        case ChoreoStemType::FULL_MIX_BEAT: result.audioStemName = "Full Mix Beat Grid"; break;
     }
 
     std::vector<uint32_t> hitTimesMs = {500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000};
@@ -90,13 +91,22 @@ GeneratedChoreographyResult AudioChoreographerAI::AnalyzeAndChoreograph(
         StemOnsetMark mark;
         mark.timestampMs = ms;
         mark.energyIntensity = 0.95f;
-        mark.label = (params.stemType == AudioStemType::KICK_DRUM ? "Kick" : "Hit");
+        mark.label = (params.stemType == ChoreoStemType::KICK_DRUM ? "Kick" : "Hit");
         result.onsets.push_back(mark);
 
-        timingXml << "    <mark start=\"" << ms << "\" end=\"" << (ms + 100) << "\" label=\"" << mark.label << "\" />\n";
+        // Frame interval quantization (50ms frame step)
+        auto timingInterval = AIQuantizationUtils::QuantizeTimeInterval(ms / 1000.0, (ms + 100) / 1000.0, 50);
+        auto effectInterval = AIQuantizationUtils::QuantizeTimeInterval(ms / 1000.0, (ms + 350) / 1000.0, 50);
+
+        uint32_t markStartMs = static_cast<uint32_t>(std::round(timingInterval.startSec * 1000.0));
+        uint32_t markEndMs = static_cast<uint32_t>(std::round(timingInterval.endSec * 1000.0));
+        uint32_t effStartMs = static_cast<uint32_t>(std::round(effectInterval.startSec * 1000.0));
+        uint32_t effEndMs = static_cast<uint32_t>(std::round(effectInterval.endSec * 1000.0));
+
+        timingXml << "    <mark start=\"" << markStartMs << "\" end=\"" << markEndMs << "\" label=\"" << mark.label << "\" />\n";
 
         std::string eff = (params.desiredEffectType == "AI_AUTO" ? "Shockwave" : params.desiredEffectType);
-        effectsXml << "  <effect type=\"" << eff << "\" start=\"" << ms << "\" end=\"" << (ms + 350) << "\" />\n";
+        effectsXml << "  <effect type=\"" << eff << "\" start=\"" << effStartMs << "\" end=\"" << effEndMs << "\" />\n";
     }
 
     timingXml << "  </timingList>\n</timing>\n";

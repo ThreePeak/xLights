@@ -440,10 +440,16 @@ public:
 
     //optimized/direct versions only usable in cases where x/y are known to be within bounds
     void SetPixelDirect(int x, int y, const xlColor &color) {
-        pixels[y * BufferWi + x] = color;
+        if (x >= 0 && x < BufferWi && y >= 0 && y < BufferHt) {
+            pixels[y * BufferWi + x] = color;
+        }
     }
     const xlColor& GetPixelDirect(int x, int y) const {
-        return pixels[y * BufferWi + x];
+        if (x >= 0 && x < BufferWi && y >= 0 && y < BufferHt) {
+            return pixels[y * BufferWi + x];
+        }
+        static const xlColor s_black = xlBLACK;
+        return s_black;
     }
 
     int GetNodeCount() const { return Nodes.size();}

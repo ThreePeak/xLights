@@ -18,7 +18,7 @@ int main() {
     // Test 1: Kick Drum Stem Onset Detection & Timing Track Generation
     {
         ChoreographyParameters params;
-        params.stemType = AudioStemType::KICK_DRUM;
+        params.stemType = ChoreoStemType::KICK_DRUM;
         params.outputMode = ChoreographyOutputMode::GENERATE_TIMING_MARK_TRACK;
         params.targetPropName = "MegaTree";
 

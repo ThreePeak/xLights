@@ -16,6 +16,7 @@
 #include <wx/choice.h>
 #include <wx/listctrl.h>
 #include <wx/sizer.h>
+#include <wx/combobox.h>
 
 #include "AI/SubmodelDetector.h"
 
@@ -35,7 +36,6 @@ private:
     void OnHelpButtonClick(wxCommandEvent& event);
     void OnCloseButtonClick(wxCommandEvent& event);
 
-    class wxComboBox;
     wxComboBox* m_parentModelCombo = nullptr;
     wxSpinCtrl* m_totalNodesSpin = nullptr;
 

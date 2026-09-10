@@ -8,6 +8,7 @@
 
 #include "src-ui-wx/ai/AIControllerDiscoveryDialog.h"
 #include "src-ui-wx/ai/AIHelpGuideDialog.h"
+#include "src-core/ai/AICommandHistory.h"
 #include <spdlog/spdlog.h>
 #include <wx/msgdlg.h>
 #include <wx/filedlg.h>

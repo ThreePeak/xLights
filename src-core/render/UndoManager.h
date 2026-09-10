@@ -166,3 +166,47 @@ class UndoManager
         size_t mMaxSteps = 0;
 
 };
+
+/**
+ * RAII transaction wrapper for atomic grouping of undo operations (especially AI batch operations).
+ * If Commit() is not called before destruction (e.g. exception or early exit/abort),
+ * CancelLastStep() is automatically invoked to roll back without corrupting undo state.
+ */
+class AIUndoTransaction
+{
+public:
+    explicit AIUndoTransaction(UndoManager* mgr, const std::string& transactionName = "")
+        : m_mgr(mgr), m_committed(false)
+    {
+        if (m_mgr) {
+            m_mgr->CreateUndoStep();
+        }
+    }
+
+    ~AIUndoTransaction()
+    {
+        if (m_mgr && !m_committed) {
+            m_mgr->CancelLastStep();
+        }
+    }
+
+    void Commit()
+    {
+        m_committed = true;
+    }
+
+    void Rollback()
+    {
+        if (m_mgr && !m_committed) {
+            m_mgr->CancelLastStep();
+            m_committed = true; // Mark as resolved
+        }
+    }
+
+    AIUndoTransaction(const AIUndoTransaction&) = delete;
+    AIUndoTransaction& operator=(const AIUndoTransaction&) = delete;
+
+private:
+    UndoManager* m_mgr;
+    bool m_committed;
+};
