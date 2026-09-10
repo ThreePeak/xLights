@@ -46,6 +46,7 @@ struct ModelControllerBindingProposal {
     uint32_t startChannel{1};
     uint32_t endChannel{1500};
     uint32_t pixelCount{500};
+    uint32_t channelCount{1500};
     std::string colorOrder{"RGB"};
     bool isCheckedForApplication{true};
     std::string rationale;
