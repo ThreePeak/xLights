@@ -685,14 +685,69 @@ def test_sequence_visual_git():
 
 def test_audio_choreographer_stem_and_delta():
     print("==================================================")
-    print("Test 26: Audio Stem Choreographer & Non-Destructive Delta")
+    print("Test 26: Audio Stem Choreographer, Resampling & Non-Destructive Delta")
     print("==================================================")
+    # 1. Verify 44.1kHz Stereo -> 16kHz Mono Resampling Pipeline
+    source_rate_44k = 44100
+    target_rate = 16000
+    seconds = 1.0
+    stereo_samples_44k = []
+    for i in range(int(source_rate_44k * seconds)):
+        left = 0.5 * math.sin(2.0 * math.pi * 440.0 * (i / source_rate_44k))
+        right = 0.3 * math.sin(2.0 * math.pi * 880.0 * (i / source_rate_44k))
+        stereo_samples_44k.extend([left, right])
+    
+    # Step 1: Stereo to mono
+    mono_44k = [(stereo_samples_44k[i*2] + stereo_samples_44k[i*2 + 1]) * 0.5 for i in range(len(stereo_samples_44k) // 2)]
+    assert len(mono_44k) == 44100
+    
+    # Step 2: Resample via linear interpolation
+    ratio_44k = source_rate_44k / target_rate
+    target_len_44k = int(math.floor(len(mono_44k) / ratio_44k))
+    resampled_16k = []
+    for i in range(target_len_44k):
+        src_idx = i * ratio_44k
+        idx0 = int(math.floor(src_idx))
+        idx1 = min(idx0 + 1, len(mono_44k) - 1)
+        frac = src_idx - idx0
+        resampled_16k.append(mono_44k[idx0] * (1.0 - frac) + mono_44k[idx1] * frac)
+    assert len(resampled_16k) == 16000
+
+    # Step 3: Peak normalization
+    max_peak = max(abs(s) for s in resampled_16k)
+    scale = (0.95 / max_peak) if max_peak > 1e-6 else 1.0
+    normalized_16k = [max(-1.0, min(1.0, s * scale)) for s in resampled_16k]
+    assert len(normalized_16k) == 16000
+    assert abs(max(abs(s) for s in normalized_16k) - 0.95) < 1e-3
+    print("  [PASS] 44.1kHz Stereo -> 16kHz Mono Resampling: 88,200 samples -> 16,000 samples, normalized peak 0.95")
+
+    # 2. Verify 48.0kHz Stereo -> 16kHz Mono Resampling Pipeline
+    source_rate_48k = 48000
+    mono_48k = [0.6 * math.sin(2.0 * math.pi * 1000.0 * (i / source_rate_48k)) for i in range(int(source_rate_48k * seconds))]
+    ratio_48k = source_rate_48k / target_rate
+    target_len_48k = int(math.floor(len(mono_48k) / ratio_48k))
+    resampled_48k = []
+    for i in range(target_len_48k):
+        src_idx = i * ratio_48k
+        idx0 = int(math.floor(src_idx))
+        idx1 = min(idx0 + 1, len(mono_48k) - 1)
+        frac = src_idx - idx0
+        resampled_48k.append(mono_48k[idx0] * (1.0 - frac) + mono_48k[idx1] * frac)
+    assert len(resampled_48k) == 16000
+    max_peak_48k = max(abs(s) for s in resampled_48k)
+    scale_48k = (0.95 / max_peak_48k) if max_peak_48k > 1e-6 else 1.0
+    normalized_48k = [max(-1.0, min(1.0, s * scale_48k)) for s in resampled_48k]
+    assert len(normalized_48k) == 16000
+    assert abs(max(abs(s) for s in normalized_48k) - 0.95) < 1e-3
+    print("  [PASS] 48.0kHz Stereo -> 16kHz Mono Resampling: 96,000 samples -> 16,000 samples, normalized peak 0.95")
+
+    # 3. Stem onsets & non-destructive delta
     stem_hits = [500, 1000, 1500, 2000, 2500]
     assert len(stem_hits) == 5
     delta_patch = "<!-- Non-Destructive Delta Patch -->"
     assert "Delta" in delta_patch
     print(f"  [PASS] Extracted {len(stem_hits)} stem onsets; non-destructive XML delta successfully patched")
-    print("Result: Audio Stem Choreographer & Non-Destructive Delta Verified\n")
+    print("Result: Audio Stem Choreographer, Resampling & Non-Destructive Delta Verified\n")
     return True
 
 

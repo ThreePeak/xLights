@@ -103,6 +103,77 @@ int main() {
     assert(configRes.errorMessage == "Null AudioManager provided.");
     std::cout << " -> Test 6 (ProcessAudioStems with StemExtractionConfig): PASSED" << std::endl;
 
+    // Test 7: ResampleAndNormalize16kMono pipeline verification (44.1kHz / 48kHz stereo -> 16kHz mono)
+    {
+        // 7a: 44.1 kHz stereo (1.0 second = 44,100 frames = 88,200 samples)
+        std::vector<float> stereo44k1(44100 * 2);
+        for (size_t i = 0; i < 44100; ++i) {
+            float left = 0.5f * std::sin(2.0f * 3.14159f * 440.0f * (i / 44100.0f));
+            float right = 0.3f * std::sin(2.0f * 3.14159f * 880.0f * (i / 44100.0f));
+            stereo44k1[i * 2] = left;
+            stereo44k1[i * 2 + 1] = right;
+        }
+        auto resampled44k1 = xLights::AI::AudioStemExtractor::ResampleAndNormalize16kMono(stereo44k1, 44100, true);
+        assert(resampled44k1.size() == 16000);
+        float peak44k1 = 0.0f;
+        for (float s : resampled44k1) {
+            assert(!std::isnan(s) && !std::isinf(s));
+            assert(s >= -1.0f && s <= 1.0f);
+            if (std::abs(s) > peak44k1) peak44k1 = std::abs(s);
+        }
+        assert(peak44k1 >= 0.90f && peak44k1 <= 0.96f);
+        std::cout << " -> Test 7a (44.1kHz Stereo -> 16kHz Mono Resampling & Normalization): PASSED (16000 samples, peak=" << peak44k1 << ")" << std::endl;
+
+        // 7b: 48.0 kHz stereo (1.0 second = 48,000 frames = 96,000 samples)
+        std::vector<float> stereo48k(48000 * 2);
+        for (size_t i = 0; i < 48000; ++i) {
+            float left = 0.6f * std::sin(2.0f * 3.14159f * 1000.0f * (i / 48000.0f));
+            float right = 0.4f * std::sin(2.0f * 3.14159f * 500.0f * (i / 48000.0f));
+            stereo48k[i * 2] = left;
+            stereo48k[i * 2 + 1] = right;
+        }
+        auto resampled48k = xLights::AI::AudioStemExtractor::ResampleAndNormalize16kMono(stereo48k, 48000, true);
+        assert(resampled48k.size() == 16000);
+        float peak48k = 0.0f;
+        for (float s : resampled48k) {
+            assert(!std::isnan(s) && !std::isinf(s));
+            assert(s >= -1.0f && s <= 1.0f);
+            if (std::abs(s) > peak48k) peak48k = std::abs(s);
+        }
+        assert(peak48k >= 0.90f && peak48k <= 0.96f);
+        std::cout << " -> Test 7b (48.0kHz Stereo -> 16kHz Mono Resampling & Normalization): PASSED (16000 samples, peak=" << peak48k << ")" << std::endl;
+
+        // 7c: 16.0 kHz mono identity (16,000 samples)
+        std::vector<float> mono16k(16000);
+        for (size_t i = 0; i < 16000; ++i) {
+            mono16k[i] = 0.2f * std::sin(2.0f * 3.14159f * 440.0f * (i / 16000.0f));
+        }
+        auto resampled16k = xLights::AI::AudioStemExtractor::ResampleAndNormalize16kMono(mono16k, 16000, false);
+        assert(resampled16k.size() == 16000);
+        float peak16k = 0.0f;
+        for (float s : resampled16k) {
+            assert(!std::isnan(s) && !std::isinf(s));
+            assert(s >= -1.0f && s <= 1.0f);
+            if (std::abs(s) > peak16k) peak16k = std::abs(s);
+        }
+        assert(peak16k >= 0.90f && peak16k <= 0.96f);
+        std::cout << " -> Test 7c (16kHz Mono Identity Normalization): PASSED (16000 samples, peak=" << peak16k << ")" << std::endl;
+
+        // 7d: Edge cases: empty buffer, zero rate, silence
+        auto emptyRes = xLights::AI::AudioStemExtractor::ResampleAndNormalize16kMono({}, 44100, true);
+        assert(emptyRes.empty());
+        auto zeroRateRes = xLights::AI::AudioStemExtractor::ResampleAndNormalize16kMono(stereo44k1, 0, true);
+        assert(zeroRateRes.empty());
+
+        std::vector<float> silence(44100 * 2, 0.0f);
+        auto silenceRes = xLights::AI::AudioStemExtractor::ResampleAndNormalize16kMono(silence, 44100, true);
+        assert(silenceRes.size() == 16000);
+        for (float s : silenceRes) {
+            assert(s == 0.0f);
+        }
+        std::cout << " -> Test 7d (Edge cases: Empty, Zero SampleRate, Silence): PASSED" << std::endl;
+    }
+
     std::cout << "[Unit Test] ALL AUDIO STEM EXTRACTOR TESTS PASSED!" << std::endl;
     return 0;
 }
