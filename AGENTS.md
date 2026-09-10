@@ -20,4 +20,3 @@ Welcome to the **xLights Repository**. This workspace contains the core xLights 
 2. **Autonomous Execution:** Execute all development tasks, edits, and verifications with full permissions.
 3. **Diagnostics First:** Base diagnostic reports on `spdlog` logs and `pugixml` schema validation.
 4. **Verification Requirement:** Run `python AI/run_ai_subsystem_verification.py` after editing AI components.
-
