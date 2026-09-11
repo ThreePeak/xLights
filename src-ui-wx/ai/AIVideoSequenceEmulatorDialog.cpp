@@ -457,7 +457,8 @@ void AIVideoSequenceEmulatorDialog::OnInsertIntoActiveSeqClick(wxCommandEvent& W
         }
         if (!layer) continue;
 
-        Effect* eff = layer->AddEffect(0, cue.effectType, "", "", cue.startMs, cue.endMs, EFFECT_NOT_SELECTED, false);
+        std::string palette = "1=" + cue.primaryColor + ",2=" + cue.secondaryColor;
+        Effect* eff = layer->AddEffect(0, cue.effectType, cue.effectSettings, palette, cue.startMs, cue.endMs, EFFECT_NOT_SELECTED, false);
         if (eff) {
             undoMgr.CaptureAddedEffect(elem->GetModelName(), layer->GetIndex(), eff->GetID());
             applied++;
