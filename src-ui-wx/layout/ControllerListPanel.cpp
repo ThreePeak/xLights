@@ -16,6 +16,7 @@
 #include <wx/dnd.h>
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
+#include <wx/tokenzr.h>
 #include <wx/srchctrl.h>
 #include <wx/stopwatch.h>
 #include <wx/settings.h>
@@ -540,10 +541,19 @@ void ControllerListPanel::OnFullColumnsClick(wxCommandEvent& event) {
 bool ControllerListPanel::ControllerMatchesFilter(const Controller* controller) const {
     if (_controllerFilterCtrl == nullptr || _controllerFilterString.IsEmpty()) return true;
 
-    if (_controllerFilterRegexValid)
-        return _controllerFilterRegex.Matches(controller->GetName());
+    wxArrayString terms = wxStringTokenize(_controllerFilterString.Lower(), " \t");
+    if (terms.size() <= 1) {
+        if (_controllerFilterRegexValid)
+            return _controllerFilterRegex.Matches(controller->GetName());
+        return wxString(controller->GetName()).Lower().Contains(_controllerFilterString.Lower());
+    }
 
-    return wxString(controller->GetName()).Lower().Contains(_controllerFilterString.Lower());
+    const wxString name = wxString(controller->GetName()).Lower();
+    for (const auto& term : terms) {
+        if (!name.Contains(term))
+            return false;
+    }
+    return true;
 }
 
 void ControllerListPanel::OnSelectionChanged(wxTreeListEvent& event) {
@@ -1151,7 +1161,11 @@ wxWindow* ControllerListPanel::CreatePropertiesPanel(wxWindow* parent) {
         mnu.Append(ID_CTRL_MNU_ADDSERIAL, "Add DMX/LOR/DLight/Renard");
         
         mnu.Bind(wxEVT_MENU, &ControllerListPanel::OnPopup, this);
-        PopupMenu(&mnu);
+        // On the button, not on this panel: the properties panel is reparented
+        // into the layout tab's settings pane, so this panel's view can be
+        // detached from any window when the button is clicked, and AppKit
+        // raises "View is not in any window" out of the popup.
+        _btnAddController->PopupMenu(&mnu);
     });
     leftColSizer->Add(_btnAddController, 0, wxALL | wxALIGN_CENTER_HORIZONTAL, 2);
 

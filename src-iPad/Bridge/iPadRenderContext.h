@@ -37,6 +37,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <deque>
 #include <set>
@@ -47,6 +48,25 @@ class iPadRenderContext : public xLightsShowContext {
 public:
     iPadRenderContext();
     ~iPadRenderContext() override;
+
+    // Hold one of these for the whole of any operation that tears down, rebuilds
+    // or merges AllModels / AllObjects. It blocks new renders from starting for
+    // its entire lifetime and drains the ones already running, which a bare
+    // AbortRender cannot do - that only empties the queue at one instant, and
+    // every such operation runs for seconds afterwards with the main run loop
+    // free to start another. `ok()` is false when the gate or the drain timed
+    // out; the caller MUST NOT touch the managers in that case, because live
+    // render workers still hold Model* into them.
+    class ModelMutationScope {
+    public:
+        explicit ModelMutationScope(iPadRenderContext& ctx, int maxWaitMs = 5000);
+        bool ok() const { return _ok; }
+        ModelMutationScope(const ModelMutationScope&) = delete;
+        ModelMutationScope& operator=(const ModelMutationScope&) = delete;
+    private:
+        std::unique_lock<std::timed_mutex> _lock;
+        bool _ok = false;
+    };
 
     // Show folder management
     bool LoadShowFolder(const std::string& showDir);
@@ -83,8 +103,10 @@ public:
     // are provided by the base (xLightsShowContext).
     // Copy `file` into `<showDir>/<subdirectory>`, returning the final
     // absolute path. Appends `_N` on name collision unless `reuse` and
-    // the existing file's contents already match. Empty string on
-    // failure (no show folder configured, copy error).
+    // the existing file's contents already match. Returns `file`
+    // unchanged on failure (no show folder configured, copy error) —
+    // matches desktop's xLightsFrame::MoveToShowFolder contract, since
+    // callers store the result as the new reference.
     std::string MoveToShowFolder(const std::string& file,
                                   const std::string& subdirectory,
                                   bool reuse) override;
@@ -164,7 +186,14 @@ public:
     bool IsLowDefinitionRender() const override;
 
     // Rendering
-    void RenderAll();
+    // Returns true when a render pass was actually registered with the
+    // engine. Returns false when the pass was skipped — the model-mutation
+    // gate is held (a base-show merge or show-folder load is in flight), the
+    // previous render would not drain, or there is no valid sequence data.
+    // A false return means `_seqData` was NOT re-rendered, so callers must
+    // not treat the (immediately true) render-done flag as completion, and
+    // must never persist the buffer.
+    bool RenderAll();
     // TOOLS-1b: drop all on-disk render-cache items for this sequence
     // (mirrors desktop xLightsFrame::OnMenuItem_PurgeRenderCacheSelected).
     void PurgeRenderCache() { _renderCache.Purge(&_sequenceElements, true); }
@@ -774,6 +803,34 @@ private:
     // Show state (managers, sequence, render engine, directories, seq data,
     // modelsChangeCount) is inherited from xLightsShowContext. Only iPad-specific
     // members live here.
+
+    // Guards the invariant that no render may START while AllModels/AllObjects
+    // are being rebuilt or merged. AbortRender only drains the jobs already in
+    // flight; a show-folder load then spends seconds in ObtainAccessToURL,
+    // OutputManager::Load and the rgbeffects parse before AllModels.clear(),
+    // and the main run loop keeps ticking throughout - the 0.5s dirty poll
+    // (SequencerViewModel.startDirtyPolling -> RenderDependentModels) lands
+    // squarely in that window and starts a fresh render whose workers then
+    // resolve names out of the ModelManager being cleared. Take it through
+    // ModelMutationScope to mutate, and via try_lock in every render kickoff.
+    std::timed_mutex _modelMutationGate;
+    // Edit renders that lost the _modelMutationGate try_lock. Dropping one lost
+    // the edit's render outright: nothing marks the element dirty on that path,
+    // so SequenceElements::modelsToRender never sees it and the 0.5s
+    // RenderDependentModels sweep has nothing to retry. Deferred here instead,
+    // merged per model, and drained by the next sweep that wins the gate.
+    std::mutex _deferredEditRenderLock;
+    struct DeferredEditRender {
+        int startMs = 0;
+        int endMs = 0;
+        bool clear = false;
+    };
+    std::map<std::string, DeferredEditRender> _deferredEditRenders;
+    void DeferEditRender(const std::string& model, int startms, int endms, bool clear);
+    // SetModelColors' body with the gate already held by the caller — lets the
+    // pixel getters take it once for the colour refresh and their own walk
+    // (std::timed_mutex is not recursive).
+    void SetModelColorsUnlocked(int frameMS);
 
     // Read-only "From Base" preset library (the shared _effectPresetManager is
     // in the base).

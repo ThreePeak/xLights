@@ -29,6 +29,7 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace {
@@ -78,19 +79,27 @@ void addModelRanges(Model* m, std::map<uint32_t, uint32_t>& ranges) {
 
 // Build an FPP Commands ('FC') / FPP Effects ('FE') variable header from a
 // timing track. Port of the desktop / iPad BuildFppCommandHeader.
-FSEQFile::VariableHeader buildFppCommandHeader(TimingElement* te, int stepTime) {
+std::optional<FSEQFile::VariableHeader> buildFppCommandHeader(TimingElement* te, int stepTime) {
     std::map<std::string, std::vector<std::pair<uint32_t, uint32_t>>> commands;
     for (int l = 0; l < (int)te->GetEffectLayerCount(); ++l) {
         EffectLayer* layer = te->GetEffectLayer(l);
         if (!layer) continue;
         for (auto& eff : layer->GetAllEffects()) {
             if (!eff) continue;
-            commands[eff->GetEffectName()].push_back(
+            // An unlabelled timing mark names no command preset, so it cannot
+            // trigger anything on the player - don't write it out.
+            const std::string& name = eff->GetEffectName();
+            if (name.empty()) continue;
+            commands[name].push_back(
                 std::make_pair(eff->GetStartTimeMS(), eff->GetEndTimeMS()));
         }
     }
+    if (commands.empty()) {
+        // nothing on this track names a preset - no header worth writing
+        return std::nullopt;
+    }
 
-    int totalLen = 3; // 1 byte ver, 2 byte count
+    int totalLen = 5; // 1 byte ver, 4 byte count
     const std::string fppInstances; // null-terminated host list, currently empty
     totalLen += fppInstances.size() + 1;
     for (auto& a : commands) {
@@ -233,7 +242,9 @@ bool Write(const std::string& path,
             if (te == nullptr) continue;
             const std::string& sub = te->GetSubType();
             if (sub == "FPP Commands" || sub == "FPP Effects") {
-                file->addVariableHeader(buildFppCommandHeader(te, seqData.FrameTime()));
+                if (auto h = buildFppCommandHeader(te, seqData.FrameTime())) {
+                    file->addVariableHeader(*h);
+                }
             }
         }
     }

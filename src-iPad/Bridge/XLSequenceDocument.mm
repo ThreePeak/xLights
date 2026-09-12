@@ -55,7 +55,7 @@
 #include "media/Spectrogram.h"
 #include "media/AIModelStore.h"
 #include "media/StemSeparator.h"
-#include "../../dependencies/libxlsxwriter/third_party/minizip/unzip.h"
+#include <minizip/unzip.h>
 #include <xlsxwriter.h>
 #include <filesystem>
 #include "media/MediaCompatibility.h"
@@ -225,6 +225,10 @@ struct ShiftLayerSnap {
 - (void)recalcModelStartChannels;
 - (void)reworkAndRecalcStartChannels;
 - (void)recalcAndMarkControllersDirty;
+- (std::vector<std::pair<std::string, std::string>>)encodeStemFiles:(const StemOutput&)stems source:(AudioManager*)am;
+- (void)registerStemTracks:(const std::vector<std::pair<std::string, std::string>>&)encoded;
+- (BOOL)breakdownPhraseAtRow:(int)rowIndex atIndex:(int)phraseIndex createUndoStep:(BOOL)createUndoStep;
+- (BOOL)breakdownWordAtRow:(int)rowIndex atIndex:(int)wordIndex createUndoStep:(BOOL)createUndoStep;
 @end
 
 // Controller-property descriptor builders are defined further down
@@ -452,11 +456,14 @@ typedef void (^XLFPPAuthPromptHandler)(NSString* host,
 - (NSString*)moveFileToShowFolder:(NSString*)sourcePath
                         subdirectory:(NSString*)subdirectory {
     if (!_context || sourcePath.length == 0) return nil;
+    std::string src = std::string([sourcePath UTF8String]);
     std::string result = _context->MoveToShowFolder(
-        std::string([sourcePath UTF8String]),
+        src,
         std::string([(subdirectory ?: @"") UTF8String]),
         /*reuse*/ false);
-    if (result.empty()) return nil;
+    // MoveToShowFolder returns the original path (unchanged) on failure,
+    // matching desktop's contract, rather than an empty string.
+    if (result.empty() || result == src) return nil;
     return [NSString stringWithUTF8String:result.c_str()];
 }
 
@@ -466,11 +473,14 @@ typedef void (^XLFPPAuthPromptHandler)(NSString* host,
     if (!_context || sourcePath.length == 0 || mediaFolderPath.length == 0) {
         return nil;
     }
+    std::string src = std::string([sourcePath UTF8String]);
     std::string result = _context->CopyToMediaFolder(
-        std::string([sourcePath UTF8String]),
+        src,
         std::string([mediaFolderPath UTF8String]),
         std::string([(subdirectory ?: @"") UTF8String]));
-    if (result.empty()) return nil;
+    // CopyToMediaFolder returns the original path (unchanged) on failure,
+    // matching desktop's contract, rather than an empty string.
+    if (result.empty() || result == src) return nil;
     return [NSString stringWithUTF8String:result.c_str()];
 }
 
@@ -3239,6 +3249,13 @@ static int ConvertDataRowToEffects(EffectLayer* layer, xlColorVector& colors, in
 }
 
 - (BOOL)breakdownPhraseAtRow:(int)rowIndex atIndex:(int)phraseIndex {
+    return [self breakdownPhraseAtRow:rowIndex atIndex:phraseIndex createUndoStep:YES];
+}
+
+// `createUndoStep` is NO when a batch variant has already pushed one
+// marker for the whole selection — nested markers would leave the
+// Swift side's single undo registration only partly undoing.
+- (BOOL)breakdownPhraseAtRow:(int)rowIndex atIndex:(int)phraseIndex createUndoStep:(BOOL)createUndoStep {
     auto& se = _context->GetSequenceElements();
     auto* row = se.GetRowInformation(rowIndex);
     if (!row || !row->element) return NO;
@@ -3298,13 +3315,22 @@ static int ConvertDataRowToEffects(EffectLayer* layer, xlColorVector& colors, in
     if (!wordLayer) wordLayer = te->AddEffectLayer();
     if (!wordLayer) return NO;
 
+    auto& undoMgr = se.get_undo_mgr();
+    if (createUndoStep) undoMgr.CreateUndoStep();
+
     // Wipe existing word effects that fall inside this phrase's window
     // (and phonemes, if a layer 2 exists). DeleteEffect handles the
     // layer's internal index updates so a copied id list is enough.
     auto wipeOverlapping = [&](EffectLayer* layer) {
         if (!layer) return;
         auto effs = layer->GetAllEffectsByTime(phraseStart, phraseEnd);
-        for (auto* eff : effs) layer->DeleteEffect(eff->GetID());
+        for (auto* eff : effs) {
+            undoMgr.CaptureEffectToBeDeleted(layer->GetParentElement()->GetModelName(), layer->GetIndex(),
+                                             eff->GetEffectName(), eff->GetSettingsAsString(), eff->GetPaletteAsString(),
+                                             eff->GetStartTimeMS(), eff->GetEndTimeMS(),
+                                             eff->GetSelected(), eff->GetProtected());
+            layer->DeleteEffect(eff->GetID());
+        }
     };
     wipeOverlapping(wordLayer);
     if (te->GetEffectLayerCount() > 2) wipeOverlapping(te->GetEffectLayer(2));
@@ -3319,8 +3345,12 @@ static int ConvertDataRowToEffects(EffectLayer* layer, xlColorVector& colors, in
             curEnd = phraseEnd;
         }
         if (curEnd > curStart) {
-            wordLayer->AddEffect(0, words[w], "", "",
-                                  curStart, curEnd, 0, false);
+            Effect* ef = wordLayer->AddEffect(0, words[w], "", "",
+                                               curStart, curEnd, 0, false);
+            if (ef) {
+                undoMgr.CaptureAddedEffect(wordLayer->GetParentElement()->GetModelName(),
+                                           wordLayer->GetIndex(), ef->GetID());
+            }
         }
         curStart = curEnd;
     }
@@ -3354,6 +3384,10 @@ static int ConvertDataRowToEffects(EffectLayer* layer, xlColorVector& colors, in
 // only phonemes inside this word's window are replaced, so the rest
 // of the track's breakdown survives.
 - (BOOL)breakdownWordAtRow:(int)rowIndex atIndex:(int)wordIndex {
+    return [self breakdownWordAtRow:rowIndex atIndex:wordIndex createUndoStep:YES];
+}
+
+- (BOOL)breakdownWordAtRow:(int)rowIndex atIndex:(int)wordIndex createUndoStep:(BOOL)createUndoStep {
     auto& se = _context->GetSequenceElements();
     auto* row = se.GetRowInformation(rowIndex);
     if (!row || !row->element) return NO;
@@ -3380,13 +3414,20 @@ static int ConvertDataRowToEffects(EffectLayer* layer, xlColorVector& colors, in
     for (auto&& eff : phonemeLayer->GetAllEffectsByTime(startMS, endMS)) {
         if (eff && eff->IsLocked()) return NO;
     }
+    auto& undoMgr = se.get_undo_mgr();
+    if (createUndoStep) undoMgr.CreateUndoStep();
+
     for (auto* eff : phonemeLayer->GetAllEffectsByTime(startMS, endMS)) {
+        undoMgr.CaptureEffectToBeDeleted(phonemeLayer->GetParentElement()->GetModelName(), phonemeLayer->GetIndex(),
+                                         eff->GetEffectName(), eff->GetSettingsAsString(), eff->GetPaletteAsString(),
+                                         eff->GetStartTimeMS(), eff->GetEndTimeMS(),
+                                         eff->GetSelected(), eff->GetProtected());
         phonemeLayer->DeleteEffect(eff->GetID());
     }
 
     BreakdownWord(phonemeLayer, startMS, endMS, word,
                    se.GetFrequency(), _context->GetPhonemeDictionary(),
-                   se.get_undo_mgr());
+                   undoMgr);
     te->SetCollapsed(false);
     se.PopulateRowInformation();
     return YES;
@@ -3403,9 +3444,12 @@ static int ConvertDataRowToEffects(EffectLayer* layer, xlColorVector& colors, in
     NSArray<NSNumber*>* ordered = [indexes sortedArrayUsingComparator:^(NSNumber* a, NSNumber* b) {
         return [b compare:a];
     }];
+    // One marker for the whole selection so the Swift side's single
+    // undo registration undoes the whole batch.
+    _context->GetSequenceElements().get_undo_mgr().CreateUndoStep();
     int done = 0;
     for (NSNumber* n in ordered) {
-        if ([self breakdownPhraseAtRow:rowIndex atIndex:n.intValue]) ++done;
+        if ([self breakdownPhraseAtRow:rowIndex atIndex:n.intValue createUndoStep:NO]) ++done;
     }
     return done;
 }
@@ -3415,9 +3459,10 @@ static int ConvertDataRowToEffects(EffectLayer* layer, xlColorVector& colors, in
     NSArray<NSNumber*>* ordered = [indexes sortedArrayUsingComparator:^(NSNumber* a, NSNumber* b) {
         return [b compare:a];
     }];
+    _context->GetSequenceElements().get_undo_mgr().CreateUndoStep();
     int done = 0;
     for (NSNumber* n in ordered) {
-        if ([self breakdownWordAtRow:rowIndex atIndex:n.intValue]) ++done;
+        if ([self breakdownWordAtRow:rowIndex atIndex:n.intValue createUndoStep:NO]) ++done;
     }
     return done;
 }
@@ -3445,12 +3490,19 @@ static int ConvertDataRowToEffects(EffectLayer* layer, xlColorVector& colors, in
     }
     EffectLayer* wordLayer = te->GetEffectLayer(1);
     if (!wordLayer) return NO;
+
+    // Marker goes after the layer swap, as on the desktop: the layer
+    // structure change isn't undoable, but everything BreakdownWord
+    // adds below is, and without a marker the next undo would walk
+    // back into unrelated steps.
+    auto& undoMgr = se.get_undo_mgr();
+    undoMgr.CreateUndoStep();
+
     EffectLayer* phonemeLayer = te->AddEffectLayer();
     if (!phonemeLayer) return NO;
 
     PhonemeDictionary& dict = _context->GetPhonemeDictionary();
     double freq = se.GetFrequency();
-    auto& undoMgr = se.get_undo_mgr();
     for (int i = 0; i < wordLayer->GetEffectCount(); i++) {
         Effect* effect = wordLayer->GetEffect(i);
         if (!effect) continue;
@@ -6579,29 +6631,44 @@ static NSDictionary* SubModelImportDataToDict(const XmlSerialize::SubModelImport
         }
     }
 
-    // Pass 2 — groups. Members that don't exist here are dropped from
-    // the membership list; a group left with none is skipped unless the
-    // caller asked to keep empty ones. An existing group of the same
-    // name is merged into rather than duplicated.
+    // Pass 2 — groups. A member neither present here nor part of this
+    // import is dropped from the membership list (a member group later
+    // in the document is kept — it will exist by the time the show is
+    // reloaded); a group that is empty in the source is skipped unless
+    // the caller asked to keep empty ones. An existing group of the
+    // same name is merged into rather than duplicated.
     if (pugi::xml_node groups = root.child("modelGroups")) {
         for (pugi::xml_node g = groups.first_child(); g; g = g.next_sibling()) {
             std::string name = g.attribute("name").as_string();
             if (name.empty() || wanted.find(name) == wanted.end()) continue;
 
-            std::vector<std::string> members;
-            for (const auto& s : Split(g.attribute("models").as_string(), ',')) {
-                std::string mem = Trim(s);
-                if (!mem.empty() && mm.GetModel(mem) != nullptr) members.push_back(mem);
-            }
-            if (members.empty() && !includeEmptyGroups) {
+            std::string const rawMembers = g.attribute("models").as_string();
+            if (rawMembers.find_first_not_of(" ,\t\r\n") == std::string::npos
+                && !includeEmptyGroups) {
                 [skipped addObject:[NSString stringWithUTF8String:name.c_str()]];
                 continue;
             }
 
+            std::vector<std::string> members;
+            for (const auto& s : Split(rawMembers, ',')) {
+                std::string mem = Trim(s);
+                if (mem.empty()) continue;
+                if (mm.GetModel(mem) == nullptr
+                    && wanted.find(mem.substr(0, mem.find('/'))) == wanted.end()) continue;
+                members.push_back(mem);
+            }
+
             Model* existing = mm.GetModel(name);
             if (existing == nullptr) {
+                std::string memberList;
+                for (const auto& mem : members) {
+                    if (!memberList.empty()) memberList += ",";
+                    memberList += mem;
+                }
                 g.remove_attribute("LayoutGroup");
                 g.append_attribute("LayoutGroup") = lg.c_str();
+                g.remove_attribute("models");
+                g.append_attribute("models") = memberList.c_str();
                 existing = mm.createAndAddModel(g, pw, ph);
                 if (existing != nullptr) {
                     ++groupCount;
@@ -12973,8 +13040,8 @@ static const char* kFadeOutKey = "T_TEXTCTRL_Fadeout";
 
 // MARK: - Rendering
 
-- (void)renderAll {
-    _context->RenderAll();
+- (BOOL)renderAll {
+    return _context->RenderAll() ? YES : NO;
 }
 
 - (BOOL)isRenderDone {
@@ -13397,9 +13464,9 @@ static const char* kFadeOutKey = "T_TEXTCTRL_Fadeout";
 - (NSArray<NSString*>*)stemModelCandidateRoots {
     NSMutableArray<NSString*>* out = [NSMutableArray array];
     NSString* show = [self showFolderPath];
-    if (show.length > 0) [out addObject:show];
+    if (show.length > 0 && ![out containsObject:show]) [out addObject:show];
     for (NSString* m in [self mediaFolderPaths]) {
-        if (m.length > 0) [out addObject:m];
+        if (m.length > 0 && ![out containsObject:m]) [out addObject:m];
     }
     return out;
 }
@@ -13611,15 +13678,116 @@ static std::string iPadLiftNestedStemModel(const std::string& rootDir) {
                                                          ^{ progress(pct); });
                                       }
                                   });
+        std::vector<std::pair<std::string, std::string>> encoded;
         if (ok) {
             am->SetStemData(
                 stems.drumsL, stems.drumsR,
                 stems.bassL, stems.bassR,
                 stems.otherL, stems.otherR,
                 stems.vocalsL, stems.vocalsR);
+            // The encode is the slow part and only writes files, so it stays
+            // here; registering the tracks mutates the sequence and must not.
+            encoded = [self encodeStemFiles:stems source:am];
         }
-        if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(ok ? YES : NO); });
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!encoded.empty()) {
+                [self registerStemTracks:encoded];
+            }
+            if (completion) completion(ok ? YES : NO);
+        });
     });
+}
+
+// Issue #6856: persist each non-empty stem as a standalone .m4a
+// alongside the track that was separated (same folder, same base
+// filename) and register it as an alternate audio track so it
+// survives closing the sequence and can be recalled without
+// re-running separation. Mirrors Waveform::SaveStemTracksAsAltTracks
+// on desktop. Named from the source track's own filename so tracks
+// from different sequences never collide (e.g. "MySong_Stem_Drums.m4a").
+//
+// Split in two: encodeStemFiles runs on the background queue set up by
+// runStemSeparationAtPath and only writes files; registerStemTracks runs on
+// the main queue, because adding or refreshing an alt track replaces the
+// AudioManager it wraps and rebuilds the alt-audio lookup that a render in
+// progress and the waveform are reading.
+- (std::vector<std::pair<std::string, std::string>>)encodeStemFiles:(const StemOutput&)stems source:(AudioManager*)am {
+    std::vector<std::pair<std::string, std::string>> encoded;
+    if (!_context || !am) return encoded;
+    SequenceFile* sf = _context->GetSequenceFile();
+    if (!sf) return encoded;
+
+    std::string showDir = _context->GetShowDirectory();
+    if (showDir.empty()) return encoded;
+
+    // Base the output name/location on whatever track was actually
+    // separated (the active waveform track — main or an alt track),
+    // not the sequence's own name, so files land next to the source
+    // audio using its filename.
+    std::filesystem::path sourcePath(am->FileName());
+    std::filesystem::path outDir = sourcePath.has_parent_path() ? sourcePath.parent_path() : std::filesystem::path(showDir);
+    std::string baseName = sourcePath.stem().string();
+    if (baseName.empty()) baseName = sf->GetName();
+    if (baseName.empty()) baseName = "Sequence";
+
+    ObtainAccessToURL(outDir.string(), /*enforceWritable=*/true);
+
+    struct StemFile {
+        const char* label;
+        const std::vector<float>* left;
+        const std::vector<float>* right;
+    };
+    const StemFile files[] = {
+        { "Drums",  &stems.drumsL,  &stems.drumsR },
+        { "Bass",   &stems.bassL,   &stems.bassR },
+        { "Other",  &stems.otherL,  &stems.otherR },
+        { "Vocals", &stems.vocalsL, &stems.vocalsR },
+    };
+
+    for (const auto& sfile : files) {
+        if (sfile.left->empty() || sfile.right->empty()) continue;
+
+        std::filesystem::path outPath = outDir / (baseName + "_Stem_" + sfile.label + ".m4a");
+
+        if (!AudioManager::EncodeAudio(*sfile.left, *sfile.right, (size_t)stems.sampleRate, outPath.string(), am)) {
+            NSLog(@"Stem separation: failed to save the %s stem to %s", sfile.label, outPath.string().c_str());
+            continue;
+        }
+        encoded.emplace_back(sfile.label, outPath.string());
+    }
+    return encoded;
+}
+
+- (void)registerStemTracks:(const std::vector<std::pair<std::string, std::string>>&)encoded {
+    if (!_context) return;
+    SequenceFile* sf = _context->GetSequenceFile();
+    if (!sf) return;
+    std::string showDir = _context->GetShowDirectory();
+    if (showDir.empty()) return;
+
+    // Aborted jobs mark their range dirty and are re-rendered afterwards, so
+    // nothing is lost; a render that will not stop is the one case where
+    // registering would pull an AudioManager out from under a live job.
+    if (!_context->AbortRender(5000)) {
+        NSLog(@"Stem separation: could not stop the in-progress render; the stem files were written but not registered as alternate tracks.");
+        return;
+    }
+
+    for (const auto& [label, path] : encoded) {
+        int existingIdx = -1;
+        for (int i = 0; i < sf->GetAltTrackCount(); i++) {
+            if (sf->GetAltTrack(i).path == path) {
+                existingIdx = i;
+                break;
+            }
+        }
+        if (existingIdx >= 0) {
+            sf->SetAltTrackPath(showDir, existingIdx, path);
+        } else {
+            sf->AddAltTrack(showDir, path, std::string("Stem - ") + label);
+        }
+        _context->GetSequenceElements().IncrementChangeCount(nullptr);
+    }
 }
 
 - (NSDictionary*)detectChords {
@@ -14381,11 +14549,11 @@ const char* canonicalSubdirForType(MediaType t) {
 
     // Copy the picked source into `<showDir>/<subdir>/<basename>`,
     // appending `_N` on collision. Returns the destination absolute
-    // path, empty on failure. `reuse=false` because the broken
-    // entry's file is missing — there's no matching-byte file to
-    // reuse anyway.
+    // path, or the original `srcStr` unchanged on failure. `reuse=false`
+    // because the broken entry's file is missing — there's no
+    // matching-byte file to reuse anyway.
     std::string absDest = _context->MoveToShowFolder(srcStr, subdir, /*reuse*/ false);
-    if (absDest.empty()) return nil;
+    if (absDest.empty() || absDest == srcStr) return nil;
 
     // Convert back to show-relative so the stored path stays
     // portable. `MakeRelativePath` falls through unchanged if the
@@ -14903,7 +15071,9 @@ int cleanupExternalMedia(iPadRenderContext& ctx, bool execute,
 
         ObtainAccessToURL(resolved, false);
         std::string absDest = ctx.MoveToShowFolder(resolved, subdir, /*reuse*/ true);
-        if (absDest.empty()) continue;
+        // MoveToShowFolder returns `resolved` unchanged (not empty) on
+        // failure, matching desktop's contract — don't record it as moved.
+        if (absDest.empty() || absDest == resolved) continue;
         std::string newStr = ctx.MakeRelativePath(absDest);
         if (newStr.empty()) newStr = absDest;
         if (newStr == stored) { moved++; continue; }
@@ -17722,6 +17892,20 @@ static NSArray<NSString*>* StdListToNSArray(const std::list<std::string>& list) 
         _context->RegenerateShowGuid();
     }
 
+    // ModelManager/ViewObjectManager::MergeFromBase delete and replace Model*
+    // in place, and this runs off the main actor (the auto path detaches, the
+    // Update-From-Base-Now button does not) with the render kickoffs still
+    // live — the same writer-vs-render race LoadShowFolder holds this scope
+    // for. Bail rather than merge under live workers.
+    iPadRenderContext::ModelMutationScope mutate(*_context);
+    if (!mutate.ok()) {
+        return @{ @"error": @"A render is still running. Try again in a moment.",
+                  @"needsReselect": @NO,
+                  @"controllersChanged": @NO,
+                  @"modelsChanged": @NO,
+                  @"objectsChanged": @NO };
+    }
+
     // Shared across the three passes so Yes-to-All carries from controllers → models → objects.
     bool acceptAll = false;
     bool rejectAll = false;
@@ -19054,9 +19238,16 @@ static UDControllerPort* GetUDPortForKind(UDController& cud,
     UDControllerPort* p = serial ? ud.GetControllerSerialPort(port)
                                   : ud.GetControllerPixelPort(port);
     if (!p) return out;
+    // A model that cascades across multiple strings on the same port is
+    // listed once per string by UDController::Rescan; dedupe so callers
+    // (e.g. move-all-to-port) don't process the same model twice, which
+    // would chain it after itself.
+    std::set<std::string> seen;
     for (auto* m : p->GetModels()) {
         if (m && m->GetModel()) {
-            [out addObject:[NSString stringWithUTF8String:m->GetModel()->GetName().c_str()]];
+            const std::string name = m->GetModel()->GetName();
+            if (!seen.insert(name).second) continue;
+            [out addObject:[NSString stringWithUTF8String:name.c_str()]];
         }
     }
     return out;
@@ -19096,6 +19287,23 @@ static UDControllerPort* GetUDPortForKind(UDController& cud,
                          fromPort:(int)fromPort
                            toPort:(int)toPort {
     if (fromPort == toPort) return 0;
+    if (!_context || !_context->HasModelManager() || controllerName.length == 0) return 0;
+
+    // Clamp the destination port to what the controller actually
+    // supports, matching desktop's wxNumberEntryDialog range
+    // (ControllerModelDialog.cpp CONTROLLER_MOVEMODELSTOPORT).
+    Controller* c = _context->GetOutputManager().GetController(controllerName.UTF8String);
+    if (!c) return 0;
+    if (ControllerCaps* caps = ControllerCaps::GetControllerConfig(c)) {
+        int maxPort = -1;
+        if ([kind isEqualToString:@"pixel"])              maxPort = caps->GetMaxPixelPort();
+        else if ([kind isEqualToString:@"serial"])        maxPort = caps->GetMaxSerialPort();
+        else if ([kind isEqualToString:@"pwm"])           maxPort = caps->GetMaxPWMPort();
+        else if ([kind isEqualToString:@"virtualMatrix"]) maxPort = caps->GetMaxVirtualMatrixPort();
+        else if ([kind isEqualToString:@"ledPanelMatrix"]) maxPort = caps->GetMaxLEDPanelMatrixPort();
+        if (maxPort > 0 && (toPort < 1 || toPort > maxPort)) return 0;
+    }
+
     NSArray<NSString*>* names = [self modelNamesOnController:controllerName
                                                          kind:kind port:fromPort];
     if (names.count == 0) return 0;
@@ -19108,6 +19316,11 @@ static UDControllerPort* GetUDPortForKind(UDController& cud,
     NSString* afterModel = existing.lastObject;
     int n = 0;
     for (NSString* name in names) {
+        // Defense in depth against modelNamesOnController ever handing
+        // back a cascade duplicate: chaining a model after itself
+        // produces an unresolvable ">Self" chain that RecalcStartChannels
+        // can't place, dropping the model off every port.
+        if ([name isEqualToString:afterModel]) continue;
         if ([self assignModelToController:name
                            controllerName:controllerName
                                      kind:kind
@@ -19870,7 +20083,9 @@ NSString* fppTypeString(FPP_TYPE t) {
         FPP* fpp = nullptr;
         std::string ip;
         std::string media;
-        int fseqType = 2;
+        int fseqVersion = 2;
+        FSEQFile::CompressionType compressionType = FSEQFile::CompressionType::zstd;
+        bool sparse = true;
         NSString* ipNS = nil;       // for progress routing
         bool prepared = false;
         bool finalized = false;
@@ -19907,9 +20122,13 @@ NSString* fppTypeString(FPP_TYPE t) {
         // Sparse costs a master player the channel ranges it needs to
         // drive its remotes.
         if (match->fppType == FPP_TYPE::ESPIXELSTICK) {
-            ctx.fseqType = 3;
+            ctx.fseqVersion = 2;
+            ctx.compressionType = FSEQFile::CompressionType::none;
+            ctx.sparse = true;
         } else {
-            ctx.fseqType = (match->mode == "master") ? 1 : 2;
+            ctx.fseqVersion = 2;
+            ctx.compressionType = FSEQFile::CompressionType::zstd;
+            ctx.sparse = (match->mode != "master");
         }
         ctxs.push_back(ctx);
     }
@@ -19952,7 +20171,7 @@ NSString* fppTypeString(FPP_TYPE t) {
     for (TargetCtx& c : ctxs) {
         if (cancelledFlag) break;
         bool prepFail = c.fpp->PrepareUploadSequence(seq.get(), fseq,
-                                                      c.media, c.fseqType);
+                                                      c.media, c.fseqVersion, c.compressionType, c.sparse);
         if (prepFail) {
             c.failed = true;
             c.message = "PrepareUploadSequence failed.";

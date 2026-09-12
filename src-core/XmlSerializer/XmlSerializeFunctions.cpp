@@ -67,10 +67,10 @@ void DeserializeThreePointScreenLocationAttributes(BaseObject* object, pugi::xml
     screenLoc.SetYShear(shear);
 }
 
-void DeserializePolyPointScreenLocationAttributes(BaseObject* object, pugi::xml_node node) {
+void DeserializePolyPointScreenLocationAttributes(BaseObject* object, pugi::xml_node node, int minPoints) {
     int num_points = node.attribute(XmlNodeKeys::NumPointsAttribute).as_int(2);
     PolyPointScreenLocation& screenLoc = dynamic_cast<PolyPointScreenLocation&>(object->GetBaseObjectScreenLocation());
-    screenLoc.SetNumPoints(num_points);
+    screenLoc.SetNumPoints(std::max(num_points, minPoints));
     screenLoc.SetDataFromString(node.attribute(XmlNodeKeys::PointDataAttribute).as_string("0.0, 0.0, 0.0, 0.0, 0.0, 0.0"));
     screenLoc.SetCurveDataFromString(node.attribute(XmlNodeKeys::cPointDataAttribute).as_string());
 }
@@ -287,7 +287,7 @@ std::optional<CustomModelImportData> LoadCustomModelFromXml(pugi::xml_node node)
     CustomModelImportData data;
 
     // Load basic attributes
-    data.name = node.attribute("name").as_string();
+    data.name = Model::SafeModelName(node.attribute("name").as_string());
     // Read new attribute names first, fall back to old parm names
     data.width = !node.attribute("CustomWidth").empty() ?
         node.attribute("CustomWidth").as_int(1) : node.attribute("parm1").as_int(1);

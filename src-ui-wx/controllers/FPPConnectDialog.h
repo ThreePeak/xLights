@@ -20,6 +20,7 @@
 #include <wx/treelist.h>
 #include <wx/dataview.h>
 #include "controllers/FPP.h"
+#include <tuple>
 
 class FPPUploadProgressDialog;
 class OutputManager;
@@ -32,6 +33,12 @@ class FPPConnectDialog: public wxDialog
     void SaveSettings(bool onlyInsts = false);
     void ApplySavedHostSettings();
     wxString Fixitup(wxString val);
+
+    // Shared close path for OnClose() and OnCancelButtonClick(): defers the
+    // close while an upload is in progress instead of tearing this dialog
+    // down out from under the nested Upload Progress modal. Returns true if
+    // the dialog was actually closed (EndDialog called), false if deferred.
+    bool RequestClose(int rc);
 
 	public:
 
@@ -77,19 +84,25 @@ class FPPConnectDialog: public wxDialog
 		static const wxWindowID ID_BUTTON_Upload;
 		//*)
 
-
-
-    
         std::list<FPP*> instances;
         OutputManager* _outputManager;
         std::string _targetIp;
         xLightsFrame* _frame = nullptr;
+
+        // Tracks whether the nested Upload Progress modal is currently running so
+        // OnClose() can avoid tearing this dialog down out from under it (which
+        // left the main frame permanently disabled with no visible dialog left
+        // to dismiss it).
+        bool _uploadInProgress = false;
+        bool _closeRequestedDuringUpload = false;
+        FPPUploadProgressDialog* _uploadProgressDialog = nullptr;
 
 	private:
 
 		//(*Handlers(FPPConnectDialog)
 		void OnButton_UploadClick(wxCommandEvent& event);
 		void OnClose(wxCloseEvent& event);
+		void OnCancelButtonClick(wxCommandEvent& event);
 		void SequenceListPopup(wxTreeListEvent& event);
 		void OnAddFPPButtonClick(wxCommandEvent& event);
         void OnFPPReDiscoverClick(wxCommandEvent& event);
@@ -122,7 +135,7 @@ class FPPConnectDialog: public wxDialog
         bool GetCheckValue(const std::string &col);
         std::string GetChoiceValue(const std::string &col);
         int GetChoiceValueIndex(const std::string &col);
-    
+
         void SetChoiceValueIndex(const std::string &col, int i);
         void SetCheckValue(const std::string &col, bool b);
 
@@ -132,12 +145,14 @@ class FPPConnectDialog: public wxDialog
 		void UpdateSeqCount();
         uint32_t GetSelectedSeqCount();
         void OnSequenceListToggled(wxDataViewEvent& event);
-    
+
         void doUpload(FPPUploadProgressDialog *prgs, std::vector<bool> doUpload);
         std::vector<int> SplitIP(const wxString& ip) const; 
 
         void SequenceSelector(const std::string regexKey);
         void SelectIPsWithSubnet();
+
+		[[nodiscard]] std::tuple<int, FSEQFile::CompressionType, bool> DecodeFSEQVersionAndCompression(const std::string& selection) const;
 
 		DECLARE_EVENT_TABLE()
 };

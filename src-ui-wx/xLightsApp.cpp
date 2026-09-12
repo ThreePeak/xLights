@@ -57,6 +57,8 @@ void SetHeadlessNoDock(); // ExternalHooksMacOSUI.mm — demote to background (n
 #include "xLightsApp.h"
 #include "xLightsVersion.h"
 #include "UtilFunctions.h"
+#include "graphics/xlGraphicsCapability.h"
+#include "shared/utils/xlDisplayInfo.h"
 #include "shared/utils/wxUtilities.h"
 #include "settings/XLightsConfigAdapter.h"
 #include "utils/TraceLog.h"
@@ -136,8 +138,9 @@ void SetHeadlessNoDock(); // ExternalHooksMacOSUI.mm — demote to background (n
     #pragma comment(lib, "xlsxwriter.lib")
     #pragma comment(lib, "wxwebp.lib")
 #endif
-#pragma comment(lib, "libcurl.dll.a")
+#pragma comment(lib, "libcurl.lib")
 #pragma comment(lib, "z.lib")
+#pragma comment(lib, "minizip.lib")
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "WS2_32.Lib")
 #pragma comment(lib, "comdlg32.lib")
@@ -161,12 +164,11 @@ void SetHeadlessNoDock(); // ExternalHooksMacOSUI.mm — demote to background (n
 #pragma comment(lib, "avfilter.lib")
 #pragma comment(lib, "avformat.lib")
 #pragma comment(lib, "avutil.lib")
-#pragma comment(lib, "postproc.lib")
 #pragma comment(lib, "swresample.lib")
 #pragma comment(lib, "SDL2.lib")
 #pragma comment(lib, "swscale.lib")
 #pragma comment(lib, "z.lib")
-#pragma comment(lib, "lua5.3.5-static.lib")
+#pragma comment(lib, "lua.lib")
 //#pragma comment(lib, "libwebp.lib")
 //#pragma comment(lib, "libwebpdecoder.lib")
 //#pragma comment(lib, "libwebpdemux.lib")
@@ -279,6 +281,7 @@ void InitialiseLogging(bool fromMain)
         spdlog::register_logger(opengl_logger);
         spdlog::register_logger(job_logger);
         spdlog::register_logger(work_logger);
+		spdlog::flush_every(std::chrono::seconds(5));
 
         // wxOperatingSystemId os = wxGetOsVersion();
         // std::string osStr = DecodeOS(os);
@@ -366,20 +369,18 @@ std::string DecodeOS(wxOperatingSystemId o)
 // (or a crash before this point on a fresh log) leaves the report with no record
 // of the machine at all -- measured at ~6% of reports, with the rolled log
 // almost never present to make up for it.
-static std::string _machineConfigSummary;
-
-const std::string& GetMachineConfigSummary()
+//
+// The store lives in src-core (AppendMachineConfig) because the GL and Vulkan
+// bring-up paths add to it after this has run, and one of those is core code.
+std::string GetMachineConfigSummary()
 {
-    return _machineConfigSummary;
+    return GetMachineConfigText();
 }
 
 void DumpConfig()
 {
-    std::string out;
-    auto emit = [&out](const std::string& line) {
-        spdlog::info(line);
-        out += line;
-        out += "\n";
+    auto emit = [](const std::string& line) {
+        AppendMachineConfig(line);
     };
 
     std::string versionStr = "Version: " + xlights_version_string;
@@ -444,13 +445,36 @@ void DumpConfig()
     // small screen are all recurring crash/layout classes that cannot be
     // reproduced without knowing the screen the user was on.
     unsigned displayCount = wxDisplay::GetCount();
+    // Refresh rate as well as geometry: a sequence asking for more frames per
+    // second than the display can present cannot preview at its own rate, and
+    // on macOS the playback timer is driven by CADisplayLink so it is hard
+    // limited by exactly this number. Detail beyond a single rate (a variable
+    // ProMotion panel) comes from GetDisplayRefreshInfo where it is available;
+    // wxDisplay's own value is the fallback.
+    std::vector<xlDisplayQuery> displayQuery;
+    for (unsigned i = 0; i < displayCount; ++i) {
+        wxRect g = wxDisplay(i).GetGeometry();
+        displayQuery.push_back({ wxDisplay(i).GetName().ToStdString(),
+                                 g.GetX(), g.GetY(), g.GetWidth(), g.GetHeight() });
+    }
+    std::vector<std::string> refreshInfo = GetDisplayRefreshInfo(displayQuery);
     emit(fmt::format("  Displays: {}", displayCount));
     for (unsigned i = 0; i < displayCount; ++i) {
         wxDisplay d(i);
         wxRect g = d.GetGeometry();
-        emit(fmt::format("    Display {}: {}x{} at {},{} scale {:.2f}{}",
+        std::string refresh;
+        if (i < refreshInfo.size() && !refreshInfo[i].empty()) {
+            refresh = " " + refreshInfo[i];
+        } else if (int hz = d.GetCurrentMode().GetRefresh(); hz > 0) {
+            refresh = fmt::format(" {}Hz", hz);
+        }
+        emit(fmt::format("    Display {}: {}x{} at {},{} scale {:.2f}{}{}",
                          i, g.GetWidth(), g.GetHeight(), g.GetX(), g.GetY(),
-                         d.GetScaleFactor(), d.IsPrimary() ? " primary" : ""));
+                         d.GetScaleFactor(), d.IsPrimary() ? " primary" : "", refresh));
+    }
+    std::string present = GetPresentCapabilityDescription();
+    if (!present.empty()) {
+        emit(fmt::format("  Present: {}", present));
     }
 
 #ifdef LINUX
@@ -461,7 +485,12 @@ void DumpConfig()
         + " " + std::string(l.Description.c_str()));
 #endif
 
-    _machineConfigSummary = out;
+    // An RDP session gets the same GDI Generic OpenGL 1.1 as a machine with no
+    // driver installed, but for a completely different reason and with a
+    // different answer for the user.
+    if (xlGraphicsCapability::Instance().IsRemoteSession()) {
+        emit("  Session: Remote Desktop");
+    }
 }
 
 #ifdef LINUX

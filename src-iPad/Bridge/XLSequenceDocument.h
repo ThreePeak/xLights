@@ -1756,8 +1756,8 @@ NS_ASSUME_NONNULL_BEGIN
 // is what desktop does rather than recreating the source's previews.
 // Models import first so the group pass can tell which members exist;
 // a name collision imports under a generated name instead of
-// overwriting, and a group whose members are all absent is skipped
-// unless `includeEmptyGroups`. Returns
+// overwriting, and a group that is empty in the source layout is
+// skipped unless `includeEmptyGroups`. Returns
 //   @"models" / @"groups" / @"viewpoints" — NSNumber counts
 //   @"renamed"            — [NSString] "old → new"
 //   @"skippedEmptyGroups" — [NSString]
@@ -2432,7 +2432,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) XLLightTest* lightTest;
 
 // Rendering
-- (void)renderAll;
+// YES if a render pass was actually registered with the engine. NO means the
+// pass was skipped (models being rebuilt by a base-show merge or a show-folder
+// load, the previous render would not drain, or no valid sequence data) and
+// nothing was rendered — the render-done flag will read YES immediately, so
+// callers must not treat that as completion or write the buffer out.
+- (BOOL)renderAll;
 - (BOOL)isRenderDone;
 
 // YES if the most recent render had at least one job aborted before

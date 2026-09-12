@@ -247,13 +247,14 @@ void xlCrashHandler::HandleCrash(bool const isFatalException, std::string const&
             // Protect against simultaneous crashes from different threads, but do
             // not wait on it indefinitely: if the holder is stuck mid-report,
             // blocking here just converts a second crash into a second hang.
-            std::unique_lock<std::timed_mutex> lock(m_crashMutex, std::defer_lock);
+            std::unique_lock<std::recursive_timed_mutex> lock(m_crashMutex, std::defer_lock);
             if (!lock.try_lock_for(std::chrono::seconds(30))) {
                 spdlog::critical("Another thread has been reporting a crash for over 30s - abandoning this report and aborting.");
                 spdlog::default_logger()->flush();
                 std::abort();
             }
             m_crashReportDone = false;
+            m_crashReportStarted = false;
 
             spdlog::critical("Crashed: " + msg);
 
@@ -397,13 +398,19 @@ void xlCrashHandler::HandleCrash(bool const isFatalException, std::string const&
                     // regardless so the process can finish dying.
                     topFrame->CallAfter(&xlFrame::CreateDebugReport, this);
                     if (!m_crashDoneSignal.wait_for(lock, std::chrono::seconds(60),
-                                                    [this] { return m_crashReportDone; })) {
+                                                    [this] { return m_crashReportStarted || m_crashReportDone; })) {
                         spdlog::critical("Timed out waiting for the main thread to build the crash report - it is most likely not processing events. Writing the report here instead.");
                         if (report.Process()) {
                             spdlog::critical("Crash report saved to {}.", report.GetCompressedFileName().ToStdString());
                         } else {
                             spdlog::critical("Crash report could not be written.");
                         }
+                    } else if (!m_crashReportDone) {
+                        // The main thread has the report and may be showing the
+                        // preview dialog, which the user can sit on for as long
+                        // as they like.  Returning now would abort the process
+                        // and destroy the report while it is still in use.
+                        m_crashDoneSignal.wait(lock, [this] { return m_crashReportDone; });
                     }
                 }
             }
@@ -442,7 +449,14 @@ void xlCrashHandler::HandleUnhandledException()
 
 void xlCrashHandler::ProcessCrashReport(SendReportOptions sendOption)
 {
-    
+    // Tell the crashing thread we have the report before anything that could
+    // throw or block, so its bounded wait turns into an unbounded one and it
+    // does not tear the report down while we are still using it.
+    {
+        std::lock_guard<std::recursive_timed_mutex> lg(m_crashMutex);
+        m_crashReportStarted = true;
+    }
+    m_crashDoneSignal.notify_all();
 
     // Whatever happens below - including an exception out of Process(), the
     // preview dialog or the upload - the crashing thread has to be released.  It
@@ -452,7 +466,7 @@ void xlCrashHandler::ProcessCrashReport(SendReportOptions sendOption)
         xlCrashHandler* self;
         ~ReleaseWaiter() {
             {
-                std::lock_guard<std::timed_mutex> lg(self->m_crashMutex);
+                std::lock_guard<std::recursive_timed_mutex> lg(self->m_crashMutex);
                 self->m_crashReportDone = true;
             }
             self->m_crashDoneSignal.notify_all();

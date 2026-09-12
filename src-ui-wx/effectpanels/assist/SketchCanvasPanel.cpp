@@ -670,6 +670,12 @@ void SketchCanvasPanel::UpdatePathFromHandles(long handleIndex)
     if (pathIndex < 0 || pathIndex >= (int)paths.size())
         return;
 
+    // The grab is recorded on mouse-down and used on mouse-up; anything that
+    // rebuilds the handles in between (selecting a different path, editing the
+    // sketch) leaves the index pointing past the end.
+    if (handleIndex < 0 || handleIndex >= (long)m_handles.size())
+        return;
+
     auto iter = paths.cbegin();
     std::advance(iter, pathIndex);
 

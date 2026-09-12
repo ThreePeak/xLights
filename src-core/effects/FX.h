@@ -29,6 +29,15 @@
 #ifndef WS2812FX_h
 #define WS2812FX_h
 
+// XLIGHTS_FX selects which members WS2812FX has and how many segments it
+// carries, so every translation unit including this header must agree on it or
+// the class silently gets a different layout in each. Defining it here rather
+// than relying on each .cpp to remember keeps that impossible. The existing
+// includers define it before this include, which leaves this a no-op for them.
+#ifndef XLIGHTS_FX
+#define XLIGHTS_FX
+#endif
+
 #ifndef XLIGHTS_FX
 #include "const.h"
 
@@ -3461,7 +3470,13 @@ class WS2812FX {
     CRGBPalette16 currentPalette;
     CRGBPalette16 targetPalette;
 
-    uint16_t _length, _virtualSegmentLength;
+    // Must be initialised: the constructor calls resetSegments(), which seeds
+    // _segments[0].stop from _length before SetBuffer() ever assigns it. Left
+    // uninitialised, a fresh WS2812FX picked up heap garbage as the segment
+    // bounds, and setSegment() then blanked that many pixels of the caller's
+    // render buffer - making the first frame of every SingleStrand FX effect
+    // depend on whatever happened to be in memory.
+    uint16_t _length = 0, _virtualSegmentLength = 0;
     uint16_t _rand16seed;
     uint8_t _brightness;
     uint16_t _usedSegmentData = 0;

@@ -11,6 +11,7 @@
 #include <atomic>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <system_error>
 #include <thread>
 
@@ -370,6 +371,7 @@ void xLightsFrame::CheckForAndCreateDefaultPerpective()
         wxString perspective = m_mgr->SavePerspective();
         pv.settings = perspective.ToStdString();
         pv.version = "2.0";
+        CapturePerspectiveViewSettings(pv);
         spdlog::debug("Saved perspective.");
         LogPerspective(perspective);
         _perspectives.push_back(pv);
@@ -2759,15 +2761,23 @@ bool xLightsFrame::TimerRgbSeq(long msec)
 {
     //
 
-    // check if there are models that depend on timing tracks or similar that need to be rendered
+    // Models that depend on timing tracks or similar need re-rendering. Ask for
+    // it, never wait for it. RenderEffectForModel does not block on the render
+    // itself - the jobs go to the pool with a completion callback - but the
+    // setup before the dispatch is real work on the calling thread, and doing it
+    // here put it inside the frame budget, where overrunning costs the whole
+    // next tick (see xLightsTimer::DoSendTimer). The preview is what this app is
+    // for, so nothing on the drawing path waits for a render.
+    //
+    // GetElementsToRender clears the dirty set under its lock, so posting cannot
+    // re-fire the same model or pile up; the frame that follows simply draws the
+    // data it already has, one frame stale, until the render lands.
     std::vector<Element *> elsToRender;
     if (_sequenceElements.GetElementsToRender(elsToRender)) {
         for (const auto& it : elsToRender) {
             int ss, es;
             it->GetDirtyRange(ss, es);
-            if (!_suspendRender) {
-                RenderEffectForModel(it->GetModelName(), ss, es);
-            }
+            RequestRenderForModel(it->GetModelName(), ss, es);
         }
     }
 
@@ -3340,9 +3350,45 @@ void xLightsFrame::DoForceSequencerRefresh()
     ResizeMainSequencer();
 }
 
+void xLightsFrame::CapturePerspectiveViewSettings(Perspective& p) const
+{
+    p.gridSpacing = mGridSpacing;
+    p.iconSize = mIconSize;
+}
+
+void xLightsFrame::ViewSizePreferencesChanged()
+{
+    mGridSpacingPreference = mGridSpacing;
+    mIconSizePreference = mIconSize;
+
+    if (mCurrentPerpective != nullptr) {
+        CapturePerspectiveViewSettings(*mCurrentPerpective);
+        MarkRgbEffectsChanged();
+    }
+}
+
+void xLightsFrame::ApplyPerspectiveViewSettings(const Perspective& p)
+{
+    static const std::set<int> validGridSpacing = { 12, 16, 24, 32, 48 };
+    static const std::set<int> validIconSize = { 16, 24, 32, 48 };
+
+    bool changed = false;
+    if (p.gridSpacing != mGridSpacing && validGridSpacing.contains(p.gridSpacing)) {
+        SetGridSpacing(p.gridSpacing);
+        changed = true;
+    }
+    if (p.iconSize != mIconSize && validIconSize.contains(p.iconSize)) {
+        SetToolIconSize(p.iconSize);
+        changed = true;
+    }
+    if (changed) {
+        ResizeMainSequencer();
+    }
+}
+
 void xLightsFrame::DoLoadPerspective(Perspective* perspective)
 {
-    
+
     if (perspective == nullptr) {
         spdlog::warn("xLightsFrame::LoadPerspective Null perspective.");
         return;
@@ -3360,6 +3406,7 @@ void xLightsFrame::DoLoadPerspective(Perspective* perspective)
         settings = m_mgr->SavePerspective();
         perspective->settings = settings.ToStdString();
         perspective->version = "2.0";
+        CapturePerspectiveViewSettings(*perspective);
         spdlog::debug("Saved perspective.");
         LogPerspective(settings);
     }
@@ -3393,6 +3440,7 @@ void xLightsFrame::DoLoadPerspective(Perspective* perspective)
         SyncFloatingPanePositions();
         wxString p = m_mgr->SavePerspective();
         perspective->settings = p.ToStdString();
+        CapturePerspectiveViewSettings(*perspective);
         spdlog::debug("Saved perspective.");
         LogPerspective(p);
     } else {
@@ -3400,6 +3448,8 @@ void xLightsFrame::DoLoadPerspective(Perspective* perspective)
         _housePreviewPanel->Refresh(false);
         m_mgr->Update();
     }
+
+    ApplyPerspectiveViewSettings(*perspective);
 
     // After a perspective load creates a floating House Preview / Model Preview
     // frame, the embedded Metal canvas comes up gray until the user manually
@@ -3482,6 +3532,7 @@ void xLightsFrame::OnMenuItemViewSavePerspectiveSelected(wxCommandEvent& event)
             wxString p = m_mgr->SavePerspective();
             mCurrentPerpective->settings = p.ToStdString();
             mCurrentPerpective->version = "2.0";
+            CapturePerspectiveViewSettings(*mCurrentPerpective);
             spdlog::debug("Saved perspective.");
             LogPerspective(p);
             SaveEffectsFile();
@@ -4340,7 +4391,7 @@ EffectPreset* xLightsFrame::CreateEffectPreset(EffectPresetGroup* parent, const 
 void xLightsFrame::UpdateEffectPreset(EffectPreset* preset)
 {
     wxString copy_data;
-    mainSequencer->GetSelectedEffectsData(copy_data);
+    mainSequencer->GetSelectedEffectsData(copy_data, false, true);
     _effectPresetManager.UpdatePresetSettings(preset,
                                               copy_data.ToStdString(),
                                               xlights_version_string);
@@ -4495,15 +4546,7 @@ void xLightsFrame::DoPromoteEffects(ModelElement* element)
 
 void xLightsFrame::OnAuiToolBarItemShowHideEffects(wxCommandEvent& event)
 {
-    InitSequencer();
-    bool visible = m_mgr->GetPane("EffectDropper").IsShown();
-    if (visible) {
-        m_mgr->GetPane("EffectDropper").Hide();
-    } else {
-        m_mgr->GetPane("EffectDropper").Show();
-    }
-    m_mgr->Update();
-    UpdateViewMenu();
+    TogglePaneVisibility("EffectDropper", true);
 }
 
 void xLightsFrame::UpdateSequenceVideoPanel(const wxString& path)

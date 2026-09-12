@@ -28,6 +28,8 @@ class wxMouseEvent;
 class wxCommandEvent;
 class OutputManager;
 
+class SeqScanProgress;
+
 class BatchRenderDialog: public wxDialog
 {
 	public:
@@ -53,7 +55,7 @@ class BatchRenderDialog: public wxDialog
         void OnPopupCommand(wxCommandEvent &event);
     
         [[nodiscard]] wxArrayString GetFileList() const;
-        void GetSeqList(const wxString& folder, wxProgressDialog* prgs = nullptr);
+        void GetSeqList(const wxString& folder, SeqScanProgress* prgs = nullptr);
         void GetFolderList(const wxString& folder) const;
         [[nodiscard]] bool isFileInFolder(const wxString& file) const;
 

@@ -26,7 +26,9 @@
 #include "effects/EffectManager.h"
 #include "effects/EffectPresetManager.h"
 
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 
 // Concrete, wx-free owner of a loaded xLights "show": the model / output /
@@ -51,7 +53,7 @@ public:
         AllObjects(static_cast<RenderContext*>(this)),
         jobPool("RenderPool"),
         _sequenceElements(static_cast<RenderContext*>(this)) {}
-    ~xLightsShowContext() override = default;
+    ~xLightsShowContext() override;
 
     // The render engine (and other managers) hold a back-reference to this
     // context, so it must never be copied or moved.
@@ -164,10 +166,11 @@ public:
     bool IsInShowOrMediaFolder(const std::string& file) const override;
     std::string MakeRelativePath(const std::string& file) const override;
     // No-op by default (headless can't move assets into the show); the iPad and
-    // desktop override with real copies.
-    std::string MoveToShowFolder(const std::string& /*file*/,
+    // desktop override with real copies. Hands back the original path, as the
+    // overrides do on failure: callers store the result without checking it.
+    std::string MoveToShowFolder(const std::string& file,
                                  const std::string& /*subdirectory*/,
-                                 bool /*reuse*/) override { return ""; }
+                                 bool /*reuse*/) override { return file; }
 
     bool IsSequenceLoaded() const override { return _sequenceFile && _sequenceFile->IsOpen(); }
     AudioManager* GetCurrentMediaManager() const override {
@@ -189,10 +192,31 @@ public:
 
     // "Done" == no in-flight render jobs (must NOT key on _seqData validity —
     // CloseSequence clears it before the next open). Drains finished progress
-    // entries; safe only from the driver/main thread.
+    // entries; callable from more than one thread (the iPad polls it from the
+    // UI while AbortRender drains it from the render thread).
     bool IsRenderDone();
 
     // (Re)allocate _seqData when the sequence shape (frames/channels/frameTime)
     // changes, aborting any in-flight render first to avoid a use-after-free.
     void EnsureSequenceDataSized();
+
+    // The only safe way to read the render progress list from a thread that is
+    // not the one driving the render. IsRenderDone() erases completed entries
+    // and deletes them (and their RenderJobs) under _renderProgressDrainLock
+    // from whichever thread requested the abort, so an unlocked walk on the UI
+    // thread reads freed RenderProgressInfo/RenderJob memory. `fn` runs with
+    // the lock held: it must not call back into IsRenderDone()/AbortRender().
+    void ForEachRenderProgress(const std::function<void(RenderProgressInfo*)>& fn) const;
+
+private:
+    // Serializes the drain in IsRenderDone(). Two threads reach it: the host's
+    // completion poll and AbortRender() on whichever thread asked for the
+    // abort. Unsynchronized, both could pull the same RenderProgressInfo off
+    // the list and delete it (and its RenderJobs) twice.
+    mutable std::mutex _renderProgressDrainLock;
+
+    // Entries pulled off the list but not yet cleaned up. Cleanup runs outside
+    // the lock (callbacks can re-enter), so "done" has to account for them or
+    // the other thread sees an empty list while jobs are still being torn down.
+    int _renderProgressDraining = 0;
 };

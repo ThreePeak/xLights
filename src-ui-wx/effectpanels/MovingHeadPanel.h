@@ -44,6 +44,8 @@
 #include <vector>
 
 class Model;
+class DmxMotor;
+class DmxMovingHeadComm;
 class MHPresetBitmapButton;
 class MHPathPresetBitmapButton;
 class MHDimmerPresetBitmapButton;
@@ -69,7 +71,7 @@ public:
     virtual bool BulkEditApplySetting(const std::string& rawId, const std::string& value, ValueCurve* vc, const std::string& vcid) override;
     std::list<Model*> GetActiveModels();
     void UpdateStatusPanel();
-    void CheckAllFixtures();
+    void CheckAllFixtures(bool force = false);
 
     //(*Declarations(MovingHeadPanel)
     BulkEditCheckBox* CheckBox_MHIgnorePan;
@@ -466,6 +468,9 @@ public:
     void SetSketchDef(const std::string& sketchDef);
     
     void NotifyPositionUpdated() override;
+    DmxMotor* GetReferencePanMotor() override;
+    DmxMotor* GetReferenceTiltMotor() override;
+    DmxMovingHeadComm* GetReferenceFixture();
     void NotifyColorUpdated() override;
     void NotifyDimmerUpdated() override;
     const Element* GetDimmerTimingTrack() const override;

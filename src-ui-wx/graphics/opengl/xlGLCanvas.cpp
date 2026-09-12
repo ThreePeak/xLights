@@ -16,6 +16,7 @@
 #include <log.h>
 
 #include "graphics/GLBackend.h"
+#include "graphics/xlGraphicsCapability.h"
 
 
 #if !defined(__WXMAC__)
@@ -589,6 +590,12 @@ void xlGLCanvas::CreateGLContext() {
             m_context->SetCurrent(*this);
             
             const GLubyte* str = glGetString(GL_VERSION);
+            const GLubyte* sharedRend = glGetString(GL_RENDERER);
+            const GLubyte* sharedVend = glGetString(GL_VENDOR);
+            // Into the machine-config banner, not just the log: a machine whose
+            // driver cannot give us a usable context is exactly the one whose
+            // crash report needs to say so, and the log may have rotated.
+            xlGraphicsCapability::Instance().RecordGL((const char*)str, (const char*)sharedRend, (const char*)sharedVend);
             if (str[0] <= '1') {
                 static bool hasWarned = false;
                 if (!hasWarned) {
@@ -603,6 +610,7 @@ void xlGLCanvas::CreateGLContext() {
             
             if (!xlOGL3GraphicsContext::InitializeSharedContext()) {
                 m_logger->error("Failed to initialise shared OpenGL context.");
+                xlGraphicsCapability::Instance().RecordGLInitFailed();
                 s_oglContextInitFailed = true;
             }
 
@@ -671,6 +679,14 @@ xlGraphicsContext* xlGLCanvas::PrepareContextForDrawing(const xlColor &bg) {
     }
     InitializeGLContext();
     SetCurrentGLContext();
+    // InitializeGLContext is what creates the shared context and therefore what
+    // sets s_oglContextInitFailed, so the check above is vacuous on the very
+    // first canvas to draw. Without this second check a session that fell back
+    // to the 1.1 software rasterizer (no ICD, RDP, ...) got a live context with
+    // every gl* entry point null and died calling glUseProgram.
+    if (s_oglContextInitFailed) {
+        return nullptr;
+    }
 
     float r = bg.red;
     float g = bg.green;

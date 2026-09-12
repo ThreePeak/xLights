@@ -17,6 +17,12 @@ set(XL_INC  ${CMAKE_SOURCE_DIR}/include)
 set(XL_DEPS ${CMAKE_SOURCE_DIR}/dependencies)
 set(XL_LIB  ${CMAKE_SOURCE_DIR}/lib)
 
+# The shared dependency bundle, staged by ci_scripts/fetch_dependencies.ps1.
+# Windows searches it ahead of lib/windows64, which now only holds things
+# fetched separately (KLightMapper) rather than committed third-party binaries.
+set(XL_BUNDLE ${CMAKE_SOURCE_DIR}/dependencies-bundle)
+set(XL_WIN_LIB_HINTS ${XL_BUNDLE}/lib ${XL_BUNDLE}/libdbg ${XL_LIB}/windows64)
+
 if(MSVC)
     add_compile_options("/utf-8")
     # /MP — compile multiple source files in parallel within a single project.
@@ -146,15 +152,34 @@ if(XLIGHTS_USE_VCPKG)
         endif()
         list(APPEND FFMPEG_LIBS ${${_FF_UPPER}_LIB})
     endforeach()
+elseif(UNIX AND NOT APPLE)
+    # Linux links the FFmpeg its distribution ships, so it must COMPILE against
+    # that same FFmpeg's headers. Searching the vendored ffmpeg-6 tree first
+    # meant headers and libraries agreed only by coincidence - fine while the
+    # distribution also shipped 6.x, wrong the moment it ships 7.x or 8.x.
+    #
+    # pkg-config reports the headers and libraries of one installation
+    # together, which is what makes them agree by construction. It also finds
+    # the multiarch include directory (/usr/include/<triple>/libavcodec on
+    # Debian and Ubuntu) that a plain /usr/include search never would.
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(FFMPEG REQUIRED
+        libavcodec libavformat libavutil libavfilter libswscale libswresample)
+    set(FFMPEG_INCLUDE_DIR ${FFMPEG_INCLUDE_DIRS})
+    set(FFMPEG_LIBS ${FFMPEG_LINK_LIBRARIES})
+    message(STATUS "FFmpeg: libavcodec ${FFMPEG_libavcodec_VERSION} (pkg-config)")
 else()
+    # Windows without vcpkg still builds against the FFmpeg tree vendored in
+    # this repository; it has no system FFmpeg to find. This is the last
+    # consumer of include/ffmpeg-6, which can go once Windows moves to the
+    # dependency bundle.
     find_path(FFMPEG_INCLUDE_DIR libavcodec/avcodec.h
-        HINTS ${XL_INC}/ffmpeg-6/include
-        PATHS /usr/include /usr/local/include
+        HINTS ${XL_BUNDLE}/include
         NO_DEFAULT_PATH)
     if(NOT FFMPEG_INCLUDE_DIR)
         find_path(FFMPEG_INCLUDE_DIR libavcodec/avcodec.h)
     endif()
-    set(_FF_HINTS ${XL_LIB}/windows64 /usr/lib /usr/local/lib)
+    set(_FF_HINTS ${XL_WIN_LIB_HINTS})
     foreach(_ff avcodec avformat avutil avfilter swscale swresample)
         string(TOUPPER ${_ff} _FF_UPPER)
         find_library(${_FF_UPPER}_LIB NAMES ${_ff} HINTS ${_FF_HINTS})
@@ -170,16 +195,16 @@ if(SDL2_FOUND)
     set(SDL2_LINK_TARGET SDL2::SDL2)
     set(SDL2_INC "")
 else()
-    # Manual fallback — vendored on Windows, system on Linux.
+    # Manual fallback — the dependency bundle on Windows, system on Linux.
     find_path(SDL2_INCLUDE_DIR SDL.h
-        HINTS ${XL_DEPS}/sdl/include
+        HINTS ${XL_BUNDLE}/include/SDL2
         PATHS /usr/include/SDL2 /usr/local/include/SDL2
         NO_DEFAULT_PATH)
     if(NOT SDL2_INCLUDE_DIR)
         find_path(SDL2_INCLUDE_DIR SDL.h PATH_SUFFIXES SDL2)
     endif()
     find_library(SDL2_LIB NAMES SDL2 SDL2-static
-        HINTS ${XL_LIB}/windows64
+        HINTS ${XL_WIN_LIB_HINTS}
         PATHS /usr/lib /usr/local/lib)
     set(SDL2_LINK_TARGET ${SDL2_LIB})
     set(SDL2_INC ${SDL2_INCLUDE_DIR})
@@ -195,16 +220,24 @@ if(TARGET zstd::libzstd_static OR TARGET zstd::libzstd_shared)
     endif()
     set(ZSTD_INC "")
 else()
+    # The vendored zstd.h describes the library Windows links from this repo.
+    # Hinting it on other platforms would shadow the system header while the
+    # system library is what actually gets linked.
+    if(WIN32)
+        set(_zstd_hints ${XL_BUNDLE}/include)
+    else()
+        set(_zstd_hints "")
+    endif()
     find_path(ZSTD_INCLUDE_DIR zstd.h
-        HINTS ${XL_INC}
+        HINTS ${_zstd_hints}
         PATHS /usr/include /usr/local/include)
     if(WIN32)
         # libzstd_static.lib is MinGW-built and contains ___chkstk_ms (MSVC-incompatible).
         # Prefer libzstd_static_VS.lib (MSVC CRT) and its debug variant.
         find_library(ZSTD_LIB_RELEASE NAMES libzstd_static_VS zstd
-            HINTS ${XL_LIB}/windows64)
+            HINTS ${XL_WIN_LIB_HINTS})
         find_library(ZSTD_LIB_DEBUG NAMES libzstdd_static_VS libzstd_static_VS zstd
-            HINTS ${XL_LIB}/windows64)
+            HINTS ${XL_WIN_LIB_HINTS})
         set(ZSTD_LINK_TARGET optimized ${ZSTD_LIB_RELEASE} debug ${ZSTD_LIB_DEBUG})
     else()
         find_library(ZSTD_LIB NAMES zstd libzstd_static libzstd_static_VS
@@ -222,16 +255,11 @@ if(CURL_FOUND)
     set(CURL_INC "")
 else()
     find_path(CURL_INCLUDE_DIR curl/curl.h
-        HINTS ${XL_INC}
+        HINTS ${XL_BUNDLE}/include
         PATHS /usr/include /usr/local/include)
     find_library(CURL_LIB NAMES libcurl_msvc curl libcurl curl_imp libcurl_a
-        HINTS ${XL_LIB}/windows64
+        HINTS ${XL_WIN_LIB_HINTS}
         PATHS /usr/lib /usr/local/lib)
-    # The vcxproj links via #pragma comment(lib,"libcurl.dll.a") which MSVC accepts.
-    # Fall back to the same vendored file when no .lib variant is found.
-    if(NOT CURL_LIB AND MSVC AND EXISTS "${XL_LIB}/windows64/libcurl.dll.a")
-        set(CURL_LIB "${XL_LIB}/windows64/libcurl.dll.a")
-    endif()
     if(CURL_LIB)
         set(CURL_LINK_TARGET ${CURL_LIB})
     else()
@@ -243,14 +271,24 @@ else()
     set(CURL_INC "${CURL_INCLUDE_DIR}")
 endif()
 
-# ─── Lua (compiled from vendored source) ────────────────────────────────────
-# Avoid relying on a pre-built .lib whose name varies across platforms/builds.
-# lua.c and luac.c define their own main() — exclude them.
-file(GLOB LUA_SRC ${XL_DEPS}/lua/src/*.c)
-list(REMOVE_ITEM LUA_SRC
-    ${XL_DEPS}/lua/src/lua.c
-    ${XL_DEPS}/lua/src/luac.c)
-set(LUA_INCLUDE_DIR ${XL_DEPS}/lua/src)
+# ─── Lua ────────────────────────────────────────────────────────────────────
+# The dependency bundle on Windows, the system package elsewhere - the same Lua
+# the MSBuild, Xcode and Code::Blocks builds already use. This build used to
+# compile a vendored copy instead, which is exactly how it could drift from
+# the version the other three link against.
+find_path(LUA_INCLUDE_DIR lua.h
+    HINTS ${XL_BUNDLE}/include
+    PATHS /usr/include /usr/local/include
+    PATH_SUFFIXES lua5.4 lua5.3 lua)
+find_library(LUA_LIB NAMES lua lua5.4 lua5.3
+    HINTS ${XL_WIN_LIB_HINTS}
+    PATHS /usr/lib /usr/local/lib)
+if(NOT LUA_INCLUDE_DIR OR NOT LUA_LIB)
+    message(FATAL_ERROR
+        "Lua not found. Install the Lua development package (liblua5.3-dev or "
+        "liblua5.4-dev), or stage the dependency bundle via "
+        "ci_scripts/fetch_dependencies.ps1 on Windows.")
+endif()
 
 # ─── Source file collection ─────────────────────────────────────────────────
 
@@ -268,6 +306,7 @@ file(GLOB_RECURSE SRC_CORE
     src-core/graphics/GLContextManager.cpp
     src-core/graphics/xlFontInfo.cpp
     src-core/graphics/xlGraphicsAccumulators.cpp
+    src-core/graphics/xlGraphicsCapability.cpp
     src-core/graphics/xlMesh.cpp
     src-core/lyrics/*.cpp
     src-core/media/AudioLoader.cpp
@@ -317,7 +356,9 @@ file(GLOB _ai_test_sources
 )
 list(REMOVE_ITEM SRC_CORE ${_ai_test_sources})
 if(WIN32)
-    list(APPEND SRC_CORE src-core/media/WindowsHardwareVideoReader.cpp)
+    list(APPEND SRC_CORE
+        src-core/media/WindowsHardwareVideoReader.cpp
+        src-core/media/LiveCameraCapture.cpp)
     list(REMOVE_ITEM SRC_CORE
         ${CMAKE_SOURCE_DIR}/src-core/outputs/serial_posix.cpp
         ${CMAKE_SOURCE_DIR}/src-core/outputs/serial_osx.cpp
@@ -506,6 +547,11 @@ file(GLOB_RECURSE SRC_UI
     src-ui-wx/support/*.cpp
 )
 
+if(WIN32)
+    file(GLOB SRC_UI_CUSTOM_MODEL_BUILDER src-ui-wx/custommodelbuilder/*.cpp)
+    list(APPEND SRC_UI ${SRC_UI_CUSTOM_MODEL_BUILDER})
+endif()
+
 if(XLIGHTS_VULKAN_ENABLED)
     list(APPEND SRC_UI src-ui-wx/graphics/vulkan/xlVulkanCanvas.cpp)
     if(UNIX AND NOT APPLE)
@@ -559,10 +605,6 @@ set(SRC_DEPS
     dependencies/wxJSON/jsonval.cpp
     dependencies/wxJSON/jsonwriter.cpp
     dependencies/wxLED/wxLED.cpp
-    dependencies/libxlsxwriter/third_party/minizip/ioapi.c
-    dependencies/libxlsxwriter/third_party/minizip/unzip.c
-    dependencies/libxlsxwriter/third_party/minizip/zip.c
-    $<$<BOOL:${WIN32}>:${CMAKE_SOURCE_DIR}/dependencies/libxlsxwriter/third_party/minizip/iowin32.c>
 )
 
 # ─── Executable ─────────────────────────────────────────────────────────────
@@ -575,7 +617,6 @@ add_executable(xLights WIN32 MACOSX_BUNDLE
     ${SRC_EFFECTS}
     ${SRC_UI}
     ${SRC_DEPS}
-    ${LUA_SRC}
     ${WIN32_RC}
 )
 
@@ -589,7 +630,7 @@ endif()
 # in a matching folder hierarchy in the VS Solution Explorer.
 source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${SRC_CORE} ${SRC_EFFECTS})
 source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${SRC_UI})
-source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${SRC_DEPS} ${LUA_SRC})
+source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${SRC_DEPS})
 
 # ─── Include directories ────────────────────────────────────────────────────
 target_include_directories(xLights PRIVATE
@@ -600,14 +641,14 @@ target_include_directories(xLights PRIVATE
 
     ${XL_DEPS}
     ${XL_DEPS}/spdlog/include
-    ${XL_DEPS}/lua/src
     ${XL_DEPS}/pugixml/src
     ${XL_DEPS}/midifile/include
-    ${XL_DEPS}/liquidfun/liquidfun/Box2D
-    ${XL_DEPS}/libxlsxwriter/include
+    # Windows takes Box2D from the bundle include added below; Linux builds
+    # liquidfun itself and still needs the submodule headers.
+    $<$<NOT:$<BOOL:${WIN32}>>:${XL_DEPS}/liquidfun/liquidfun/Box2D>
     ${XL_DEPS}/pybind11/include
     ${XL_INC}
-    ${XL_INC}/zlib
+    $<$<BOOL:${WIN32}>:${XL_BUNDLE}/include>
     ${XL_INC}/sol2-3.5.0
     ${FFMPEG_INCLUDE_DIR}
     ${LUA_INCLUDE_DIR}
@@ -666,12 +707,11 @@ if(XLIGHTS_VULKAN_ENABLED)
                     target_link_libraries(xLights PRIVATE ${GTK3_LIBRARIES})
                 endif()
             endif()
-            # glslang from the vendored static build's install prefix (produced by the
-            # Makefile `glslang` target).  Only-if-found so the lean build
-            # (ENABLE_OPT=OFF, no SPIRV-Tools) links cleanly.
-            target_include_directories(xLights PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/glslang-build/install/include)
-            foreach(_gl glslang-default-resource-limits SPIRV glslang MachineIndependent GenericCodeGen OSDependent)
-                find_library(GLSLANG_${_gl}_LIB NAMES ${_gl} HINTS ${CMAKE_SOURCE_DIR}/dependencies/glslang-build/install/lib)
+            # glslang from the distro (glslang-dev, which pulls in spirv-tools:
+            # the packaged glslang is built with the optimizer enabled, so
+            # libglslang.a has unresolved spvtools refs without it).
+            foreach(_gl glslang-default-resource-limits SPIRV glslang MachineIndependent GenericCodeGen OSDependent SPIRV-Tools-opt SPIRV-Tools)
+                find_library(GLSLANG_${_gl}_LIB NAMES ${_gl})
                 if(GLSLANG_${_gl}_LIB)
                     target_link_libraries(xLights PRIVATE ${GLSLANG_${_gl}_LIB})
                 endif()
@@ -721,7 +761,7 @@ if(NOT XLIGHTS_USE_VCPKG)
     # zlibwapi.lib ships without its companion gvmat64.obj / inffas8664.obj
     # ASM objects and causes LNK2001 on x64 MSVC — keep it as last resort.
     find_library(ZLIB_LIB NAMES z zlib zlibstatic zlibwapi
-        HINTS ${XL_LIB}/windows64 /usr/lib /usr/local/lib)
+        HINTS ${XL_WIN_LIB_HINTS} /usr/lib /usr/local/lib)
     if(ZLIB_LIB)
         set(ZLIB_LINK_TARGET ${ZLIB_LIB})
     else()
@@ -749,8 +789,8 @@ target_link_libraries(xLights PRIVATE
     ${SDL2_LINK_TARGET}
     ${ZSTD_LINK_TARGET}
     ${ZLIB_LINK_TARGET}
+    ${LUA_LIB}
 )
-# Lua is compiled from source (LUA_SRC) — no pre-built lib needed.
 # curl is optional: MSVC-compatible .lib may not be present in the vendored tree.
 if(CURL_LINK_TARGET)
     target_link_libraries(xLights PRIVATE ${CURL_LINK_TARGET})
@@ -767,14 +807,14 @@ else()
     # Manual fallback — vendored on Windows, system on Linux.
     if(WIN32)
         find_library(WEBP_LIB NAMES libwebp webp
-            HINTS ${XL_LIB}/windows64
+            HINTS ${XL_WIN_LIB_HINTS}
             PATHS /usr/lib /usr/local/lib
             NO_DEFAULT_PATH)
         if(NOT WEBP_LIB)
             find_library(WEBP_LIB NAMES libwebp webp)
         endif()
         find_library(WEBPDEMUX_LIB NAMES libwebpdemux webpdemux
-            HINTS ${XL_LIB}/windows64
+            HINTS ${XL_WIN_LIB_HINTS}
             PATHS /usr/lib /usr/local/lib
             NO_DEFAULT_PATH)
         if(NOT WEBPDEMUX_LIB)
@@ -805,7 +845,8 @@ if(WIN32)
     target_link_libraries(xLights PRIVATE glu32)
 elseif(UNIX AND NOT APPLE)
     # EGL is the Wayland pbuffer fallback in GLContextManager (GLX handles X11).
-    target_link_libraries(xLights PRIVATE GL GLU EGL)
+    # Xrandr is the per-display refresh/VRR probe in xlDisplayInfo.
+    target_link_libraries(xLights PRIVATE GL GLU EGL Xrandr)
 endif()
 
 # vcpkg FFmpeg ships avfilter with vsrc_gfxcapture_winrt compiled against the
@@ -819,21 +860,29 @@ if(MSVC AND XLIGHTS_USE_VCPKG)
     )
 endif()
 
-# libxlsxwriter — no cmake config package; find_library works for both vcpkg and vendored.
-find_library(XLSXWRITER_LIB NAMES xlsxwriter xlsxwriterd
-    HINTS ${XL_LIB}/windows64 ${XL_DEPS}/libxlsxwriter ${XL_DEPS}/libxlsxwriter/lib)
+# libxlsxwriter and minizip - no cmake config package, so find_library.  Both
+# come from the dependency bundle on Windows/macOS and from the distro
+# (libxlsxwriter-dev / libminizip-dev) on Linux.
+find_library(XLSXWRITER_LIB NAMES xlsxwriter xlsxwriterd HINTS ${XL_WIN_LIB_HINTS})
 if(XLSXWRITER_LIB)
     target_link_libraries(xLights PRIVATE ${XLSXWRITER_LIB})
 elseif(XLIGHTS_USE_VCPKG)
     message(FATAL_ERROR "XLIGHTS_USE_VCPKG=ON but libxlsxwriter not found. Run: vcpkg install libxlsxwriter")
 endif()
 
+find_library(MINIZIP_LIB NAMES minizip HINTS ${XL_WIN_LIB_HINTS})
+if(MINIZIP_LIB)
+    target_link_libraries(xLights PRIVATE ${MINIZIP_LIB})
+else()
+    message(FATAL_ERROR "minizip not found (Linux: apt install libminizip-dev)")
+endif()
+
 # LiquidFun (not in vcpkg — always use vendored)
 if(WIN32)
     find_library(LIQUIDFUN_LIB_RELEASE NAMES liquidfun
-        HINTS ${XL_LIB}/windows64 ${XL_DEPS}/liquidfun)
+        HINTS ${XL_WIN_LIB_HINTS} ${XL_DEPS}/liquidfun)
     find_library(LIQUIDFUN_LIB_DEBUG NAMES liquidfund liquidfun
-        HINTS ${XL_LIB}/windows64 ${XL_DEPS}/liquidfun)
+        HINTS ${XL_WIN_LIB_HINTS} ${XL_DEPS}/liquidfun)
     if(LIQUIDFUN_LIB_RELEASE)
         target_link_libraries(xLights PRIVATE
             optimized ${LIQUIDFUN_LIB_RELEASE}
@@ -851,7 +900,7 @@ if(WIN32 OR (UNIX AND NOT APPLE))
     if(WIN32)
         set(KLM_FETCH powershell -NoProfile -ExecutionPolicy Bypass
             -File "${CMAKE_SOURCE_DIR}/ci_scripts/fetch_dependencies.ps1")
-        set(KLM_LIB_HINTS ${XL_LIB}/windows64)
+        set(KLM_LIB_HINTS ${XL_WIN_LIB_HINTS})
     else()
         set(KLM_FETCH bash "${CMAKE_SOURCE_DIR}/ci_scripts/fetch_klightmapper.sh")
         set(KLM_LIB_HINTS ${XL_LIB}/linux)
@@ -889,8 +938,8 @@ if(WIN32)
                                           mfuuid propsys wmcodecdspuuid
                                           iphlpapi)
     if(NOT XLIGHTS_USE_VCPKG)
-        # vendored pre-built libs (FFmpeg, SDL2, etc.) + lua pragma stubs
-        target_link_directories(xLights PRIVATE ${XL_LIB}/windows64 ${XL_DEPS}/lua/src)
+        # bundle import libraries named by #pragma comment(lib, ...)
+        target_link_directories(xLights PRIVATE ${XL_WIN_LIB_HINTS})
     endif()
 elseif(UNIX AND NOT APPLE)
     target_link_libraries(xLights PRIVATE dl pthread)
@@ -946,7 +995,7 @@ option(XLIGHTS_USE_OPENVINO_GENAI "Enable OpenVINO GenAI: image gen + speech-to-
 if(XLIGHTS_USE_ORT)
     find_package(onnxruntime CONFIG
         HINTS
-            "${CMAKE_SOURCE_DIR}/include/microsoft.ml.onnxruntime.directml.1.19.2"
+            "${CMAKE_SOURCE_DIR}/include/onnxruntime"
             "${CMAKE_SOURCE_DIR}/include/onnxruntime-win-x64-gpu-1.25.0"
     )
     if(onnxruntime_FOUND)
@@ -955,12 +1004,12 @@ if(XLIGHTS_USE_ORT)
     else()
         find_path(ORT_INCLUDE_DIR onnxruntime_cxx_api.h
             HINTS
-                "${CMAKE_SOURCE_DIR}/include/microsoft.ml.onnxruntime.directml.1.19.2/build/native/include"
+                "${CMAKE_SOURCE_DIR}/include/onnxruntime"
                 "${CMAKE_SOURCE_DIR}/include/onnxruntime-win-x64-gpu-1.25.0/include"
         )
         find_library(ORT_LIB onnxruntime
             HINTS
-                "${CMAKE_SOURCE_DIR}/include/microsoft.ml.onnxruntime.directml.1.19.2/runtimes/win-x64/native"
+                "${CMAKE_SOURCE_DIR}/lib/windows64"
                 "${CMAKE_SOURCE_DIR}/include/onnxruntime-win-x64-gpu-1.25.0/lib"
         )
         if(ORT_INCLUDE_DIR AND ORT_LIB)
@@ -970,7 +1019,7 @@ if(XLIGHTS_USE_ORT)
         else()
             message(FATAL_ERROR
                 "XLIGHTS_USE_ORT=ON but onnxruntime not found.\n"
-                "Install via vcpkg: vcpkg install onnxruntime[directml]\n"
+                "Run ci_scripts/fetch_dependencies.ps1, or install via vcpkg: vcpkg install onnxruntime[directml]\n"
                 "Or set ORT_INCLUDE_DIR and ORT_LIB manually.")
         endif()
     endif()
@@ -1000,7 +1049,7 @@ endif()
 
 
 # ─── Windows post-build: copy DLLs and resources to output dir ──────────────
-# Mirrors the PostBuildEvent in xLights/Xlights.vcxproj.
+# Mirrors the PostBuildEvent in xLights/xLights.vcxproj.
 if(WIN32)
     # Use safe_copy_dlls.cmake so the copy is a no-op when the build output
     # directory is the same as the source bin/ directory (happens on CI when

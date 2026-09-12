@@ -50,10 +50,9 @@ concurrency:
 jobs:
 
   build:
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
     
     env:
-      WX_VERSION: xlights_2026.13
       SCCACHE_GHA_ENABLED: "true"
     
     steps:
@@ -72,7 +71,7 @@ jobs:
         version: 1.31.0
 
     # glslc (Vulkan SDK Bin) compiles the .comp compute kernels to SPIR-V
-    # headers via the Xlights.vcxproj CompileVulkanShaders pre-build target
+    # headers via the xLights.vcxproj CompileVulkanShaders pre-build target
     # (x64).  The action exports VULKAN_SDK so that target's PowerShell script
     # finds glslc; without it the msbuild step fails at the pre-build event.
     - name: Install Vulkan SDK
@@ -161,31 +160,6 @@ jobs:
         </Project>
         '@ | Set-Content -Encoding UTF8 Directory.Build.targets
         
-    # Clone wxWidgets inside the workspace so actions/cache can reach it
-    # (actions/cache rejects paths with '..'). A junction at ..\wxWidgets\
-    # keeps the xLights vcxproj's sibling-directory expectation working.
-    - name: Download wxWidgets
-      shell: pwsh
-      run: |
-        git clone --depth=1 --shallow-submodules --recurse-submodules `
-          -b $env:WX_VERSION https://github.com/xLightsSequencer/wxWidgets wxWidgets
-        New-Item -ItemType Junction -Path "..\wxWidgets" `
-          -Target "$((Resolve-Path wxWidgets).Path)" | Out-Null
-
-    - name: Cache wxWidgets
-      id: cache-wx
-      uses: actions/cache@v4
-      with:
-        path: |
-          wxWidgets/lib/vc_x64_lib
-          wxWidgets/include
-        key: ${{ runner.os }}-wx-${{ env.WX_VERSION }}
-
-    - name: Build wxWidgets
-      if: steps.cache-wx.outputs.cache-hit != 'true'
-      working-directory: wxWidgets
-      run: msbuild /m .\build\msw\wx_vc17.sln /p:Configuration="Release" /p:Platform="x64"
-
     - name: xLights
       working-directory: xLights
       shell: pwsh

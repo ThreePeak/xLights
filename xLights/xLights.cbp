@@ -47,17 +47,16 @@
 					<Add directory="../src-core/outputs" />
 					<Add directory="../src-core" />
 					<Add directory="../src-core/models" />
-					<Add directory="../dependencies/libxlsxwriter/include" />
-					<Add directory="../dependencies/glslang-build/install/include" />
 					<Add directory="../include/sol2-3.5.0" />
 					<Add directory="../dependencies" />
 					<Add directory="../dependencies/pugixml/src" />
 					<Add directory="../dependencies/spdlog/include" />
 					<Add directory="../dependencies/midifile/include" />
 					<Add directory="../dependencies/liquidfun/liquidfun/Box2D" />
+					<Add option="`sdl2-config --cflags`" />
 				</Compiler>
 				<Linker>
-					<Add option="-lGL -lGLU -lglut -ldl -lX11 -lEGL -lcurl" />
+					<Add option="-lGL -lGLU -lglut -ldl -lX11 -lXrandr -lEGL -lcurl" />
 					<Add option="`pkg-config --libs libavformat libavcodec libavutil libavfilter libswresample libswscale`" />
 					<Add option="`sdl2-config --libs`" />
 					<Add option="`wx-config --version=3.3 --libs std,media,gl,aui,propgrid`" />
@@ -74,13 +73,16 @@
 					<Add option="-lwebpdemux" />
 					<Add option="-lstdc++fs" />
 					<Add library="../lib/linux/libliquidfun.a" />
-					<Add library="../dependencies/libxlsxwriter/lib/libxlsxwriter.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libglslang-default-resource-limits.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libSPIRV.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libglslang.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libMachineIndependent.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libGenericCodeGen.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libOSDependent.a" />
+					<Add library="xlsxwriter" />
+					<Add library="minizip" />
+					<Add library="glslang-default-resource-limits" />
+					<Add library="SPIRV" />
+					<Add library="glslang" />
+					<Add library="MachineIndependent" />
+					<Add library="GenericCodeGen" />
+					<Add library="OSDependent" />
+					<Add library="SPIRV-Tools-opt" />
+					<Add library="SPIRV-Tools" />
 				</Linker>
 			</Target>
 			<Target title="Linux_Release">
@@ -124,17 +126,16 @@
 					<Add directory="../src-core/outputs" />
 					<Add directory="../src-core" />
 					<Add directory="../src-core/models" />
-					<Add directory="../dependencies/libxlsxwriter/include" />
-					<Add directory="../dependencies/glslang-build/install/include" />
 					<Add directory="../include/sol2-3.5.0" />
 					<Add directory="../dependencies" />
 					<Add directory="../dependencies/pugixml/src" />
 					<Add directory="../dependencies/spdlog/include" />
 					<Add directory="../dependencies/midifile/include" />
 					<Add directory="../dependencies/liquidfun/liquidfun/Box2D" />
+					<Add option="`sdl2-config --cflags`" />
 				</Compiler>
 				<Linker>
-					<Add option="-lGL -lGLU -lglut -ldl -lX11 -lEGL -lcurl" />
+					<Add option="-lGL -lGLU -lglut -ldl -lX11 -lXrandr -lEGL -lcurl" />
 					<Add option="`pkg-config --libs libavformat libavcodec libavutil libavfilter libswresample libswscale`" />
 					<Add option="`sdl2-config --libs`" />
 					<Add option="`wx-config --version=3.3 --libs std,media,gl,aui,propgrid`" />
@@ -151,13 +152,16 @@
 					<Add option="-lwebpdemux" />
 					<Add option="-lstdc++fs" />
 					<Add library="../lib/linux/libliquidfun.a" />
-					<Add library="../dependencies/libxlsxwriter/lib/libxlsxwriter.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libglslang-default-resource-limits.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libSPIRV.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libglslang.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libMachineIndependent.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libGenericCodeGen.a" />
-					<Add library="../dependencies/glslang-build/install/lib/libOSDependent.a" />
+					<Add library="xlsxwriter" />
+					<Add library="minizip" />
+					<Add library="glslang-default-resource-limits" />
+					<Add library="SPIRV" />
+					<Add library="glslang" />
+					<Add library="MachineIndependent" />
+					<Add library="GenericCodeGen" />
+					<Add library="OSDependent" />
+					<Add library="SPIRV-Tools-opt" />
+					<Add library="SPIRV-Tools" />
 				</Linker>
 			</Target>
 		</Build>
@@ -179,15 +183,6 @@
 		<Unit filename="../dependencies/wxLED/wxLED.h" />
 		<Unit filename="../dependencies/md5/md5.cpp" />
 		<Unit filename="../dependencies/md5/md5.h" />
-		<Unit filename="../dependencies/libxlsxwriter/third_party/minizip/ioapi.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="../dependencies/libxlsxwriter/third_party/minizip/unzip.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="../dependencies/libxlsxwriter/third_party/minizip/zip.c">
-			<Option compilerVar="CC" />
-		</Unit>
 		<Unit filename="../dependencies/wxHTTPServer/connection.cpp" />
 		<Unit filename="../dependencies/wxHTTPServer/context.cpp" />
 		<Unit filename="../dependencies/wxHTTPServer/message.cpp" />
@@ -751,6 +746,8 @@
 		<Unit filename="../src-ui-wx/automation/automation.cpp" />
 		<Unit filename="../src-ui-wx/automation/automation.h" />
 		<Unit filename="../src-ui-wx/automation/xLightsAutomations.cpp" />
+		<Unit filename="../src-ui-wx/automation/xLightsMCPServer.cpp" />
+		<Unit filename="../src-ui-wx/automation/AutomationJson.h" />
 		<Unit filename="../src-core/cad/CADModel.cpp" />
 		<Unit filename="../src-core/cad/CADModel.h" />
 		<Unit filename="../src-core/cad/CADPoint.h" />
@@ -1162,6 +1159,8 @@
 		<Unit filename="../src-core/graphics/xlFontInfo.cpp" />
 		<Unit filename="../src-core/graphics/xlFontInfo.h" />
 		<Unit filename="../src-core/graphics/xlGraphicsAccumulators.cpp" />
+		<Unit filename="../src-core/graphics/xlGraphicsCapability.cpp" />
+		<Unit filename="../src-core/graphics/xlGraphicsCapability.h" />
 		<Unit filename="../src-core/graphics/xlGraphicsAccumulators.h" />
 		<Unit filename="../src-core/graphics/GLBackend.cpp" />
 		<Unit filename="../src-core/graphics/GLBackend.h" />
@@ -1590,6 +1589,8 @@
 		<Unit filename="../src-ui-wx/shared/utils/TreeListColumnVisibility.h" />
 		<Unit filename="../src-ui-wx/shared/utils/wxUtilities.cpp" />
 		<Unit filename="../src-ui-wx/shared/utils/wxUtilities.h" />
+		<Unit filename="../src-ui-wx/shared/utils/xlDisplayInfo.cpp" />
+		<Unit filename="../src-ui-wx/shared/utils/xlDisplayInfo.h" />
 		<Unit filename="../src-core/utils/GitUtils.cpp" />
 		<Unit filename="../src-core/utils/GitUtils.h" />
 		<Unit filename="../src-core/utils/CurlManager.cpp" />

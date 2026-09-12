@@ -26,7 +26,7 @@
 #include <filesystem>
 #include <fstream>
 
-#include "../../dependencies/libxlsxwriter/third_party/minizip/zip.h"
+#include <minizip/zip.h>
 #include <zstd.h>
 
 #include "FPP.h"
@@ -1142,7 +1142,9 @@ bool FPP::CheckUploadMedia(const std::string &media, std::string &mediaBaseName)
 bool FPP::PrepareUploadSequence(FSEQFile *file,
                                 const std::string &seq,
                                 const std::string &media,
-                                int type) {
+                                int FSEQ_Version, 
+                                FSEQFile::CompressionType ctype, 
+                                bool sparse) {
     if (outputFile && !outputFileIsOriginal) {
         delete outputFile;
     }
@@ -1174,13 +1176,6 @@ bool FPP::PrepareUploadSequence(FSEQFile *file,
     TempFileManager::GetTempFileManager().AddTempFile(tempFileName);
     std::string fileName = tempFileName;
 
-    FSEQFile::CompressionType ctype = ::FSEQFile::CompressionType::zstd;
-    if (type == 3 || type == 4) {
-        ctype = ::FSEQFile::CompressionType::none;
-    } else if (type == 5 || type == 6) {
-        ctype = ::FSEQFile::CompressionType::zlib;
-    }
-
     bool doSeqUpload = true;
     uint32_t currentMaxChannel = 0;
     uint32_t currentChannelCount = 0;
@@ -1193,19 +1188,19 @@ bool FPP::PrepareUploadSequence(FSEQFile *file,
             char buf[24];
             snprintf(buf, sizeof(buf), "%" PRIu64, file->getUniqueId());
             std::string version = GetJSONStringValue(currentMeta, "Version");
-            if (type == 0 && version[0] != '1') doSeqUpload = true;
-            if (type != 0 && version[0] == '1') doSeqUpload = true;
-            int currentCompression = 1;
+            if (FSEQ_Version == 1 && version[0] != '1') doSeqUpload = true;
+            if (FSEQ_Version != 1 && version[0] == '1') doSeqUpload = true;
+            FSEQFile::CompressionType currentCompression = FSEQFile::CompressionType::zstd;
             if (version[0] == '1') {
-                currentCompression = 0;
+                currentCompression = FSEQFile::CompressionType::none;
             }
             if (currentMeta.contains("CompressionType")) {
-                currentCompression = GetJSONIntValue(currentMeta, "CompressionType");
+                currentCompression = static_cast<::FSEQFile::CompressionType>(GetJSONIntValue(currentMeta, "CompressionType"));
             }
-            if ((type == 2 || type == 1) && currentCompression != 1) {
+            if ((ctype == FSEQFile::CompressionType::zstd) && currentCompression != ::FSEQFile::CompressionType::zstd) {
                 doSeqUpload = true;
             }
-            if ((type == 0 || type == 3) && currentCompression != 0) {
+            if ((ctype == FSEQFile::CompressionType::none) && currentCompression != ::FSEQFile::CompressionType::none) {
                 doSeqUpload = true;
             }
             if (GetJSONStringValue(currentMeta, "ID") != buf) {
@@ -1230,7 +1225,7 @@ bool FPP::PrepareUploadSequence(FSEQFile *file,
     }
 
     int channelCount = 0;
-    if (type <= 1 || type == 4 || type == 5) {
+    if (!sparse) {
         //full file, non sparse
         if (currentMaxChannel != file->getMaxChannel()) doSeqUpload = true;
         if (currentChannelCount != file->getChannelCount()) doSeqUpload = true;
@@ -1270,14 +1265,14 @@ bool FPP::PrepareUploadSequence(FSEQFile *file,
 
     baseSeqName = baseName;
     if (fppType == FPP_TYPE::FPP) {
-        if ((type == 0 && file->getVersionMajor() == 1) || fn.extension() == ".eseq") {
+        if ((FSEQ_Version == 1 && file->getVersionMajor() == 1) || fn.extension() == ".eseq") {
             //these just get uploaded directly
             outputFile = file;
             outputFileIsOriginal = true;
             tempFileName = file->getFilename();
             return false;
         }
-        if (type == 1 && file->getVersionMajor() == 2) {
+        if (ctype == FSEQFile::CompressionType::zstd && !sparse && file->getVersionMajor() == 2) {
             // Full v2 file, upload directly
             outputFile = file;
             outputFileIsOriginal = true;
@@ -1313,13 +1308,13 @@ bool FPP::PrepareUploadSequence(FSEQFile *file,
             }
         }
     }
-    outputFile = FSEQFile::createFSEQFile(fileName, type == 0 ? 1 : 2, ctype, clevel);
+    outputFile = FSEQFile::createFSEQFile(fileName, FSEQ_Version, ctype, clevel);
     outputFileIsOriginal = false;
     outputFile->initializeFromFSEQ(*file);
     if (fppType == FPP_TYPE::FPP && IsVersionAtLeast(7, 0)) {
         outputFile->enableMinorVersionFeatures(2);
     }
-    if (type >= 2 && !newRanges.empty()) {
+    if (sparse && !newRanges.empty()) {
         V2FSEQFile *v2file = (V2FSEQFile*)outputFile;
         V2FSEQFile *v2source = dynamic_cast<V2FSEQFile*>(file);
         // Check if source is an effect sequence (marked with 'eS' variable header)
@@ -1364,7 +1359,7 @@ bool FPP::PrepareUploadSequence(FSEQFile *file,
             }
         }
     }
-    if (fppType != FPP_TYPE::FPP || type < 2 || !IsVersionAtLeast(9, 3)) {
+    if (fppType != FPP_TYPE::FPP || FSEQ_Version == 1 || (ctype == FSEQFile::CompressionType::zstd && !sparse) || !IsVersionAtLeast(9, 3)) {
         // need to remove some variable headers that could trigger extra memory usage
         outputFile->removeVariableHeader('X', 'S');
         outputFile->removeVariableHeader('X', 'N');
@@ -1524,72 +1519,76 @@ bool FPP::UploadUDPOut(const nlohmann::json &udp) {
     nlohmann::json orig;
     nlohmann::json newudp = udp;
 
-    if (GetURLAsJSON("/api/channel/output/universeOutputs", orig)) {
-        if (orig.contains("channelOutputs")) {
-            // FPP owns a few universe-output settings that xLights doesn't model
-            // (the network interface, and the packet-pacing/bandwidth caps used to
-            // throttle slower controllers). Carry those forward so regenerating the
-            // outputs file doesn't wipe them out. Pacing overrides are keyed by
-            // destination controller IP so they survive universe/start-channel
-            // renumbering; where a controller has several entries we keep the most
-            // conservative cap (FPP itself collapses to the lowest rate per IP).
-            // Per-output pacing only exists in FPP 10+.
-            bool const supportsPacing = IsVersionAtLeast(10, 0, 0);
-            std::map<std::string, int> pacingByAddress;
-            for (int x = 0; x < (int)orig["channelOutputs"].size(); x++) {
-                const auto& co = orig["channelOutputs"][x];
-                if (GetJSONStringValue(co, "type") != "universes") {
-                    continue;
+    // Per-output pacing only exists in FPP 10+.
+    bool const supportsPacing = IsVersionAtLeast(10, 0, 0);
+    std::map<std::string, int> pacingByAddress;
+
+    if (GetURLAsJSON("/api/channel/output/universeOutputs", orig) && orig.contains("channelOutputs")) {
+        // xLights only owns the universe list itself. Everything else on the
+        // universes channel output belongs to FPP (the source interface, the
+        // sending/threading mode, the packet-pacing/bandwidth cap used to throttle
+        // slower controllers, plus anything a newer FPP adds), so carry those keys
+        // forward rather than dropping them when the outputs file is regenerated.
+        static const std::unordered_set<std::string> xlOwnedKeys = {
+            "type", "enabled", "timeout", "startChannel", "channelCount", "universes"
+        };
+        // Per-universe pacing overrides are keyed by destination controller IP so they
+        // survive universe/start-channel renumbering; where a controller has several
+        // entries we keep the most conservative cap (FPP itself collapses to the
+        // lowest rate per IP).
+        for (int x = 0; x < (int)orig["channelOutputs"].size(); x++) {
+            const auto& co = orig["channelOutputs"][x];
+            if (GetJSONStringValue(co, "type") != "universes") {
+                continue;
+            }
+            for (const auto& [key, value] : co.items()) {
+                if (xlOwnedKeys.find(key) == xlOwnedKeys.end()) {
+                    newudp["channelOutputs"][0][key] = value;
                 }
-                if (co.contains("interface")) {
-                    newudp["channelOutputs"][0]["interface"] = GetJSONStringValue(co, "interface");
-                }
-                if (supportsPacing && co.contains("pacingRate")) {
-                    // output-level global pacing default
-                    newudp["channelOutputs"][0]["pacingRate"] = co["pacingRate"];
-                }
-                if (supportsPacing && co.contains("universes")) {
-                    for (const auto& u : co["universes"]) {
-                        if (!u.contains("pacingRate")) {
-                            continue;
-                        }
-                        std::string addr = GetJSONStringValue(u, "address");
-                        if (addr.empty()) {
-                            continue; // pacing only applies to unicast destinations
-                        }
-                        int rate = GetJSONIntValue(u, "pacingRate", -1);
-                        if (rate < 0) {
-                            continue;
-                        }
-                        auto it = pacingByAddress.find(addr);
-                        if (it == pacingByAddress.end()) {
-                            pacingByAddress[addr] = rate;
-                        } else if (rate > 0 && (it->second <= 0 || rate < it->second)) {
-                            it->second = rate; // a real cap beats "unlimited" (0); lower Mbps wins
-                        }
+            }
+            if (supportsPacing && co.contains("universes")) {
+                for (const auto& u : co["universes"]) {
+                    if (!u.contains("pacingRate")) {
+                        continue;
+                    }
+                    std::string addr = GetJSONStringValue(u, "address");
+                    if (addr.empty()) {
+                        continue; // pacing only applies to unicast destinations
+                    }
+                    int rate = GetJSONIntValue(u, "pacingRate", -1);
+                    if (rate < 0) {
+                        continue;
+                    }
+                    auto it = pacingByAddress.find(addr);
+                    if (it == pacingByAddress.end()) {
+                        pacingByAddress[addr] = rate;
+                    } else if (rate > 0 && (it->second <= 0 || rate < it->second)) {
+                        it->second = rate; // a real cap beats "unlimited" (0); lower Mbps wins
                     }
                 }
             }
-            if (supportsPacing && newudp.contains("channelOutputs")) {
-                for (auto& co : newudp["channelOutputs"]) {
-                    if (!co.contains("universes")) {
-                        continue;
-                    }
-                    for (auto& u : co["universes"]) {
-                        // Entries flagged authoritative (controller under full xLights
-                        // control) keep the xLights-set cap; others preserve whatever the
-                        // FPP already had. Strip the internal hint either way.
-                        bool const authoritative = u.contains("_xlPacingAuthoritative");
-                        u.erase("_xlPacingAuthoritative");
-                        if (authoritative) {
-                            continue;
-                        }
-                        std::string addr = GetJSONStringValue(u, "address");
-                        auto it = pacingByAddress.find(addr);
-                        if (!addr.empty() && it != pacingByAddress.end()) {
-                            u["pacingRate"] = it->second;
-                        }
-                    }
+        }
+    }
+    // The authoritative hint is internal to xLights and must be stripped whether or
+    // not the existing config could be read.
+    if (newudp.contains("channelOutputs")) {
+        for (auto& co : newudp["channelOutputs"]) {
+            if (!co.contains("universes")) {
+                continue;
+            }
+            for (auto& u : co["universes"]) {
+                // Entries flagged authoritative (controller under full xLights
+                // control) keep the xLights-set cap; others preserve whatever the
+                // FPP already had.
+                bool const authoritative = u.contains("_xlPacingAuthoritative");
+                u.erase("_xlPacingAuthoritative");
+                if (authoritative || !supportsPacing) {
+                    continue;
+                }
+                std::string addr = GetJSONStringValue(u, "address");
+                auto it = pacingByAddress.find(addr);
+                if (!addr.empty() && it != pacingByAddress.end()) {
+                    u["pacingRate"] = it->second;
                 }
             }
         }
@@ -2448,11 +2447,21 @@ bool FPP::IsCompatible(const ControllerCaps *rules,
         if (found) {
             nlohmann::json val;
             if (GetURLAsJSON("/api/cape/strings/" + id, val)) {
-                if (val.contains("driver")) {
-                    driver = val["driver"].get<std::string>();
+                // The board decides which string driver runs, not the model name: revisions
+                // of one cape differ, and a cape that names no driver is one of the direct
+                // drive boards FPP defaults to BBB48String for.  Writing anything else is
+                // a config the driver cannot read, so take the cape's answer over ours and
+                // say so if the variant the user picked disagrees.
+                std::string const capeDriver = val.contains("driver") ? val["driver"].get<std::string>() : "BBB48String";
+                if (!driver.empty() && driver != capeDriver && _ui) {
+                    _ui->ShowMessage(ipAddress + " is running the " + capeDriver + " output but the configured variant "
+                                         + rules->GetModel() + " " + rules->GetVariantName() + " expects " + driver
+                                         + ".  It will be uploaded as " + capeDriver + " so it works, but the ports are being offered the protocols and smart receivers of the other board revision.  Select the variant matching this board.",
+                                     "Controller Variant");
                 }
+                driver = capeDriver;
                 if (val.contains("falconV5ListenerConfig")) {
-                    supportsV5Receivers = true;;
+                    supportsV5Receivers = true;
                 }
             } else {
                 found = false;
@@ -3570,6 +3579,7 @@ static void setRangesToChannelCount(DiscoveredData *inst) {
 
 static void SetControllerType(DiscoveredData *inst) {
     if (inst->pixelControllerType != "") {
+        std::string const origVariant = inst->variant;
         std::string v, m, var;
         Controller::ConvertOldTypeToVendorModel(inst->pixelControllerType, v, m, var);
         if (v != "") {
@@ -3580,6 +3590,24 @@ static void SetControllerType(DiscoveredData *inst) {
         }
         if (var != "") {
             inst->SetVariant(var);
+        }
+        // Where board revisions of one cape are separate variants they all report the same
+        // model name, so the name alone lands on whichever is listed first.  The version
+        // the cape reports is what tells them apart - and if what was already configured
+        // is a variant of the right revision, keep it: it may be the expansion one.
+        std::string const capeVersion = inst->extraData.is_object() && inst->extraData.contains("capeVersion")
+                                            ? inst->extraData["capeVersion"].get<std::string>()
+                                            : std::string();
+        if (!capeVersion.empty()) {
+            ControllerCaps* orig = ControllerCaps::GetControllerConfig(inst->vendor, inst->model, origVariant);
+            if (orig != nullptr && orig->GetID() == inst->pixelControllerType && orig->MatchesFPPCapeVersion(capeVersion)) {
+                inst->SetVariant(orig->GetVariantName());
+            } else {
+                ControllerCaps* byVersion = ControllerCaps::GetControllerConfigByIDAndCapeVersion(inst->pixelControllerType, capeVersion);
+                if (byVersion != nullptr) {
+                    inst->SetVariant(byVersion->GetVariantName());
+                }
+            }
         }
         ControllerCaps *caps = inst->controller->GetControllerCaps();
         if (caps != nullptr && caps->SupportsAutoLayout()) {
@@ -3983,6 +4011,10 @@ static void ProcessFPPSysinfo(Discovery &discovery, const std::string &ip, const
     inst->majorVersion =  GetJSONIntValue(val, "majorVersion", inst->majorVersion);
     if (val.contains("capeInfo")) {
         inst->pixelControllerType = GetJSONStringValue(val["capeInfo"], "id");
+        std::string const capeVersion = GetJSONStringValue(val["capeInfo"], "version");
+        if (!capeVersion.empty()) {
+            inst->extraData["capeVersion"] = capeVersion;
+        }
     }
 
     std::string file = "co-pixelStrings";
@@ -4514,3 +4546,5 @@ ReceiverType FPP::DecodeReceiverType(int type, bool supportsV5, bool supportsV4)
     }
     return ReceiverType::Standard;
 }
+
+

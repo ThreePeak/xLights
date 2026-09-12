@@ -432,7 +432,18 @@ FSEQFile::FSEQFile(const std::string& fn, FILE* file, const std::vector<uint8_t>
         m_seqVersionMajor = V1ESEQ_MAJOR_VERSION;
         m_seqChannelCount = read4ByteUInt(&header[8]);
         m_seqStepTime = V1ESEQ_STEP_TIME;
-        m_seqNumFrames = (m_seqFileSize - V1ESEQ_CHANNEL_DATA_OFFSET) / m_seqChannelCount;
+        // Both operands come straight out of the file and openFSEQFile() only
+        // validates the 'ESEQ' magic, so a truncated or corrupt effect file
+        // reaches here unfiltered.  A zero channel count divides by zero, and a
+        // file shorter than the header underflows the unsigned subtraction into
+        // a huge frame count.  Report either as an empty sequence.
+        if (m_seqChannelCount == 0 || m_seqFileSize < (uint64_t)V1ESEQ_CHANNEL_DATA_OFFSET) {
+            LogErr(VB_SEQUENCE, "Invalid ESEQ file %s: %u channels, %" PRIu64 " bytes\n",
+                   m_filename.c_str(), m_seqChannelCount, m_seqFileSize);
+            m_seqNumFrames = 0;
+        } else {
+            m_seqNumFrames = (m_seqFileSize - V1ESEQ_CHANNEL_DATA_OFFSET) / m_seqChannelCount;
+        }
     } else {
         m_seqChanDataOffset = read2ByteUInt(&header[4]);
         m_seqVersionMinor = header[6];
@@ -743,6 +754,19 @@ public:
     std::vector<std::pair<uint32_t, uint32_t>> m_ranges;
 };
 
+// A frame whose channel buffer could not be allocated is handed back untouched:
+// readFrame() already reports false for a null buffer, whereas the read/memcpy
+// paths below would write through it.  malloc() failing here is not
+// hypothetical - a channel range that starts past the end of the sequence turns
+// m_dataBlockSize into a multi-gigabyte request.
+static bool frameBufferAllocated(const UncompressedFrameData* data, uint32_t frame, uint32_t sz) {
+    if (data->m_data != nullptr) {
+        return true;
+    }
+    LogErr(VB_SEQUENCE, "Failed to allocate %u bytes of channel data for frame %d\n", sz, (int)frame);
+    return false;
+}
+
 void V1FSEQFile::prepareRead(const std::vector<std::pair<uint32_t, uint32_t>>& ranges, uint32_t startFrame) {
     m_rangesToRead = ranges;
     m_dataBlockSize = 0;
@@ -772,6 +796,9 @@ FrameData* V1FSEQFile::getFrame(uint32_t frame) {
     offset += m_seqChanDataOffset;
 
     UncompressedFrameData* data = new UncompressedFrameData(frame, m_dataBlockSize, m_rangesToRead);
+    if (!frameBufferAllocated(data, frame, m_dataBlockSize)) {
+        return data;
+    }
     if (seek(offset, SEEK_SET)) {
         LogErr(VB_SEQUENCE, "Failed to seek to proper offset for channel data for frame %d! %" PRIu64 "\n", frame, offset);
         return data;
@@ -889,6 +916,9 @@ public:
     }
     virtual FrameData* getFrame(uint32_t frame) override {
         UncompressedFrameData* data = new UncompressedFrameData(frame, m_file->m_dataBlockSize, m_file->m_rangesToRead);
+        if (!frameBufferAllocated(data, frame, m_file->m_dataBlockSize)) {
+            return data;
+        }
         uint64_t offset = m_file->getChannelCount();
         offset *= frame;
         offset += m_seqChanDataOffset;
@@ -1332,6 +1362,9 @@ public:
         }
         BulkSlot* b = bulkGetBlock(block);
         UncompressedFrameData* data = new UncompressedFrameData(frame, m_file->m_dataBlockSize, m_file->m_rangesToRead);
+        if (!frameBufferAllocated(data, frame, m_file->m_dataBlockSize)) {
+            return data;
+        }
         if (b == nullptr) {
             LogErr(VB_SEQUENCE, "Failed to get block %d for frame %d\n", (int)block, (int)frame);
             return data;
@@ -1380,8 +1413,12 @@ public:
             ZSTD_initDStream(m_dctx);
             seek(m_file->m_frameOffsets[m_curBlock].second, SEEK_SET);
 
-            uint64_t len = m_file->m_frameOffsets[m_curBlock + 1].second;
-            len -= m_file->m_frameOffsets[m_curBlock].second;
+            uint64_t blockOffset = m_file->m_frameOffsets[m_curBlock].second;
+            uint64_t nextOffset = m_file->m_frameOffsets[m_curBlock + 1].second;
+            // An out-of-order block table underflows this subtraction, which then
+            // asks for an absurd allocation; a failed malloc left ZSTD reading from
+            // a null src of the full length.
+            uint64_t len = nextOffset > blockOffset ? nextOffset - blockOffset : 0;
             uint64_t max = m_file->getNumFrames();
             max *= (uint64_t)m_file->getChannelCount();
             if (len > max) {
@@ -1390,13 +1427,17 @@ public:
             if (m_inBuffer.src) {
                 free((void*)m_inBuffer.src);
             }
-            m_inBuffer.src = malloc(len);
-            if (m_inBuffer.src == nullptr) LogDebug(VB_SEQUENCE, " getFrame m_inBuffer.src malloc failed.\n");
+            m_inBuffer.src = len ? malloc(len) : nullptr;
             m_inBuffer.pos = 0;
-            m_inBuffer.size = len;
-            int bread = read((void*)m_inBuffer.src, len);
-            if ((uint64_t)bread != len) {
-                LogErr(VB_SEQUENCE, "Failed to read channel data for frame %d!   Needed to read %" PRIu64 " but read %d\n", frame, len, (int)bread);
+            m_inBuffer.size = 0;
+            if (m_inBuffer.src == nullptr) {
+                if (len) LogDebug(VB_SEQUENCE, " getFrame m_inBuffer.src malloc failed.\n");
+            } else {
+                int bread = read((void*)m_inBuffer.src, len);
+                if ((uint64_t)bread != len) {
+                    LogErr(VB_SEQUENCE, "Failed to read channel data for frame %d!   Needed to read %" PRIu64 " but read %d\n", frame, len, (int)bread);
+                }
+                m_inBuffer.size = (bread > 0 && (uint64_t)bread < len) ? (uint64_t)bread : (bread > 0 ? len : 0);
             }
 
             if (m_curBlock + 2 < m_file->m_frameOffsets.size()) {
@@ -1421,6 +1462,9 @@ public:
             m_curFrameInBlock = 0;
         }
         UncompressedFrameData* data = new UncompressedFrameData(frame, m_file->m_dataBlockSize, m_file->m_rangesToRead);
+        if (!frameBufferAllocated(data, frame, m_file->m_dataBlockSize)) {
+            return data;
+        }
 
         // m_outBuffer.dst is sized to hold exactly the frames the block table says
         // this block covers, so the frame has to land inside that.  It does not
@@ -1800,6 +1844,9 @@ public:
             m_stream = nullptr;
         }
         UncompressedFrameData* data = new UncompressedFrameData(frame, m_file->m_dataBlockSize, m_file->m_rangesToRead);
+        if (!frameBufferAllocated(data, frame, m_file->m_dataBlockSize)) {
+            return data;
+        }
 
         //see the matching check in the ZSTD handler - the block table can put
         //this frame outside the block it selected
@@ -2345,7 +2392,15 @@ void V2FSEQFile::prepareRead(const std::vector<std::pair<uint32_t, uint32_t>>& r
 
     for (auto const& [st, cnt] : ranges) {
         if (!isWithinRange(m_rangesToRead, st, cnt)) {
-            LogErr(VB_SEQUENCE, "Requested range outside Read Ranges. Requested %d channels starting at %d. FSEQ expects %d channels.\n", cnt, st, m_seqChannelCount);
+            if (m_sparseRanges.empty()) {
+                LogErr(VB_SEQUENCE, "Requested range outside Read Ranges. Requested %d channels starting at %d. FSEQ expects %d channels.\n", cnt, st, m_seqChannelCount);
+            } else {
+                // A sparse file only carries the channels it was written for;
+                // a caller asking for the whole show (getFrame without a
+                // prepareRead) is the normal case, and the read above already
+                // returns every channel the file has.
+                LogDebug(VB_SEQUENCE, "Requested range outside sparse ranges. Requested %d channels starting at %d. FSEQ holds %d channels.\n", cnt, st, m_seqChannelCount);
+            }
         }
     }
     m_handler->prepareRead(startFrame);

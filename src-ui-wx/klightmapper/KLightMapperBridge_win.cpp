@@ -8,14 +8,30 @@
 // Lives in src-ui-wx/klightmapper/ so the Windows/Linux CMake GLOB_RECURSE picks
 // it up; the macOS Xcode project builds the sibling .mm instead, so they never
 // collide. The _WIN32||__linux__ guard compiles it to nothing on macOS, where
-// the .mm provides klbridge. KLightMapper is a required, auto-fetched dependency
-// (the build systems download the lib + headers), so there is no "disabled"
-// path — no XLIGHTS_HAVE_KLIGHTMAPPER.
+// the .mm provides klbridge. KLightMapper is a required, auto-fetched dependency,
+// so XLIGHTS_HAVE_KLIGHTMAPPER auto-detects off the fetched header rather than
+// needing a -D in every build system; when the header is absent every entry
+// point degrades to "no cameras".
 #if defined(_WIN32) || defined(__linux__)
 
 #include "KLightMapperBridge.h"
 
+// Auto-detect the fetched dependency; an explicit -DXLIGHTS_HAVE_KLIGHTMAPPER=0
+// still wins. No build system passes one today: the Linux library links no
+// FFmpeg of its own, so there is no longer a staged-header-but-unlinkable-.so
+// case to compile the feature out for. Whether the host can actually decode is
+// a runtime question now — see ScanBackendProblem().
+#ifndef XLIGHTS_HAVE_KLIGHTMAPPER
+#if defined(__has_include) && __has_include("klm/scan_api.h")
+#define XLIGHTS_HAVE_KLIGHTMAPPER 1
+#else
+#define XLIGHTS_HAVE_KLIGHTMAPPER 0
+#endif
+#endif
+
+#if XLIGHTS_HAVE_KLIGHTMAPPER
 #include "klm/scan_api.h"
+#endif
 
 // MSVC: pull in the import lib for klightmapper.dll. lib\windows64 (which holds
 // klightmapper.lib) is already on the VS project's LibraryPath. Linux links it
@@ -30,6 +46,15 @@
 #include <vector>
 
 namespace klbridge {
+
+std::string ScanBackendProblem() {
+#if XLIGHTS_HAVE_KLIGHTMAPPER
+    const char* problem = klm_scan_backend_status();
+    return problem ? std::string(problem) : std::string();
+#else
+    return {};
+#endif
+}
 
 std::vector<CameraInfo> DiscoverContinuityCameras() {
     // On Windows "continuity cameras" == the local Media Foundation webcams the
@@ -94,6 +119,7 @@ std::vector<CameraProfile> EnumerateCameraProfiles(const std::string& deviceServ
     return out;
 }
 
+#if XLIGHTS_HAVE_KLIGHTMAPPER
 namespace {
 
 // The std::function completion can't cross the C ABI, so we heap-box it and pass
@@ -105,7 +131,6 @@ struct CompletionBox {
 };
 
 void KLM_CALL completionTrampoline(const char* xmodelPath, void* user) {
-#if XLIGHTS_HAVE_KLIGHTMAPPER
     CompletionBox* box = static_cast<CompletionBox*>(user);
     std::optional<std::string> result;
     if (xmodelPath && *xmodelPath) result = std::string(xmodelPath);
@@ -116,10 +141,10 @@ void KLM_CALL completionTrampoline(const char* xmodelPath, void* user) {
     } else {
         fn(result);
     }
-#endif
 }
 
 } // namespace
+#endif
 
 void PresentScanWindow(const std::string& cameraID,
                        const std::string& scanDumpParent,

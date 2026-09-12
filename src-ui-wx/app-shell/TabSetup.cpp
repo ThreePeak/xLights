@@ -43,7 +43,6 @@
 #include "utils/SpecialOptions.h"
 #include "layout/LayoutGroup.h"
 #include "setup/ControllerModelDialog.h"
-#include "setup/ShowDirectoriesDialog.h"
 #include "utils/ExternalHooks.h"
 #include "utils/ip_utils.h"
 
@@ -563,8 +562,7 @@ bool xLightsFrame::SetDir(const wxString& newdir, bool permanent)
 }
 
 void xLightsFrame::OnMenuOpenFolderSelected(wxCommandEvent& event) {
-    ShowDirectoriesDialog dlg(this);
-    dlg.ShowModal();
+    PromptForShowDirectory(true);
 }
 
 bool xLightsFrame::PromptForDirectorySelection(const std::string &msg, std::string &dir) {
@@ -954,7 +952,7 @@ void xLightsFrame::DoWork(uint32_t work, const std::string& type, BaseObject* m,
         OutputModelManager::WORK_RELOAD_PROPERTYGRID |
         OutputModelManager::WORK_SAVE_NETWORKS
     );
-    if (work & (OutputModelManager::WORK_UPDATE_NETWORK_LIST | OutputModelManager::WORK_UPDATE_NETWORK_PROPERTIES)) {
+    if (work & (OutputModelManager::WORK_UPDATE_NETWORK_LIST | OutputModelManager::WORK_UPDATE_NETWORK_PROPERTIES | OutputModelManager::WORK_RELOAD_MODELLIST)) {
         logger_work->debug("    WORK_UPDATE_NETWORK_LIST.");
         // Updates the list of outputs on the screen
         //UpdateNetworkList();

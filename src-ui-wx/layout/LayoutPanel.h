@@ -236,6 +236,7 @@ class LayoutPanel: public wxPanel
         static const long ID_PREVIEW_MODEL_RENAMESET;
         static const long ID_PREVIEW_MODEL_MANAGESET;
         static const long ID_PREVIEW_MODEL_WIRINGVIEW;
+        static const long ID_PREVIEW_MODEL_WIRETOCLOSESTCONTROLLER;
         static const long ID_PREVIEW_MODEL_ASPECTRATIO;
         static const long ID_PREVIEW_MODEL_EXPORTXLIGHTSMODEL;
         static const long ID_PREVIEW_BULKEDIT;
@@ -447,8 +448,13 @@ class LayoutPanel: public wxPanel
         int calculateNodeCountOfSelected();
 
     protected:
-        void FreezeTreeListView(wxTreeListCtrl* tree, wxDataViewModel* internalModel);
-        void ThawTreeListView(wxTreeListCtrl* tree, wxDataViewModel* internalModel, const std::list<wxTreeListItem> &toExpand);
+        struct TreeSortState {
+            unsigned col = 0;
+            bool ascending = true;
+            bool sorted = false;
+        };
+        void FreezeTreeListView(wxTreeListCtrl* tree, wxDataViewModel* internalModel, TreeSortState& sortState);
+        void ThawTreeListView(wxTreeListCtrl* tree, wxDataViewModel* internalModel, const std::list<wxTreeListItem> &toExpand, const TreeSortState& sortState);
         void SetTreeListViewItemText(wxTreeListCtrl* tree, wxTreeListItem &item, int col, const wxString &txt);
 
         void SaveTreeListColumns(wxTreeListCtrl* tree, const std::string& configKey);
@@ -483,6 +489,7 @@ class LayoutPanel: public wxPanel
         void EditStates();
         void EditModelData();
         void ShowWiring();
+        void WireToClosestControllerOpenPort();
         void ExportModelAsCAD();
         void ExportLayoutDXF();
         void ExportFacesStatesSubModels();
@@ -658,6 +665,11 @@ class LayoutPanel: public wxPanel
         };
         std::vector<UndoStep> undoBuffer;
         void CreateUndoPoint(const std::string &type, const std::string &model, const std::string &key = "", const std::string &data = "");
+        // Pushes one "All" undo point the first time it is called and flips
+        // `taken`. Model Set handlers prompt part-way through their mutation
+        // loops, so the snapshot has to wait until a change is actually about
+        // to happen or a cancel would leave an empty undo step behind.
+        void CreateSetUndoPointOnce(bool& taken, const std::string& modelName);
 
         // Returns true only if selectedBaseObject is currently a live pointer in
         // either AllModels (incl. submodels) or AllObjects. Performs pointer-address
@@ -747,7 +759,7 @@ class LayoutPanel: public wxPanel
         void DisplayAddDmxPopup();
         void OnAddDmxPopup(wxCommandEvent& event);
         void SelectViewObject(ViewObject *v, bool highlight_tree = true);
-        std::string ImportModelsFromPreview(std::list<impTreeItemData*> models, wxString const& layoutGroup, bool includeEmptyGroups, float srcPerUnit = 0.0f);
+        std::string ImportModelsFromPreview(std::list<impTreeItemData*> models, wxString const& layoutGroup, std::set<std::string> const& importing, bool includeEmptyGroups, float srcPerUnit = 0.0f);
         std::string FindNextModelNameAfterDelete(const wxArrayString& deletedNames) const;
         int GetColumnIndex(const std::string& name) const;
         wxSearchCtrl* ModelFilterCtrl = nullptr;
@@ -774,10 +786,7 @@ class LayoutPanel: public wxPanel
             xLightsFrame* xlights = nullptr;
         };
         ModelListComparator comparator;
-        unsigned treeSortCol;
-        bool treeSortAscending;
-        bool treeSorted;
-    
+
         bool zoom_gesture_active = false;
         bool rotate_gesture_active = false;
 };

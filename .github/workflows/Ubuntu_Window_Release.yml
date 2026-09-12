@@ -39,7 +39,7 @@ jobs:
            token: ${{ secrets.GITHUB_TOKEN }}
 
   build-windows:
-   runs-on: windows-2022
+   runs-on: windows-2025-vs2026
    # Tag/dispatch-only workflow, so always enter the `release` environment: the
    # OIDC token subject (repo:.../environment:release) must match the Entra
    # federated credential that authorizes Azure Trusted Signing. Signing is then
@@ -67,7 +67,7 @@ jobs:
         version: 1.31.0
 
     # glslc (Vulkan SDK Bin) compiles the .comp compute kernels to SPIR-V
-    # headers via the Xlights.vcxproj CompileVulkanShaders pre-build target
+    # headers via the xLights.vcxproj CompileVulkanShaders pre-build target
     # (x64).  The action exports VULKAN_SDK so that target's PowerShell script
     # finds glslc; without it the msbuild step fails at the pre-build event.
     - name: Install Vulkan SDK
@@ -76,18 +76,10 @@ jobs:
         install_runtime: false
         cache: true
 
-    - name: Download wxWidgets
-      run:
-        git clone --depth=1 --shallow-submodules  --recurse-submodules -b xlights_2026.13 https://github.com/xLightsSequencer/wxWidgets ..\wxWidgets\
-
-    - name: Build wxWidgets
-      working-directory: ..\wxWidgets\
-      run: msbuild /m .\build\msw\wx_vc17.sln /p:Configuration="Release" /p:Platform="x64"
-
     - name: Build All
       shell: cmd
       working-directory: build_scripts\msw
-      run: call build_VS_x64_skip_libltc.cmd
+      run: call build_VS_x64.cmd
 
     # --- Authenticode signing via Azure Trusted Signing (Kulp Lights LLC) ------
     # Sign our own executables before packaging, then sign the installer after
@@ -199,17 +191,42 @@ jobs:
   # (Account settings > User management > Microsoft Entra applications); the app
   # itself is already live in the Store, which is what the submission API needs.
   #
+  # The draft's "What's new" text comes from the Windows Store section of
+  # RELEASE_SUMMARIES.txt, written as part of preparing the release.
+  #
   # By default the draft is left uncommitted, so the package is uploaded and
   # waits for a human to review the listing and press Submit. Set the
-  # MSSTORE_AUTO_COMMIT variable to true to have CI start certification too.
+  # MSSTORE_AUTO_COMMIT variable to true to have CI start certification too -
+  # the package is still uploaded with --noCommit so the release notes land on
+  # the draft first, and the submission is committed as the last step.
   publish-store:
     needs: build-windows
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
     environment: release
     env:
       STORE_PUBLISH: ${{ vars.MSSTORE_PUBLISH_ENABLED == 'true' }}
     steps:
+      - name: Checkout xLights
+        if: env.STORE_PUBLISH == 'true'
+        uses: actions/checkout@v4
+
+      # RELEASE_SUMMARIES.txt is written when the release is prepared. A missing
+      # or over-length section is not fatal: the package still uploads and the
+      # listing keeps whatever release notes Partner Center already has.
+      - name: Extract Windows Store release notes
+        if: env.STORE_PUBLISH == 'true'
+        shell: pwsh
+        run: |
+          $notes = & python ci_scripts/release_summary.py "Windows Store"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "No usable Windows Store summary - leaving the listing's release notes alone"
+          } else {
+            Set-Content -Path store-notes.txt -Value ($notes -join "`n") -Encoding utf8NoBOM
+            Write-Host "Release notes ($((Get-Content store-notes.txt -Raw).Length) chars):"
+            Get-Content store-notes.txt
+          }
+
       - name: Download Store MSIX
         if: env.STORE_PUBLISH == 'true'
         uses: actions/download-artifact@v4
@@ -220,6 +237,10 @@ jobs:
       - name: Setup Microsoft Store Developer CLI
         if: env.STORE_PUBLISH == 'true'
         uses: microsoft/microsoft-store-apppublisher@v1.4
+        with:
+          # v0.4.x breaks every blob upload when --uploadTimeout is omitted
+          # (msstore-cli#162); pin until the fix ships in a release.
+          version: v0.3.9
 
       # Checked before calling reconfigure: with a parameter missing the CLI
       # prompts for it, and an interactive prompt on a runner hangs the job
@@ -242,20 +263,86 @@ jobs:
                               --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
           if ($LASTEXITCODE -ne 0) { throw "msstore reconfigure failed ($LASTEXITCODE)" }
 
+      # Always uploaded with --noCommit, even when auto-commit is on, so the
+      # release notes can be written onto the draft before it is submitted.
       - name: Upload MSIX to Partner Center
         if: env.STORE_PUBLISH == 'true'
         shell: pwsh
         env:
           PRODUCT_ID: ${{ vars.MSSTORE_PRODUCT_ID || '9PGTCKZNKJ2G' }}
-          AUTO_COMMIT: ${{ vars.MSSTORE_AUTO_COMMIT }}
         run: |
           $msix = Get-ChildItem store-msix -Filter *.msix -Recurse | Select-Object -First 1
           if (-not $msix) { throw "No .msix in the xLights_Store_MSIX artifact" }
-          $pubArgs = @($msix.FullName, '-id', $env:PRODUCT_ID)
-          if ($env:AUTO_COMMIT -ne 'true') { $pubArgs += '--noCommit' }
+          $pubArgs = @($msix.FullName, '-id', $env:PRODUCT_ID, '--noCommit')
           Write-Host "msstore publish $($pubArgs -join ' ')"
           & msstore publish @pubArgs
           if ($LASTEXITCODE -ne 0) { throw "msstore publish failed ($LASTEXITCODE)" }
+
+      # Writes the summary into every language listing's "What's new" field on
+      # the draft the upload above created. Best-effort: for a packaged app the
+      # CLI PUTs exactly the JSON it is given (no server-side merge), so the
+      # FULL submission must be fetched, edited in place, and sent back — and
+      # if its JSON output doesn't parse (the CLI can word-wrap it,
+      # msstore-cli#150), skip rather than risk pushing corrupted listings.
+      # The notes can always be set by hand in Partner Center before submitting.
+      - name: Set What's new text on the draft submission
+        if: env.STORE_PUBLISH == 'true' && hashFiles('store-notes.txt') != ''
+        shell: pwsh
+        env:
+          PRODUCT_ID: ${{ vars.MSSTORE_PRODUCT_ID || '9PGTCKZNKJ2G' }}
+        run: |
+          $notes = (Get-Content store-notes.txt -Raw).TrimEnd()
+          $raw = (& msstore submission get $env:PRODUCT_ID) -join "`n"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "msstore submission get failed ($LASTEXITCODE) - set the What's new text manually in Partner Center"
+            exit 0
+          }
+          # The CLI can print progress lines around the JSON body.
+          $start = $raw.IndexOf('{')
+          $end = $raw.LastIndexOf('}')
+          if ($start -lt 0 -or $end -le $start) {
+            Write-Warning "no JSON in submission get output - set the What's new text manually in Partner Center"
+            exit 0
+          }
+          try {
+            $obj = $raw.Substring($start, $end - $start + 1) | ConvertFrom-Json
+          } catch {
+            Write-Warning "submission get output did not parse (msstore-cli#150 word-wrap?) - set the What's new text manually in Partner Center"
+            exit 0
+          }
+          if ($obj.PSObject.Properties.Name -notcontains 'listings' -or -not $obj.listings.PSObject.Properties.Name) {
+            Write-Warning "submission has no listings - set the What's new text manually in Partner Center"
+            exit 0
+          }
+          foreach ($lang in $obj.listings.PSObject.Properties) {
+            if ($lang.Value.PSObject.Properties.Name -notcontains 'baseListing') {
+              $lang.Value | Add-Member -NotePropertyName baseListing -NotePropertyValue ([pscustomobject]@{}) -Force
+            }
+            $lang.Value.baseListing | Add-Member -NotePropertyName releaseNotes -NotePropertyValue $notes -Force
+            Write-Host "release notes set for $($lang.Name)"
+          }
+          # The CLI takes the metadata as the raw JSON argument, not a file
+          # path (msstore-cli#151), so it is bounded by the Windows 32K
+          # command-line limit.
+          $payload = $obj | ConvertTo-Json -Depth 50 -Compress
+          if ($payload.Length -gt 30000) {
+            Write-Warning "submission JSON is $($payload.Length) chars - too large to pass on the command line (msstore-cli#151); set the What's new text manually in Partner Center"
+            exit 0
+          }
+          & msstore submission updateMetadata $env:PRODUCT_ID $payload
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "msstore submission updateMetadata failed ($LASTEXITCODE) - set the What's new text manually in Partner Center"
+          }
+          exit 0
+
+      - name: Commit the submission
+        if: env.STORE_PUBLISH == 'true' && vars.MSSTORE_AUTO_COMMIT == 'true'
+        shell: pwsh
+        env:
+          PRODUCT_ID: ${{ vars.MSSTORE_PRODUCT_ID || '9PGTCKZNKJ2G' }}
+        run: |
+          & msstore submission publish $env:PRODUCT_ID
+          if ($LASTEXITCODE -ne 0) { throw "msstore submission publish failed ($LASTEXITCODE)" }
 
       - name: Report submission status
         if: env.STORE_PUBLISH == 'true'

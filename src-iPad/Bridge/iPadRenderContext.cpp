@@ -129,6 +129,22 @@ iPadRenderContext::~iPadRenderContext() {
     (void)CloseSequence();
 }
 
+iPadRenderContext::ModelMutationScope::ModelMutationScope(iPadRenderContext& ctx, int maxWaitMs)
+    : _lock(ctx._modelMutationGate, std::defer_lock) {
+    if (maxWaitMs <= 0) maxWaitMs = 5000;
+    // Bounded rather than blocking: "Update From Base Now" runs this straight
+    // off a SwiftUI button on the main actor, and waiting there indefinitely for
+    // a detached show-folder load to finish is a 0x8BADF00D kill.
+    if (!_lock.try_lock_for(std::chrono::milliseconds(maxWaitMs))) {
+        spdlog::error("iPadRenderContext: another model rebuild holds the gate; refusing to mutate the models concurrently");
+        return;
+    }
+    _ok = ctx.AbortRender(maxWaitMs);
+    if (!_ok) {
+        spdlog::error("iPadRenderContext: could not abort in-flight render; leaving the models alone rather than freeing them under a live render job");
+    }
+}
+
 bool iPadRenderContext::LoadShowFolder(const std::string& showDir) {
     return LoadShowFolder(showDir, {});
 }
@@ -147,8 +163,15 @@ bool iPadRenderContext::LoadShowFolder(const std::string& showDir,
     // the watchdog. The abort is best-effort — on timeout the workers still
     // hold Model* references, so keep the current show loaded rather than free
     // the models under them.
-    if (!AbortRender(5000)) {
-        spdlog::error("iPadRenderContext: could not abort in-flight render; keeping the current show folder rather than freeing models under a live render job");
+    //
+    // The scope takes the gate BEFORE the drain and holds it to the end of the
+    // rebuild: the drain alone only empties the queue at one instant, and
+    // everything after it — ObtainAccessToURL, OutputManager::Load, the
+    // rgbeffects parse — runs for seconds with the main run loop free to start
+    // a fresh render.
+    ModelMutationScope mutate(*this);
+    if (!mutate.ok()) {
+        spdlog::error("iPadRenderContext: keeping the current show folder rather than freeing models under a live render job");
         return false;
     }
 
@@ -1901,12 +1924,16 @@ bool FilesMatchBytes(const std::filesystem::path& a,
 /// Shared routine for MoveToShowFolder / CopyToMediaFolder. Copies
 /// `file` into `<destRoot>/<subdir>/<basename>`, appends `_N` on
 /// collision unless `reuse` and the existing file matches byte-for-
-/// byte. Empty string on any failure. Creates the subdir if missing.
+/// byte. Returns the original `file` on any failure — matching
+/// desktop's xLightsFrame::MoveToShowFolder contract — since callers
+/// store the return value as the new reference and a path to a file
+/// that was never written is worse than the one they already had.
+/// Creates the subdir if missing.
 std::string CopyIntoRoot(const std::string& file,
                         const std::string& destRoot,
                         const std::string& subdirectory,
                         bool reuse) {
-    if (destRoot.empty() || file.empty()) return "";
+    if (destRoot.empty() || file.empty()) return file;
 
     namespace fs = std::filesystem;
     fs::path src(file);
@@ -1914,7 +1941,7 @@ std::string CopyIntoRoot(const std::string& file,
     // can raise filesystem_error on iOS sandbox/permission edge cases, and the
     // app has no handler, so it terminates (per CLAUDE.md filesystem guidance).
     std::error_code existsEc;
-    if (!fs::exists(src, existsEc) || existsEc) return "";
+    if (!fs::exists(src, existsEc) || existsEc) return file;
 
     // Normalise subdir: strip leading separator. Desktop's callers
     // pass both "/Images" and "Images"; the trailing concat either way
@@ -1932,7 +1959,7 @@ std::string CopyIntoRoot(const std::string& file,
     if (ec) {
         spdlog::error("iPadRenderContext: Unable to create media target folder {}: {}",
                       dir.string(), ec.message());
-        return "";
+        return file;
     }
 
     fs::path target = dir / src.filename();
@@ -1954,7 +1981,7 @@ std::string CopyIntoRoot(const std::string& file,
         if (ec) {
             spdlog::error("iPadRenderContext: Copy {} -> {} failed: {}",
                           src.string(), target.string(), ec.message());
-            return "";
+            return file;
         }
     }
     return target.string();
@@ -1964,7 +1991,7 @@ std::string CopyIntoRoot(const std::string& file,
 std::string iPadRenderContext::MoveToShowFolder(const std::string& file,
                                                   const std::string& subdirectory,
                                                   bool reuse) {
-    if (showDirectory.empty()) return "";
+    if (showDirectory.empty()) return file;
     return CopyIntoRoot(file, showDirectory, subdirectory, reuse);
 }
 
@@ -1978,7 +2005,7 @@ std::string iPadRenderContext::CopyToMediaFolder(const std::string& file,
     for (const auto& mf : mediaDirectories) {
         if (mf == mediaFolderPath) { known = true; break; }
     }
-    if (!known) return "";
+    if (!known) return file;
     return CopyIntoRoot(file, mediaFolderPath, subdirectory, /*reuse*/ false);
 }
 
@@ -2201,6 +2228,17 @@ bool iPadRenderContext::WasRenderAborted() const {
 
 void iPadRenderContext::RenderEffectForModel(const std::string& model,
                                               int startms, int endms, bool clear) {
+    // try_lock, never lock: a show-folder rebuild holds the gate for its whole
+    // run, and this is reached from the main actor (edit handlers, the dirty
+    // poll), which must not block. The render can't run now, but it can't be
+    // dropped either - this is the only place the edit's render is requested,
+    // so defer it for the next RenderDependentModels sweep to pick up.
+    std::unique_lock<std::timed_mutex> gate(_modelMutationGate, std::try_to_lock);
+    if (!gate.owns_lock()) {
+        spdlog::debug("iPadRenderContext: deferring render of '{}' - the show's models are being rebuilt", model);
+        DeferEditRender(model, startms, endms, clear);
+        return;
+    }
     if (_renderEngine && _seqData.IsValidData()) {
         _renderEngine->RenderEffectForModel(model, startms, endms,
                                              _sequenceElements, _seqData,
@@ -2208,12 +2246,51 @@ void iPadRenderContext::RenderEffectForModel(const std::string& model,
     }
 }
 
+void iPadRenderContext::DeferEditRender(const std::string& model,
+                                        int startms, int endms, bool clear) {
+    std::lock_guard<std::mutex> lock(_deferredEditRenderLock);
+    auto it = _deferredEditRenders.find(model);
+    if (it == _deferredEditRenders.end()) {
+        _deferredEditRenders[model] = DeferredEditRender{ startms, endms, clear };
+    } else {
+        // Union the ranges: replaying both edits over the wider span is
+        // correct and cheaper than tracking them separately.
+        it->second.startMs = std::min(it->second.startMs, startms);
+        it->second.endMs = std::max(it->second.endMs, endms);
+        it->second.clear = it->second.clear || clear;
+    }
+}
+
 int iPadRenderContext::RenderDependentModels() {
+    // Driven by a 0.5s main-run-loop timer, so it keeps firing right through a
+    // detached show-folder load. Without this gate that tick was the writer in
+    // the LoadShowFolder-vs-render use-after-free: it started jobs after the
+    // load's drain and they resolved models out of the ModelManager being
+    // cleared. The dirty set is not consumed here, so a skipped sweep is picked
+    // up by the next tick.
+    std::unique_lock<std::timed_mutex> gate(_modelMutationGate, std::try_to_lock);
+    if (!gate.owns_lock()) return 0;
     if (!_renderEngine || !_seqData.IsValidData()) return 0;
-    std::vector<Element*> elsToRender;
-    if (!_sequenceElements.GetElementsToRender(elsToRender)) return 0;
 
     int started = 0;
+
+    // Edit renders that lost the gate earlier. Taken only now that the gate is
+    // held, so a sweep that lost it leaves them queued for the next tick.
+    std::map<std::string, DeferredEditRender> deferred;
+    {
+        std::lock_guard<std::mutex> lock(_deferredEditRenderLock);
+        deferred.swap(_deferredEditRenders);
+    }
+    for (const auto& [model, d] : deferred) {
+        _renderEngine->RenderEffectForModel(model, d.startMs, d.endMs,
+                                             _sequenceElements, _seqData,
+                                             false, modelsChangeCount, d.clear);
+        ++started;
+    }
+
+    std::vector<Element*> elsToRender;
+    if (!_sequenceElements.GetElementsToRender(elsToRender)) return started;
+
     for (Element* el : elsToRender) {
         if (!el) continue;
         int ss = 0, es = 0;
@@ -2227,15 +2304,26 @@ int iPadRenderContext::RenderDependentModels() {
 }
 
 bool iPadRenderContext::RenderModelAndWait(const std::string& model, int maxTimeMs) {
-    EnsureSequenceDataSized();
-    if (!_seqData.IsValidData()) return false;
-    EnsureRenderEngine();
-    // Make sure no stale jobs are touching the model's frames before we
-    // kick off a fresh full-range render.
-    AbortRender(maxTimeMs);
-    _renderEngine->RenderEffectForModel(model, 0, 99999999,
-                                        _sequenceElements, _seqData,
-                                        false, modelsChangeCount, true);
+    {
+        // Gate the kickoff only, not the wait below - holding it across the wait
+        // would stall a show-folder load for the full render. Once the jobs are
+        // registered a concurrent rebuild's own AbortRender drains them, and the
+        // wait loop then exits on IsRenderDone.
+        std::unique_lock<std::timed_mutex> gate(_modelMutationGate, std::try_to_lock);
+        if (!gate.owns_lock()) {
+            spdlog::warn("iPadRenderContext: cannot render '{}' - the show's models are being rebuilt", model);
+            return false;
+        }
+        EnsureSequenceDataSized();
+        if (!_seqData.IsValidData()) return false;
+        EnsureRenderEngine();
+        // Make sure no stale jobs are touching the model's frames before we
+        // kick off a fresh full-range render.
+        AbortRender(maxTimeMs);
+        _renderEngine->RenderEffectForModel(model, 0, 99999999,
+                                            _sequenceElements, _seqData,
+                                            false, modelsChangeCount, true);
+    }
     if (maxTimeMs <= 0) maxTimeMs = 60000;
     int loops = maxTimeMs / 10;
     int i = 0;
@@ -2263,8 +2351,18 @@ void iPadRenderContext::EnsureRenderEngine() {
     _renderCache.SetMaximumSizeMB(ReadRenderCacheMaxMB());
 }
 
-void iPadRenderContext::RenderAll() {
-    if (!_sequenceFile) return;
+bool iPadRenderContext::RenderAll() {
+    if (!_sequenceFile) return false;
+
+    // Runs on its own thread (SequencerViewModel.beginFreshRender), so it can
+    // land mid-rebuild just as easily as the dirty poll can. Held for the whole
+    // body: this is the path that reallocates _seqData and rebuilds every
+    // PixelBuffer, so it must not overlap the model teardown at all.
+    std::unique_lock<std::timed_mutex> gate(_modelMutationGate, std::try_to_lock);
+    if (!gate.owns_lock()) {
+        spdlog::warn("iPadRenderContext::RenderAll: the show's models are being rebuilt; skipping this pass");
+        return false;
+    }
 
     // Refuse to start a second pass over a live one. Every caller can reach
     // here with the previous render still running: startBackgroundRender
@@ -2277,7 +2375,7 @@ void iPadRenderContext::RenderAll() {
     // render is already done, so this costs nothing on the normal path.
     if (!AbortRender(5000)) {
         spdlog::error("iPadRenderContext::RenderAll: previous render would not drain; skipping this pass rather than rebuilding buffers under live workers");
-        return;
+        return false;
     }
 
     // SequenceData is normally allocated in OpenSequence and reused
@@ -2291,6 +2389,11 @@ void iPadRenderContext::RenderAll() {
 
     unsigned int numFrames = _seqData.NumFrames();
     unsigned int numChannels = _seqData.NumChannels();
+    if (!_seqData.IsValidData() || numFrames == 0) {
+        spdlog::error("iPadRenderContext::RenderAll: no valid sequence data ({} frames, {} channels); skipping this pass",
+                      numFrames, numChannels);
+        return false;
+    }
 
     EnsureRenderEngine();
 
@@ -2307,6 +2410,7 @@ void iPadRenderContext::RenderAll() {
 
     spdlog::info("iPadRenderContext: RenderAll started for {} frames, {} channels",
                  numFrames, numChannels);
+    return true;
 }
 
 void iPadRenderContext::HandleMemoryWarning() {
@@ -2371,14 +2475,15 @@ void iPadRenderContext::HandleMemoryCritical() {
 
 float iPadRenderContext::GetRenderProgressFraction() const {
     if (!_renderEngine) return 1.0f;
-    auto& list = const_cast<RenderEngine*>(_renderEngine.get())->GetRenderProgressInfo();
-    if (list.empty()) return 1.0f;
 
     uint64_t totalDone = 0;
     uint64_t totalWork = 0;
-    for (auto* rpi : list) {
+    // Locked walk: entries are erased and deleted by IsRenderDone() on other
+    // threads (an abort, the RenderAll thread) while this polls from the main
+    // actor.
+    ForEachRenderProgress([&](RenderProgressInfo* rpi) {
         const int totalFrames = rpi->endFrame - rpi->startFrame + 1;
-        if (totalFrames <= 0 || !rpi->jobs) continue;
+        if (totalFrames <= 0 || !rpi->jobs) return;
         for (int i = 0; i < rpi->numRows; ++i) {
             IRenderJobStatus* job = rpi->jobs[i];
             if (!job) continue;
@@ -2395,7 +2500,7 @@ float iPadRenderContext::GetRenderProgressFraction() const {
             totalDone += static_cast<uint64_t>(done);
             totalWork += static_cast<uint64_t>(totalFrames);
         }
-    }
+    });
     if (totalWork == 0) return 1.0f;
     return static_cast<float>(totalDone) / static_cast<float>(totalWork);
 }
@@ -2403,12 +2508,12 @@ float iPadRenderContext::GetRenderProgressFraction() const {
 std::vector<iPadRenderContext::RenderJobProgress> iPadRenderContext::GetRenderJobProgress() const {
     std::vector<RenderJobProgress> out;
     if (!_renderEngine) return out;
-    auto& list = const_cast<RenderEngine*>(_renderEngine.get())->GetRenderProgressInfo();
-    if (list.empty()) return out;
 
-    for (auto* rpi : list) {
+    // Same lifetime problem as GetRenderProgressFraction: walk under the
+    // context's drain lock or this reads jobs another thread just deleted.
+    ForEachRenderProgress([&](RenderProgressInfo* rpi) {
         int totalFrames = rpi->endFrame - rpi->startFrame + 1;
-        if (totalFrames <= 0 || !rpi->jobs) continue;
+        if (totalFrames <= 0 || !rpi->jobs) return;
         for (int i = 0; i < rpi->numRows; ++i) {
             IRenderJobStatus* job = rpi->jobs[i];
             if (!job) continue;
@@ -2431,19 +2536,33 @@ std::vector<iPadRenderContext::RenderJobProgress> iPadRenderContext::GetRenderJo
             p.status = job->GetStatusForUser();
             out.push_back(std::move(p));
         }
-    }
+    });
     return out;
 }
 
 void iPadRenderContext::SetModelColors(int frameMS) {
+    // Walks every Model in AllModels from the preview draw path (main thread),
+    // while a show-folder load can be clearing them from its detached task -
+    // the read side of the same window LoadShowFolder holds the gate for.
+    // try_lock so a draw never blocks; a skipped frame just keeps the colours
+    // it already had, and the rebuild redraws when it finishes.
+    std::unique_lock<std::timed_mutex> gate(_modelMutationGate, std::try_to_lock);
+    if (!gate.owns_lock()) return;
+    SetModelColorsUnlocked(frameMS);
+}
+
+void iPadRenderContext::SetModelColorsUnlocked(int frameMS) {
     if (!_seqData.IsValidData()) return;
 
     int frame = frameMS / _seqData.FrameTime();
     if (frame < 0 || (unsigned int)frame >= _seqData.NumFrames()) return;
 
     auto& fd = _seqData[frame];
-    auto models = AllModels.GetModels();
-    for (auto& [name, model] : models) {
+    // Iterate the manager rather than AllModels.GetModels(), which returns the
+    // map BY VALUE — a full red-black tree + key-string copy. This runs once per
+    // preview draw (XLMetalBridge drawModelsForDocument:), i.e. at display
+    // refresh, so the copy was pure per-frame allocation churn.
+    for (auto& [name, model] : AllModels) {
         int chansPerNode = model->GetChanCountPerNode();
         for (size_t n = 0; n < model->GetNodeCount(); n++) {
             int32_t startChan = model->NodeStartChannel(n);
@@ -2458,10 +2577,15 @@ std::vector<iPadRenderContext::PixelData> iPadRenderContext::GetModelPixels(
     const std::string& modelName, int frameMS) {
 
     std::vector<PixelData> pixels;
+    // One gate for the colour refresh AND the node walk below - both read
+    // models the show-folder rebuild may be deleting.
+    std::unique_lock<std::timed_mutex> gate(_modelMutationGate, std::try_to_lock);
+    if (!gate.owns_lock()) return pixels;
+
     Model* model = GetModel(modelName);
     if (!model) return pixels;
 
-    SetModelColors(frameMS);
+    SetModelColorsUnlocked(frameMS);
 
     for (size_t n = 0; n < model->GetNodeCount(); n++) {
         xlColor color = model->GetNodeColor(n);
@@ -2477,11 +2601,15 @@ std::vector<iPadRenderContext::PixelData> iPadRenderContext::GetModelPixels(
 std::vector<iPadRenderContext::PixelData> iPadRenderContext::GetAllModelPixels(int frameMS) {
     std::vector<PixelData> allPixels;
 
-    SetModelColors(frameMS);
+    // As in GetModelPixels: one gate covering the colour refresh and the walk.
+    std::unique_lock<std::timed_mutex> gate(_modelMutationGate, std::try_to_lock);
+    if (!gate.owns_lock()) return allPixels;
+
+    SetModelColorsUnlocked(frameMS);
 
     static bool loggedOnce = false;
-    auto models = AllModels.GetModels();
-    for (auto& [name, model] : models) {
+    // Same reason as SetModelColors above: no by-value map copy on the draw path.
+    for (auto& [name, model] : AllModels) {
         for (size_t n = 0; n < model->GetNodeCount(); n++) {
             xlColor color = model->GetNodeColor(n);
             std::vector<std::tuple<float, float, float>> pts;
@@ -2505,7 +2633,7 @@ std::vector<iPadRenderContext::PixelData> iPadRenderContext::GetAllModelPixels(i
         }
     }
     if (!loggedOnce && !allPixels.empty()) {
-        spdlog::info("Preview: total {} pixels from {} models", allPixels.size(), models.size());
+        spdlog::info("Preview: total {} pixels from {} models", allPixels.size(), AllModels.size());
         loggedOnce = true;
     }
     return allPixels;

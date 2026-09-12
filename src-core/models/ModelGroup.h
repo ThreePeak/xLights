@@ -10,10 +10,13 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
+#include <atomic>
 #include <limits>
 #include <vector>
 #include <set>
+#include <shared_mutex>
 #include <string>
+#include <thread>
 
 #include "Model.h"
 #include "Color.h"
@@ -78,6 +81,11 @@ class ModelGroup : public ModelWithScreenLocation<BoxedScreenLocation>
         void ResetModels();
         bool RebuildBuffers();
 
+        // ModelManager::ResetModelGroups only: whether the last ResetModels
+        // resolved to a different set of Model* than it held before.
+        void ClearModelsChangedOnReset() const { modelsChangedOnReset = false; }
+        [[nodiscard]] bool ModelsChangedOnReset() const { return modelsChangedOnReset; }
+
         bool CheckForChanges() const;
 
         float GetCentreX() const { return centrex; }
@@ -124,9 +132,29 @@ class ModelGroup : public ModelWithScreenLocation<BoxedScreenLocation>
         // name in this group can go dangling with no call reaching us.
         void EnsureModelsCurrent() const;
 
+        // The render-facing cache (Nodes, models, activeModels, changeCount and
+        // the geometry derived from them) is read from render worker threads
+        // while the main thread can rebuild it - a group is rebuilt whenever a
+        // member's change count moves, which happens freely during a background
+        // render. Readers take it shared for the whole read; the two mutators
+        // (RebuildBuffers, ResetModels) take it exclusively. cacheWriter lets
+        // the mutating thread re-enter its own read paths (rebuilding walks the
+        // members, and a member can be a nested group) without self-deadlock.
+        //
+        // Lock order is cacheLock then ModelManager::_modelMutex: readers hold
+        // this across the GetModel calls that resolve member names, so nothing
+        // may take it while already holding _modelMutex.
+        mutable std::shared_mutex cacheLock;
+        mutable std::atomic<std::thread::id> cacheWriter{};
+
+        bool HoldsCacheWrite() const { return cacheWriter.load(std::memory_order_relaxed) == std::this_thread::get_id(); }
+
         std::vector<std::string> modelNames;
         mutable std::vector<Model *> models;
         mutable std::vector<Model *> activeModels;
+        // Set by ResetModels when the resolved member pointers differ from the
+        // previous resolution; read (and cleared) by ModelManager::ResetModelGroups.
+        mutable bool modelsChangedOnReset = false;
         mutable unsigned int modelsGeneration = std::numeric_limits<unsigned int>::max();
         mutable bool resolvingModels = false;
         bool selected;

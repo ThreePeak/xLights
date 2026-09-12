@@ -31,6 +31,7 @@
 #include <wx/propgrid/advprops.h>
 #include <wx/tglbtn.h>
 #include <wx/srchctrl.h>
+#include <wx/tokenzr.h>
 #include <wx/checklst.h>
 #include <pugixml.hpp>
 #include <cmath>
@@ -50,6 +51,7 @@
 #include "layout/LayoutPanel.h"
 #include "layout/ModelPreview.h"
 #include "xLightsMain.h"
+#include "shared/dialogs/CheckboxSelectDialog.h"
 #include "xLightsApp.h"
 #include "src-ui-wx/ai/AICustomPropDesignerDialog.h"
 #include "settings/XLightsConfigAdapter.h"
@@ -68,14 +70,17 @@
 #include "models/ViewObject.h"
 #include "models/RulerObject.h"
 #include "models/CustomModel.h"
+#include "models/ControllerObject.h"
 #include "models/handles/HitTest.h"
 
 #include "XmlSerializer/FileSerializingVisitor.h"
 #include "XmlSerializer/StringSerializingVisitor.h"
+#include "XmlSerializer/XmlNodeKeys.h"
 #include "XmlSerializer/XmlSerializer.h"
 #include "model/WiringDialog.h"
 #include "model/ModelDimmingCurveDialog.h"
 #include "UtilFunctions.h"
+#include "shared/dialogs/CheckboxSelectDialog.h"
 #include "shared/utils/ExternalHooksUI.h"
 #include "color/ColorManager.h"
 #include "utils/VectorMath.h"
@@ -86,6 +91,9 @@
 #include "layout/ViewsModelsPanel.h"
 #include "outputs/OutputManager.h"
 #include "outputs/Output.h"
+#include "outputs/Controller.h"
+#include "controllers/ControllerCaps.h"
+#include "controllers/ControllerUploadData.h"
 #include "cad/ModelToCAD.h"
 #include "layout/LORPreview.h"
 #include "model/ModelDefinitionsDialog.h"
@@ -222,11 +230,19 @@ public:
     // -1 means "not currently in a horizontal-dock resize".
     int m_horizResizeDockY = -1;
     int m_horizResizeActionOffsetY = 0;
+    // Whether both ModelList and ModelSettings were visible (docked, shown) when the
+    // drag started. Captured once alongside m_horizResizeDockY rather than re-queried
+    // every OnMotion — once the live-resize shrinks a pane to ~0, wxAuiManager itself
+    // can flip its IsShown() to false mid-drag, which would otherwise silently disable
+    // the clamp below for the rest of the drag and let the sash run the pane's size to
+    // zero with no caption/gripper left to grab it back afterwards.
+    bool m_horizResizeBothVisible = false;
 
     void OnLeftDown(wxMouseEvent& event) {
         // Reset per-drag clamping state before the base class sets m_actionPart.
         m_horizResizeDockY = -1;
         m_horizResizeActionOffsetY = 0;
+        m_horizResizeBothVisible = false;
         wxAuiDockUIPart* part = HitTest(event.GetX(), event.GetY());
         if (part &&
             (part->type == wxAuiDockUIPart::typeCaption ||
@@ -299,17 +315,17 @@ public:
                      part->dock->dock_direction == wxAUI_DOCK_BOTTOM)) {
                     m_horizResizeDockY = part->dock->rect.y;
                     m_horizResizeActionOffsetY = m_actionOffset.y;
+
+                    wxAuiPaneInfo& listPane = GetPane("ModelList");
+                    wxAuiPaneInfo& settingsPane = GetPane("ModelSettings");
+                    m_horizResizeBothVisible =
+                        listPane.IsOk() && listPane.IsShown() && !listPane.IsFloating() &&
+                        settingsPane.IsOk() && settingsPane.IsShown() && !settingsPane.IsFloating();
                 }
             }
 
             if (m_horizResizeDockY >= 0) {
-                wxAuiPaneInfo& listPane = GetPane("ModelList");
-                bool centerVisible = false;
-                wxAuiPaneInfo& p = GetPane("ModelSettings");
-                if (p.IsOk() && p.IsShown() && !p.IsFloating()) {
-                    centerVisible = true;
-                }
-                if (listPane.IsOk() && listPane.IsShown() && !listPane.IsFloating() && centerVisible) {
+                if (m_horizResizeBothVisible) {
                     // new_size = (event.m_y - m_horizResizeActionOffsetY) - m_horizResizeDockY
                     // Enforce new_size >= 10% of containerH and (containerH - new_size) >= 10%.
                     int containerH = GetManagedWindow()->GetClientSize().GetHeight();
@@ -331,9 +347,24 @@ public:
         bool wasDragging = m_action != actionNone;
         m_pendingCenterDrag    = false;
         m_centerDragWindow     = nullptr;
+        // wxAuiManager's own OnLeftUp (reached via event.Skip() below) commits the
+        // resize using THIS event's mouse position, not the last OnMotion position we
+        // clamped. Releasing outside the xLights window can deliver a final mouse-up
+        // coordinate far past where the drag was ever clamped in OnMotion, letting the
+        // pane collapse past its minimum. Clamp here too, using the same saved
+        // per-drag state, before it gets reset below.
+        if (m_action == actionResize && m_horizResizeDockY >= 0 && m_horizResizeBothVisible) {
+            int containerH = GetManagedWindow()->GetClientSize().GetHeight();
+            int paneMin = std::max(containerH * 10 / 100, kPaneMinHeight);
+            int minY = paneMin + m_horizResizeActionOffsetY + m_horizResizeDockY;
+            int maxY = (containerH - paneMin) + m_horizResizeActionOffsetY + m_horizResizeDockY;
+            if (maxY < minY) maxY = minY;
+            event.m_y = std::clamp(event.m_y, minY, maxY);
+        }
         // Reset per-drag clamping state.
         m_horizResizeDockY = -1;
         m_horizResizeActionOffsetY = 0;
+        m_horizResizeBothVisible = false;
         event.Skip();
         // After the base-class finishes processing the mouse-up (which may have
         // docked or floated a pane), update the splitter state.
@@ -398,6 +429,7 @@ const long LayoutPanel::ID_PREVIEW_MODEL_DELETESET = wxNewId();
 const long LayoutPanel::ID_PREVIEW_MODEL_RENAMESET = wxNewId();
 const long LayoutPanel::ID_PREVIEW_MODEL_MANAGESET = wxNewId();
 const long LayoutPanel::ID_PREVIEW_MODEL_WIRINGVIEW = wxNewId();
+const long LayoutPanel::ID_PREVIEW_MODEL_WIRETOCLOSESTCONTROLLER = wxNewId();
 const long LayoutPanel::ID_PREVIEW_MODEL_ASPECTRATIO = wxNewId();
 const long LayoutPanel::ID_PREVIEW_MODEL_EXPORTXLIGHTSMODEL = wxNewId();
 const long LayoutPanel::ID_PREVIEW_RESIZE_SAMEWIDTH = wxNewId();
@@ -1051,7 +1083,7 @@ LayoutPanel::LayoutPanel(wxWindow* parent, xLightsFrame *xl, wxPanel* sequencer)
     LabelDirectoriesFooter = new wxStaticText(layoutControlsBar, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0);
     ButtonOpenShowFolder = new wxBitmapButton(layoutControlsBar, wxID_ANY, wxArtProvider::GetBitmapBundle("wxART_FOLDER_OPEN", wxART_BUTTON));
     ButtonOpenShowFolder->SetToolTip("Select Show Folder");
-    ButtonOpenShowFolder->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) { xlights->OnMenuOpenFolderSelected(e); });
+    ButtonOpenShowFolder->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) { xlights->OpenShowDirectoriesDialog(); });
     {
         wxBoxSizer* lcbSizer = new wxBoxSizer(wxHORIZONTAL);
         lcbSizer->Add(ButtonOpenShowFolder, 0, wxALL|wxALIGN_CENTER_VERTICAL, 8);
@@ -1817,17 +1849,17 @@ std::string LayoutPanel::TreeModelName(const Model* model, bool fullname)
     }
 }
 
-void LayoutPanel::FreezeTreeListView(wxTreeListCtrl* tree, wxDataViewModel* internalModel) {
+void LayoutPanel::FreezeTreeListView(wxTreeListCtrl* tree, wxDataViewModel* internalModel, TreeSortState& sortState) {
     tree->Freeze();
 
     //turn off the column width auto-resize.  Makes it REALLY slow to populate the tree
     tree->SetColumnWidth(0, tree->GetColumnWidth(0));
     tree->SetColumnWidth(3, tree->GetColumnWidth(3));
-    treeSorted = tree->GetSortColumn(&treeSortCol, &treeSortAscending);
+    sortState.sorted = tree->GetSortColumn(&sortState.col, &sortState.ascending);
 
     //turn off the sorting as that is ALSO really slow
     tree->SetItemComparator(nullptr);
-    if (treeSorted) {
+    if (sortState.sorted) {
         //UnsetAsSortKey may be unimplemented on all  platforms so we'll set a
         //sort column to 0 which is faster due to straight string compare
         tree->SetSortColumn(0, true);
@@ -1840,7 +1872,7 @@ void LayoutPanel::FreezeTreeListView(wxTreeListCtrl* tree, wxDataViewModel* inte
 #endif
 }
 
-void LayoutPanel::ThawTreeListView(wxTreeListCtrl* tree, wxDataViewModel* internalModel, const std::list<wxTreeListItem> &toExpand) {
+void LayoutPanel::ThawTreeListView(wxTreeListCtrl* tree, wxDataViewModel* internalModel, const std::list<wxTreeListItem> &toExpand, const TreeSortState& sortState) {
 #ifdef __WXOSX__
     // re-associate the model
     tree->GetDataView()->AssociateModel(internalModel);
@@ -1867,13 +1899,13 @@ void LayoutPanel::ThawTreeListView(wxTreeListCtrl* tree, wxDataViewModel* intern
     }
     //turn the sorting back on
     tree->SetItemComparator(&comparator);
-    if (treeSorted) {
+    if (sortState.sorted) {
 #ifdef __WXOSX__
         // if the sort direction doesn't acutally change from previous setting,
         // it won't actually sort for some reason so we'll double toggle to make sure
-        tree->SetSortColumn(treeSortCol, !treeSortAscending);
+        tree->SetSortColumn(sortState.col, !sortState.ascending);
 #endif
-        tree->SetSortColumn(treeSortCol, treeSortAscending);
+        tree->SetSortColumn(sortState.col, sortState.ascending);
         tree->GetDataView()->GetModel()->Resort();
     }
     
@@ -1928,7 +1960,8 @@ void LayoutPanel::refreshModelList() {
 
 void LayoutPanel::refreshOneModelList(wxTreeListCtrl* tree, wxDataViewModel* internalModel, const TreeChanColumns& cols) {
     std::list<wxTreeListItem> toExpand;
-    FreezeTreeListView(tree, internalModel);
+    TreeSortState sortState;
+    FreezeTreeListView(tree, internalModel, sortState);
 
     for ( wxTreeListItem item = tree->GetFirstItem();
           item.IsOk();
@@ -1966,7 +1999,7 @@ void LayoutPanel::refreshOneModelList(wxTreeListCtrl* tree, wxDataViewModel* int
             }
         }
     }
-    ThawTreeListView(tree, internalModel, toExpand);
+    ThawTreeListView(tree, internalModel, toExpand, sortState);
 }
 
 void LayoutPanel::RenameModelInTree(Model *model, const std::string& new_name)
@@ -2080,8 +2113,10 @@ void LayoutPanel::UpdateModelList(bool full_refresh, std::vector<Model*> &models
         }
     }
 
-    FreezeTreeListView(TreeListViewModels, TreeListMiewInternalModel);
-    FreezeTreeListView(TreeListViewGroups, TreeListGroupsInternalModel);
+    TreeSortState modelsSortState;
+    TreeSortState groupsSortState;
+    FreezeTreeListView(TreeListViewModels, TreeListMiewInternalModel, modelsSortState);
+    FreezeTreeListView(TreeListViewGroups, TreeListGroupsInternalModel, groupsSortState);
 
     if (full_refresh) {
         UnSelectAllModels();
@@ -2140,8 +2175,8 @@ void LayoutPanel::UpdateModelList(bool full_refresh, std::vector<Model*> &models
     }
     xlights->GetOutputModelManager()->AddASAPWork(OutputModelManager::WORK_REDRAW_LAYOUTPREVIEW, "LayoutPanel::UpdateModelList");
 
-    ThawTreeListView(TreeListViewModels, TreeListMiewInternalModel, toExpand);
-    ThawTreeListView(TreeListViewGroups, TreeListGroupsInternalModel, toExpandGroups);
+    ThawTreeListView(TreeListViewModels, TreeListMiewInternalModel, toExpand, modelsSortState);
+    ThawTreeListView(TreeListViewGroups, TreeListGroupsInternalModel, toExpandGroups, groupsSortState);
 
     if (sw.Time() > 500)
         spdlog::debug("        LayoutPanel::UpdateModelList took {}ms", sw.Time());
@@ -2936,6 +2971,13 @@ void LayoutPanel::AddModelSetOptionsToMenu(wxMenu& menu)
     }
 }
 
+void LayoutPanel::CreateSetUndoPointOnce(bool& taken, const std::string& modelName)
+{
+    if (taken) return;
+    taken = true;
+    CreateUndoPoint("All", modelName);
+}
+
 void LayoutPanel::DoLinkAsSet()
 {
     auto selected = GetSelectedModelsForSetActions();
@@ -2965,6 +3007,7 @@ void LayoutPanel::DoLinkAsSet()
     for (auto* m : selected) {
         names.push_back(m->GetName());
     }
+    CreateUndoPoint("All", names.front());
     setMgr.CreateSet(names, setName);
     xlights->UnsavedRgbEffectsChanges = true;
     xlights->GetOutputModelManager()->AddASAPWork(
@@ -2991,8 +3034,8 @@ void LayoutPanel::DoAddSelectedToSet(const std::string& setName)
                 continue;
             }
         }
+        CreateSetUndoPointOnce(anyMoved, m->GetName());
         setMgr.AddMember(target, m->GetName());
-        anyMoved = true;
     }
     if (anyMoved) {
         xlights->UnsavedRgbEffectsChanges = true;
@@ -3009,8 +3052,8 @@ void LayoutPanel::DoRemoveSelectedFromSet()
     bool anyRemoved = false;
     for (auto* m : selected) {
         if (setMgr.GetSetContaining(m->GetName()) != nullptr) {
+            CreateSetUndoPointOnce(anyRemoved, m->GetName());
             setMgr.RemoveMember(m->GetName());
-            anyRemoved = true;
         }
     }
     if (anyRemoved) {
@@ -3035,6 +3078,7 @@ void LayoutPanel::DoDeleteSet()
     if (wxMessageBox(prompt, _("Confirm Delete"), wxYES_NO | wxICON_QUESTION, this) != wxYES) {
         return;
     }
+    CreateUndoPoint("All", selected.front()->GetName());
     setMgr.DeleteSet(s);
     xlights->UnsavedRgbEffectsChanges = true;
     xlights->GetOutputModelManager()->AddASAPWork(
@@ -3057,12 +3101,19 @@ void LayoutPanel::DoRenameSet()
     // than making them start over.
     wxString prompt = _("New Set name:");
     wxString current = s->GetName();
+    bool undoTaken = false;
     while (true) {
         wxTextEntryDialog dlg(this, prompt, _("Rename Set"), current);
         OptimiseDialogPosition(&dlg);
         if (dlg.ShowModal() != wxID_OK) return;
         std::string newName = dlg.GetValue().Trim(true).Trim(false).ToStdString();
         if (newName.empty() || newName == s->GetName()) return;
+        // Check availability before snapshotting: RenameSet leaves the Set
+        // untouched on a collision, and re-prompting then cancelling would
+        // otherwise strand an undo step that reverts nothing.
+        if (setMgr.GetSetByName(newName) == nullptr) {
+            CreateSetUndoPointOnce(undoTaken, selected.front()->GetName());
+        }
         if (setMgr.RenameSet(s, newName)) break;
         prompt = wxString::Format(_("A Set named '%s' already exists. Choose another name:"), wxString(newName));
         current = newName;
@@ -3228,9 +3279,13 @@ void LayoutPanel::DoManageSet()
 
     const std::set<std::string>& finalMembers = dlg.GetChecked();
 
+    const std::string undoAnchor = selected.front()->GetName();
+    bool undoTaken = false;
+
     if (finalMembers.size() < 2) {
         if (wxMessageBox(wxString::Format(_("A Set needs at least 2 members. Delete Set '%s' instead?"), wxString(s->GetName())),
                          _("Manage Set"), wxYES_NO | wxICON_QUESTION, this) == wxYES) {
+            CreateSetUndoPointOnce(undoTaken, undoAnchor);
             setMgr.DeleteSet(s);
             xlights->UnsavedRgbEffectsChanges = true;
             xlights->GetOutputModelManager()->AddASAPWork(
@@ -3244,6 +3299,9 @@ void LayoutPanel::DoManageSet()
     // Apply a rename typed into the dialog's name field.
     const std::string newName = dlg.GetSetName();
     if (!newName.empty() && newName != s->GetName()) {
+        if (setMgr.GetSetByName(newName) == nullptr) {
+            CreateSetUndoPointOnce(undoTaken, undoAnchor);
+        }
         if (setMgr.RenameSet(s, newName)) {
             changed = true;
         } else {
@@ -3265,6 +3323,7 @@ void LayoutPanel::DoManageSet()
                 continue;
             }
         }
+        CreateSetUndoPointOnce(undoTaken, undoAnchor);
         setMgr.AddMember(s, name);
         changed = true;
     }
@@ -3277,6 +3336,7 @@ void LayoutPanel::DoManageSet()
         }
     }
     for (const auto& name : toRemove) {
+        CreateSetUndoPointOnce(undoTaken, undoAnchor);
         setMgr.RemoveMember(name);
         changed = true;
     }
@@ -3633,7 +3693,10 @@ void LayoutPanel::AddSelectedToExistingGroups() {
         return;
     }
 
-    wxMultiChoiceDialog dlg(this, "Select existing groups to add selections to", "Existing Group", choices);
+    // Filterable picker - group lists get long. Groups you have already ticked
+    // stay visible when you change the filter, so you can search, tick, search
+    // again and tick more without losing your earlier choices.
+    CheckboxSelectDialog dlg(this, _("Select existing groups to add selections to"), choices);
     OptimiseDialogPosition(&dlg);
 
     std::string selectgroupName;
@@ -3641,8 +3704,8 @@ void LayoutPanel::AddSelectedToExistingGroups() {
 
     if (dlg.ShowModal() == wxID_OK) {
         xlights->AbortRender();
-        for (auto const& idx : dlg.GetSelections()) {
-            std::string groupName = choices.at(idx).ToStdString();
+        for (auto const& groupNameStr : dlg.GetSelectedItems()) {
+            std::string groupName = groupNameStr.ToStdString();
 
             Model* addToGroupModel = xlights->GetModel(groupName);
 
@@ -3697,14 +3760,15 @@ void LayoutPanel::RemoveSelectedFromExistingGroups() {
             for (const auto& it : inModelGroups) {
                 choices.Add(it);
             }
-            wxMultiChoiceDialog dlg(this, "Select groups to remove model from", "Model in Groups", choices);
+            // Same filterable picker as the add-to-groups path above.
+            CheckboxSelectDialog dlg(this, _("Select groups to remove model from"), choices);
             OptimiseDialogPosition(&dlg);
 
             bool reload = false;
             if (dlg.ShowModal() == wxID_OK) {
                 xlights->AbortRender();
-                for (auto const& idx : dlg.GetSelections()) {
-                    std::string groupName = choices.at(idx).ToStdString();
+                for (auto const& groupNameStr : dlg.GetSelectedItems()) {
+                    std::string groupName = groupNameStr.ToStdString();
                     Model* grp = xlights->GetModel(groupName);
                     if (grp != nullptr && grp->GetDisplayAs() == DisplayAsType::ModelGroup) {
                         ModelGroup* modelGroup = dynamic_cast<ModelGroup*>(grp);
@@ -3713,12 +3777,14 @@ void LayoutPanel::RemoveSelectedFromExistingGroups() {
                             // Get current model names in the group
                             const std::vector<std::string>& groupModelNames = modelGroup->ModelNames();
 
-                            // Build a new list with the selected model removed
+                            // Build a new list with the selected model, and any of its
+                            // submodels (stored as "ModelName/SubModelName"), removed
+                            const std::string submodelPrefix = selectedModel + "/";
                             std::vector<std::string> updatedModelNames;
                             bool groupChanged = false;
 
                             for (const auto& modelName : groupModelNames) {
-                                if (modelName != selectedModel) {
+                                if (modelName != selectedModel && !modelName.starts_with(submodelPrefix)) {
                                     updatedModelNames.push_back(modelName);
                                 } else {
                                     groupChanged = true;
@@ -7422,6 +7488,9 @@ void LayoutPanel::AddSingleModelOptionsToBaseMenu(wxMenu &menu) {
         if (model->SupportsWiringView()) {
             menu.Append(ID_PREVIEW_MODEL_WIRINGVIEW, "Wiring View");
         }
+        if (model != nullptr && !xlights->GetOutputManager()->GetControllers().empty()) {
+            menu.Append(ID_PREVIEW_MODEL_WIRETOCLOSESTCONTROLLER, "Wire to Closest Controller with Open Port");
+        }
         menu.AppendSeparator();
         if (model->SupportsExportAsCustom())
         {
@@ -7909,6 +7978,8 @@ void LayoutPanel::OnPreviewModelPopup(wxCommandEvent& event)
         RemoveSelectedFromExistingGroups();
     } else if (event.GetId() == ID_PREVIEW_MODEL_WIRINGVIEW) {
         ShowWiring();
+    } else if (event.GetId() == ID_PREVIEW_MODEL_WIRETOCLOSESTCONTROLLER) {
+        WireToClosestControllerOpenPort();
     } else if (event.GetId() == ID_PREVIEW_MODEL_CAD_EXPORT) {
         ExportModelAsCAD();
     } else if (event.GetId() == ID_PREVIEW_LAYOUT_DXF_EXPORT) {
@@ -8235,6 +8306,117 @@ void LayoutPanel::ShowWiring()
     dlg.ShowModal();
 }
 
+// Finds the nearest controller (by the physical placement of its
+// ControllerObject in the layout, when one exists) that still has enough
+// *consecutive* unused pixel ports to hold every physical string the model
+// needs - a model with N strings occupies ports [port .. port+N-1]
+// (ControllerConnection::GetPortSR) - assigns the model to that
+// controller/base port, and enables the model in the layout. Controllers
+// with no placed ControllerObject are tried last, in output-list order,
+// since there is nothing to measure distance against.
+void LayoutPanel::WireToClosestControllerOpenPort()
+{
+    Model* model = dynamic_cast<Model*>(selectedBaseObject);
+    if (model == nullptr || model->GetDisplayAs() == DisplayAsType::ModelGroup || model->GetDisplayAs() == DisplayAsType::SubModel) return;
+
+    const int stringsNeeded = std::max(1, model->GetNumPhysicalStrings());
+
+    OutputManager* om = xlights->GetOutputManager();
+    auto controllers = om->GetControllers();
+
+    const float mx = model->GetHcenterPos();
+    const float my = model->GetVcenterPos();
+    const float mz = model->GetDcenterPos();
+
+    std::vector<std::pair<double, Controller*>> placed;
+    std::vector<Controller*> unplaced;
+    for (auto* c : controllers) {
+        ControllerCaps* caps = c->GetControllerCaps();
+        if (caps == nullptr || caps->GetMaxPixelPort() < stringsNeeded) continue;
+
+        ControllerObject* co = xlights->AllObjects.GetControllerObject(c->GetName());
+        if (co != nullptr) {
+            const double dx = co->GetHcenterPos() - mx;
+            const double dy = co->GetVcenterPos() - my;
+            const double dz = co->GetDcenterPos() - mz;
+            placed.emplace_back(std::sqrt(dx * dx + dy * dy + dz * dz), c);
+        } else {
+            unplaced.push_back(c);
+        }
+    }
+    std::sort(placed.begin(), placed.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    std::vector<Controller*> candidates;
+    candidates.reserve(placed.size() + unplaced.size());
+    for (const auto& p : placed) candidates.push_back(p.second);
+    for (auto* c : unplaced) candidates.push_back(c);
+
+    for (auto* c : candidates) {
+        ControllerCaps* caps = c->GetControllerCaps();
+        const int maxPort = caps->GetMaxPixelPort();
+        UDController cud(c, om, &xlights->AllModels, false);
+
+        // Which ports are already fully unused, and (as a fallback protocol
+        // hint) the protocol of the first occupied port we see.
+        std::vector<bool> empty(maxPort + 1, false);
+        std::string existingProtocol;
+        for (int p = 1; p <= maxPort; ++p) {
+            UDControllerPort* port = cud.GetControllerPixelPort(p);
+            auto portModels = port->GetModels();
+            empty[p] = portModels.empty();
+            if (!portModels.empty() && existingProtocol.empty()) {
+                existingProtocol = portModels.front()->GetModel()->GetControllerProtocol();
+            }
+        }
+
+        // First run of `stringsNeeded` consecutive empty ports.
+        int openPort = -1;
+        for (int p = 1; p + stringsNeeded - 1 <= maxPort; ++p) {
+            bool allEmpty = true;
+            for (int i = 0; i < stringsNeeded; ++i) {
+                if (!empty[p + i]) { allEmpty = false; break; }
+            }
+            if (allEmpty) { openPort = p; break; }
+        }
+        if (openPort == -1) continue;
+
+        std::string protocol = model->GetControllerProtocol();
+        if (protocol.empty() || !caps->IsValidPixelProtocol(protocol)) {
+            protocol = existingProtocol;
+        }
+        if (protocol.empty() || !caps->IsValidPixelProtocol(protocol)) {
+            auto pp = caps->GetPixelProtocols();
+            protocol = pp.empty() ? "" : pp.front();
+        }
+        if (protocol.empty()) continue;
+
+        CreateUndoPoint("SingleModel", model->name);
+
+        model->SetControllerName(c->GetName(), true);
+        model->SetControllerProtocol(protocol);
+        model->GetCtrlConn().SetCtrlPort(openPort);
+        model->SetActive(true);
+
+        xlights->GetOutputModelManager()->AddImmediateWork(OutputModelManager::WORK_MODELS_REWORK_STARTCHANNELS, "WireToClosestControllerOpenPort");
+        xlights->GetOutputModelManager()->AddImmediateWork(OutputModelManager::WORK_CALCULATE_START_CHANNELS, "WireToClosestControllerOpenPort");
+        xlights->GetOutputModelManager()->AddASAPWork(OutputModelManager::WORK_RGBEFFECTS_CHANGE |
+                                                      OutputModelManager::WORK_MODELS_CHANGE_REQUIRING_RERENDER, "WireToClosestControllerOpenPort");
+        xlights->GetOutputModelManager()->AddImmediateWork(OutputModelManager::WORK_RELOAD_PROPERTYGRID, "WireToClosestControllerOpenPort");
+        xlights->GetOutputModelManager()->AddImmediateWork(OutputModelManager::WORK_RELOAD_ALLMODELS, "WireToClosestControllerOpenPort");
+        xlights->GetOutputModelManager()->AddASAPWork(OutputModelManager::WORK_REDRAW_LAYOUTPREVIEW, "WireToClosestControllerOpenPort");
+
+        xlights->SetStatusText(stringsNeeded > 1
+            ? wxString::Format("Wired '%s' to controller '%s' pixel ports %d-%d", model->GetName(), c->GetName(), openPort, openPort + stringsNeeded - 1)
+            : wxString::Format("Wired '%s' to controller '%s' pixel port %d", model->GetName(), c->GetName(), openPort));
+        return;
+    }
+
+    wxMessageBox(stringsNeeded > 1
+        ? wxString::Format("No controller with %d consecutive open pixel ports was found.", stringsNeeded)
+        : wxString("No controller with an open pixel port was found."),
+        "Wire to Closest Controller", wxOK | wxICON_INFORMATION, this);
+}
+
 void LayoutPanel::ExportModelAsCAD()
 {
     Model* md = dynamic_cast<Model*>(selectedBaseObject);
@@ -8287,15 +8469,15 @@ void LayoutPanel::ExportFacesStatesSubModels() {
         choices.Add(model->Name());
     }
 
-    wxMultiChoiceDialog dlg(this, "Export Face/States/SubModels to Other Models", "Choose Model(s)", choices);
+    CheckboxSelectDialog dlg(this, "Export Face/States/SubModels to Other Models", choices);
     OptimiseDialogPosition(&dlg);
 
     if (dlg.ShowModal() == wxID_OK) {
         std::map<std::string, std::map<std::string, std::string>> sourceFaces = selectedModel->GetFaceInfo();
         std::map<std::string, std::map<std::string, std::string>> sourceStates = selectedModel->GetStateInfo();
 
-        for (auto const& idx : dlg.GetSelections()) {
-            Model* targetModel = xlights->GetModel(choices.at(idx));
+        for (auto const& name : dlg.GetSelectedItems()) {
+            Model* targetModel = xlights->GetModel(name);
 
             auto targetFaces = targetModel->GetFaceInfo();
             for (const auto& [name, data] : sourceFaces) {
@@ -10227,6 +10409,12 @@ void LayoutPanel::ReplaceModel()
         // blocked in the dialog.)
         clone->SetFromBase(false);
 
+        // The clone was built from the source's XML, so it inherited the
+        // source's aliases. Aliases are per-target identity (older names
+        // effects/scripts may still reference), not something the source
+        // template should overwrite - restore the target's own aliases.
+        clone->SetAliases(target->GetAliases());
+
         // Per-target carryovers. These match the semantics of the three Yes/No
         // prompts in the existing single-replace flow (see ReplaceModel()).
         if (copyStartCh) {
@@ -10677,6 +10865,14 @@ void LayoutPanel::DoUndo(wxCommandEvent& event) {
                         modelPreview->GetVirtualCanvasWidth(),
                         modelPreview->GetVirtualCanvasHeight());
                 }
+                // Must follow LoadModels, which clears the set manager. Every
+                // snapshot carries a <modelSets> node (empty when there are no
+                // sets), so restoring an empty one is what makes undoing back
+                // past a Set's creation actually remove it.
+                pugi::xml_node setsNode = mroot.child(XmlNodeKeys::ModelSetsNodeName);
+                if (setsNode) {
+                    xlights->AllModels.GetSetManager().Load(setsNode);
+                }
             }
 
             // Restore view objects from serialized XML
@@ -10836,11 +11032,13 @@ void LayoutPanel::CreateUndoPoint(const std::string &tp, const std::string &mode
         serializer.SerializeObject(*obj, visitor);
         undoBuffer[idx].data = visitor.GetResult();
     } else if (type == "All") {
-        // Serialize all models
+        // Serialize all models, groups and sets. Sets must ride along because
+        // restoring the models on undo clears the set manager (ModelManager::clear).
         {
             StringSerializingVisitor visitor;
             visitor.WriteOpenTag("root");
             XmlSerializer::SerializeAllModels(xlights->AllModels, visitor);
+            XmlSerializer::SerializeAllModelSets(xlights->AllModels.GetSetManager(), visitor);
             visitor.WriteCloseTag();
 
             undoBuffer[idx].models = visitor.GetResult();
@@ -10927,6 +11125,8 @@ void LayoutPanel::OnModelsPopup(wxCommandEvent& event) {
         RemoveSelectedFromExistingGroups();
     } else if (event.GetId() == ID_PREVIEW_MODEL_WIRINGVIEW) {
         ShowWiring();
+    } else if (event.GetId() == ID_PREVIEW_MODEL_WIRETOCLOSESTCONTROLLER) {
+        WireToClosestControllerOpenPort();
     } else if (event.GetId() == ID_PREVIEW_MODEL_CAD_EXPORT) {
         ExportModelAsCAD();
     } else if (event.GetId() == ID_PREVIEW_EXPORT_FACESSTATESSUBMODELS) {
@@ -11485,7 +11685,13 @@ void LayoutPanel::PreviewSaveImage()
 	delete image;
 }
 
-std::string LayoutPanel::ImportModelsFromPreview(std::list<impTreeItemData*> models, wxString const& layoutGroup, bool includeEmptyGroups, float srcPerUnit)
+static bool IsEmptySourceGroup(pugi::xml_node group)
+{
+    std::string const members = group.attribute("models").as_string();
+    return members.find_first_not_of(" ,\t\r\n") == std::string::npos;
+}
+
+std::string LayoutPanel::ImportModelsFromPreview(std::list<impTreeItemData*> models, wxString const& layoutGroup, std::set<std::string> const& importing, bool includeEmptyGroups, float srcPerUnit)
 {
     std::string firstImported;
     float scaleFactor = 1.0f;
@@ -11542,17 +11748,25 @@ std::string LayoutPanel::ImportModelsFromPreview(std::list<impTreeItemData*> mod
     {
         if (it2->GetKind() == ImpItemKind::ModelGroup)//if a group, try to add models if exist
         {
+            if (IsEmptySourceGroup(it2->GetModelNode()) && !includeEmptyGroups) {
+                spdlog::debug("Skipping empty model group '{}'.", (const char*)it2->GetName().c_str());
+                continue;
+            }
+
             wxString const smodels = it2->GetModelNode().attribute("models").as_string();
             auto models = wxSplit(smodels, ',');
 
             models.erase(std::remove_if(models.begin(), models.end(), [&](std::string const& s)
                 {
-                    return (xlights->AllModels.GetModel(s) == nullptr);
+                    if (xlights->AllModels.GetModel(s) != nullptr) return false;
+                    std::string const base = s.substr(0, s.find('/'));
+                    return importing.find(base) == importing.end();
                 }), models.end());
 
-            if (models.empty() && !includeEmptyGroups) {
-                spdlog::debug("Skipping empty model group '{}'.", (const char*)it2->GetName().c_str());
-                continue;
+            std::string memberList;
+            for (const auto& m : models) {
+                if (!memberList.empty()) memberList += ",";
+                memberList += m.utf8_string();
             }
 
             wxString const name = it2->GetName();
@@ -11560,11 +11774,13 @@ std::string LayoutPanel::ImportModelsFromPreview(std::list<impTreeItemData*> mod
             if (model == nullptr) {//if group doesnt exist, create it
                 it2->GetModelNode().remove_attribute("LayoutGroup");
                 it2->GetModelNode().append_attribute("LayoutGroup") = layoutGroup.ToStdString();
+                it2->GetModelNode().remove_attribute("models");
+                it2->GetModelNode().append_attribute("models") = memberList;
                 model = xlights->AllModels.createAndAddModel(it2->GetModelNode(), modelPreview->getWidth(), modelPreview->getHeight());
                 spdlog::debug("Imported model group '{}'.", (const char*)name.c_str());
             }
 
-            if (model->GetDisplayAs() == DisplayAsType::ModelGroup) {
+            if (model != nullptr && model->GetDisplayAs() == DisplayAsType::ModelGroup) {
                 ModelGroup *group = (ModelGroup*)model;
                 for (const auto& m : models) {
                     // only add model to group if it doesn't already exist
@@ -11601,7 +11817,19 @@ void LayoutPanel::ImportModelsFromRGBEffects()
         if (lg == "All Models") lg = "Default";
 
         float srcPerUnit = dlg.GetSourceRulerPerUnit();
-        std::string firstImported = ImportModelsFromPreview(dlg.GetModelsInPreview(""), lg, dlg.GetIncludeEmptyGroups(), srcPerUnit);
+
+        std::set<std::string> importing;
+        auto collectImporting = [&importing](std::list<impTreeItemData*> const& items) {
+            for (auto const& it : items) {
+                importing.insert(it->GetName().ToStdString());
+            }
+        };
+        collectImporting(dlg.GetModelsInPreview(""));
+        for (const auto& it : dlg.GetPreviews()) {
+            collectImporting(dlg.GetModelsInPreview(it));
+        }
+
+        std::string firstImported = ImportModelsFromPreview(dlg.GetModelsInPreview(""), lg, importing, dlg.GetIncludeEmptyGroups(), srcPerUnit);
 
         for (const auto& it : dlg.GetPreviews())
         {
@@ -11622,7 +11850,7 @@ void LayoutPanel::ImportModelsFromRGBEffects()
                 xlights->LayoutGroups.emplace(it.ToStdString(), std::move(grp));
                 AddPreviewChoice(it.ToStdString());
             }
-            std::string name = ImportModelsFromPreview(dlg.GetModelsInPreview(it), it, dlg.GetIncludeEmptyGroups(), srcPerUnit);
+            std::string name = ImportModelsFromPreview(dlg.GetModelsInPreview(it), it, importing, dlg.GetIncludeEmptyGroups(), srcPerUnit);
             if (firstImported.empty()) firstImported = name;
         }
 
@@ -11881,15 +12109,55 @@ void LayoutPanel::ResetToDefaults() {
         _savedFloatingPerspective.clear();
     }
 
-    // Dock all panels to their default positions: ModelList at top, ModelSettings
-    // in the center.
-    layout_mgr->GetPane("ModelList").Top().Layer(0).Row(0).Dock().Show();
-    layout_mgr->GetPane("ModelSettings").Center().Dock().Show();
-
-    // Split ModelList and ModelSettings evenly (50/50).
+    // Detach and re-add both panes rather than mutating them in place. wxAuiManager
+    // caches each pane's actual dock size once it has been laid out; calling
+    // Dock()/Show()/BestSize() on an already-docked pane does not force it to
+    // recompute that cached size, so a pane previously dragged to ~0 height would
+    // stay collapsed even after this "reset". Re-adding them from scratch mirrors
+    // the initial construction in the constructor and guarantees a fresh layout.
     int halfHeight = ModelPanelContainer->GetSize().GetHeight() / 2;
     if (halfHeight < kListHeightFallback) halfHeight = kListHeightFallback;
-    layout_mgr->GetPane("ModelList").BestSize(-1, halfHeight);
+
+    // wxAuiManager keys its dock geometry (dock_size) by (direction, layer, row),
+    // not by pane identity — re-adding a pane to the SAME dock cell it was just
+    // detached from reuses that cell's existing (still-collapsed) dock_size, so
+    // BestSize() below is silently ignored. Committing the detach with Update()
+    // first lets wxAUI drop the now-empty dock cells so the re-added panes below
+    // land in genuinely fresh cells that must size from BestSize().
+    layout_mgr->DetachPane(FirstPanel);
+    layout_mgr->DetachPane(SettingsPaneContainer);
+    layout_mgr->Update();
+
+    layout_mgr->AddPane(FirstPanel, wxAuiPaneInfo()
+        .Name("ModelList")
+        .Caption("")
+        .CaptionVisible(true)
+        .GripperTop(true)
+        .CloseButton(false)
+        .Floatable(true)
+        .Dockable(true)
+        .TopDockable(true)
+        .BottomDockable(true)
+        .LeftDockable(false)
+        .RightDockable(false)
+        .Top().Layer(0).Row(0)
+        .BestSize(-1, halfHeight)
+        .FloatingSize(600, 1000)
+        .MinSize(300, kPaneMinHeight));
+
+    layout_mgr->AddPane(SettingsPaneContainer, wxAuiPaneInfo()
+        .Name("ModelSettings")
+        .Caption("Background Properties")
+        .CaptionVisible(true)
+        .CloseButton(false)
+        .Floatable(true)
+        .TopDockable(false)
+        .BottomDockable(false)
+        .LeftDockable(false)
+        .RightDockable(false)
+        .Center()
+        .FloatingSize(600, 1000)
+        .MinSize(0, kPaneMinHeight));
 
     // Ensure the left panel is visible in the splitter, then commit the AUI layout.
     // Also discard any saved sash position so the default 18% width is used on the
@@ -12238,6 +12506,20 @@ void LayoutPanel::OnItemContextMenu(wxTreeListEvent& event)
         if (addToExisting != nullptr) {
             mnuContext.Remove(ID_MNU_ADD_TO_EXISTING_GROUPS);
         }
+        // Remove preview option 'Remove from Existing Groups' as it is added with the other group options below
+        wxMenuItem* removeFromExisting = mnuContext.FindItem(ID_MNU_REMOVE_FROM_EXISTING_GROUPS);
+        if (removeFromExisting != nullptr) {
+            mnuContext.Remove(ID_MNU_REMOVE_FROM_EXISTING_GROUPS);
+        }
+        // The three removals above can leave the separators either side of that
+        // group of options sitting next to each other with nothing between them
+        for (size_t i = 1; i < mnuContext.GetMenuItemCount(); ) {
+            if (mnuContext.FindItemByPosition(i - 1)->IsSeparator() && mnuContext.FindItemByPosition(i)->IsSeparator()) {
+                mnuContext.Destroy(mnuContext.FindItemByPosition(i));
+            } else {
+                ++i;
+            }
+        }
         mnuContext.AppendSeparator();
     }
 
@@ -12398,6 +12680,17 @@ void LayoutPanel::HandleSelectionChanged() {
 
     wxStopWatch sw;
 
+    // Undo can delete or replace the selected model and then re-select, and the
+    // resulting selection-changed event arrives after the old object is gone, so
+    // the cached pointer has to be validated before it is cast - see
+    // IsSelectedBaseObjectValid.
+    if (selectedBaseObject != nullptr && !IsSelectedBaseObjectValid()) {
+        spdlog::warn("LayoutPanel::HandleSelectionChanged: selectedBaseObject was stale; clearing cached selection.");
+        selectedBaseObject = nullptr;
+        highlightedBaseObject = nullptr;
+        _propertyAdapter.reset();
+    }
+
     BaseObject* lastSelectedBaseObject = selectedBaseObject;
     Model* lastSelectedModel = dynamic_cast<Model*>(lastSelectedBaseObject);
     wxTreeListItems selectedItems;
@@ -12512,22 +12805,21 @@ void LayoutPanel::HandleSelectionChanged() {
             }
             if (selectedBaseObject != nullptr && selectedBaseObject->GetBaseObjectScreenLocation().hasX2()) {
                 const TwoPointScreenLocation& screenLoc = dynamic_cast<const TwoPointScreenLocation&>(selectedBaseObject->GetBaseObjectScreenLocation());
-                glm::vec3 loc = screenLoc.GetWorldPosition();
-                float x1 = loc.x;
-                float y1 = loc.y;
-                float x2 = screenLoc.GetX2();
-                float y2 = screenLoc.GetY2();
-                if (x2 < x1 && std::abs(x2 - x1) > 30.0) {
+                switch (screenLoc.GetFlipDirection()) {
+                case TwoPointScreenLocation::FlipDirection::LeftRight:
                     if (!tooltip.empty()) {
                         tooltip += "\n";
                     }
                     tooltip += "Warning: Model is perhaps flipped left to right.";
-                }
-                if (y2 < y1 && std::abs(x2 - x1) < 30.0) {
+                    break;
+                case TwoPointScreenLocation::FlipDirection::TopBottom:
                     if (!tooltip.empty()) {
                         tooltip += "\n";
                     }
                     tooltip += "Warning: Model is perhaps flipped top to bottom.";
+                    break;
+                case TwoPointScreenLocation::FlipDirection::None:
+                    break;
                 }
             }
             SetupPropGrid(model);
@@ -13006,10 +13298,19 @@ void LayoutPanel::OnGroupFilterTextChanged(wxCommandEvent& event) {
 bool LayoutPanel::MatchesFilter(Model* model, const wxString& filterString, const wxRegEx& filterRegex, bool filterRegexValid) {
     if (filterString.IsEmpty()) return true;
 
-    if (filterRegexValid)
-        return filterRegex.Matches(model->GetName());
+    wxArrayString terms = wxStringTokenize(filterString.Lower(), " \t");
+    if (terms.size() <= 1) {
+        if (filterRegexValid)
+            return filterRegex.Matches(model->GetName());
+        return wxString(model->GetName()).Lower().Contains(filterString.Lower());
+    }
 
-    return wxString(model->GetName()).Lower().Contains(filterString.Lower());
+    const wxString name = wxString(model->GetName()).Lower();
+    for (const auto& term : terms) {
+        if (!name.Contains(term))
+            return false;
+    }
+    return true;
 }
 
 bool LayoutPanel::ModelMatchesFilter(Model* model) const {

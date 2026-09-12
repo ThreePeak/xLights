@@ -159,7 +159,7 @@ class wxProgressDialog;
 struct MediaCompatibilityIssue;
 
 // max number of most recently used show directories on the File menu
-#define MRUD_LENGTH 4
+#define MRUD_LENGTH 8
 // max number of most recently used files on the File menu
 #define MRUF_LENGTH 8
 
@@ -389,7 +389,13 @@ public:
         std::string name;
         std::string settings;
         std::string version;
+        int gridSpacing = 0;
+        int iconSize = 0;
     };
+
+    void CapturePerspectiveViewSettings(Perspective& p) const;
+    void ApplyPerspectiveViewSettings(const Perspective& p);
+    void ViewSizePreferencesChanged();
 
     struct PerspectiveId {
         int id = 0;
@@ -1152,6 +1158,7 @@ public:
     bool _playControlsOnPreview = true;
     bool _showBaseShowFolder = false;
     bool _autoShowHousePreview = false;
+    bool _housePreviewKeepOnTop = false;
     bool _zoomMethodToCursor = true;
     bool _hidePresetPreview = false;
     bool _disableKeyAcceleration = false;
@@ -1197,6 +1204,7 @@ public:
 	[[nodiscard]] bool IsIgnoreVendorModelRecommendations() const { return _ignoreVendorModelRecommendations; }
     void StartAutomationListener();
     [[nodiscard]] bool ProcessHttpRequest(HttpConnection& connection, HttpRequest& request);
+    [[nodiscard]] bool ProcessMCPRequest(HttpConnection& connection, HttpRequest& request);
     [[nodiscard]] bool ProcessAutomation(std::vector<std::string>& paths,
                            std::map<std::string, std::string> &params,
                            const std::function<bool(const std::string &msg,
@@ -1235,6 +1243,10 @@ public:
     // Returns false when there was no usable pane to toggle; `nowShown` takes
     // the pane's new state when it did toggle.
     bool TogglePaneVisibility(const wxString& name, bool initSequencer = false, bool* nowShown = nullptr);
+
+    // Same guard, for the callers that want an explicit state rather than a
+    // toggle. Returns false when there was no usable pane to change.
+    bool SetPaneVisibility(const wxString& name, bool show, bool initSequencer = false);
 
     void GetBackupFolder(bool& useShow, std::string& folder);
     void SetBackupFolder(bool useShow, const std::string& folder);
@@ -1415,6 +1427,10 @@ public:
 
     bool AutoShowHousePreview() const { return _autoShowHousePreview;}
     void SetAutoShowHousePreview(bool b);
+
+    bool HousePreviewKeepOnTop() const { return _housePreviewKeepOnTop; }
+    void SetHousePreviewKeepOnTop(bool b);
+    ModelPreview* GetHousePreviewModelPreview() const;
 
     bool ZoomMethodToCursor() const { return _zoomMethodToCursor;}
     void SetZoomMethodToCursor(bool b);
@@ -1753,6 +1769,8 @@ private:
     bool mSuppressColorWarn = false;
     wxString mAltBackupDir;
     int mIconSize = 16;
+    int mIconSizePreference = 16;
+    int mGridSpacingPreference = 16;
     // Ordered (effect name, visible) list backing the Effects toolbar - see
     // preferences/ToolbarLayout.h. Populated at startup from GetXLightsConfig(),
     // written back only in ~xLightsFrame() (matches how mIconSize etc. persist).
@@ -2014,7 +2032,11 @@ private:
     bool CleanupSequenceFileLocations();
     void DoDonate();
     void AutoShowHouse();
-    bool CheckForUpdate(int maxRetries, bool canSkipUpdates, bool showMessageBoxes);
+    // Asynchronous: issues the release query through CurlManager and handles the
+    // result from the idle pump. Nothing here blocks, so no nested event loop.
+    void CheckForUpdate(int maxRetries, bool canSkipUpdates, bool showMessageBoxes);
+    void RequestReleaseList(int retriesLeft, bool canSkipUpdates, bool showMessageBoxes);
+    void HandleReleaseList(const std::string& resp, bool canSkipUpdates, bool showMessageBoxes);
     void ShiftEffectsOnLayer(EffectLayer* el, int milliseconds);
     void ShiftSelectedEffectsOnLayer(EffectLayer* el, int milliseconds);
     void InitSequencer();
@@ -2062,6 +2084,7 @@ public:
     // Returns empty string if file is not inside any show/media folder.
     std::string MakeRelativePath(const std::string& file) const override;
     bool FilesMatch(const std::string & file1, const std::string & file2) const;
+    void OpenShowDirectoriesDialog();
     ColorPanel* GetColorPanel() const { return colorPanel; }
     JukeboxPanel* GetJukeboxPanel() const { return jukeboxPanel; }
     BufferPanel* GetBufferPanel() const { return bufferPanel; }

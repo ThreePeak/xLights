@@ -10,8 +10,10 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
+#include <atomic>
 #include <chrono>
 #include <functional>
+#include <deque>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -128,13 +130,29 @@ public:
     void SetOnAllRenderJobsComplete(std::function<void()> fn) { _onAllRenderJobsComplete = std::move(fn); }
 
 private:
+    // Render()'s setup runs on the job pool, not on the calling thread. The
+    // requests are drained by one job at a time so they stay in submission
+    // order: RenderEffectForModel aborts the jobs of any overlapping in-flight
+    // batch before dispatching, which a setup running out of order could not
+    // do - the jobs it needs to abort would not exist yet. A plain mutex would
+    // give mutual exclusion but not that ordering.
+    friend class RenderSetupJob;
+    struct RenderSetupRequest;
+    void PerformRenderSetup(RenderSetupRequest& req);
+    void DrainRenderSetupQueue();
+    std::mutex _setupQueueLock;
+    std::deque<std::unique_ptr<RenderSetupRequest>> _setupQueue;
+    bool _setupJobRunning = false;
+
     RenderContext& _ctx;
     JobPool& _jobPool;
     RenderCache& _renderCache;
 
     RenderTree _renderTree;
     std::list<RenderProgressInfo*> _renderProgressInfo;
-    int _abortedRenderJobs = 0;
+    // Incremented from SignalAbort on the caller's thread and from the setup
+    // job on the pool when it finds an abort that landed mid-setup.
+    std::atomic<int> _abortedRenderJobs{ 0 };
     // Watchdog bookkeeping.  _stallCheckLock serializes CheckForStalledRender:
     // on iPad it is polled from more than one thread (main-actor timer plus
     // background drain loops).  _lastStallCheck throttles the per-job scan.

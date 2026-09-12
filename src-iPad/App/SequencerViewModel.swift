@@ -64,6 +64,17 @@ class SequencerViewModel {
     var timelineExtentMS: Int = 0
     var frameIntervalMS: Int = 50
     var rows: [RowInfo] = []
+    /// `rows` split into the timing band and the model band, recomputed only
+    /// when `rows` is (via `setRows`). `SequencerGridV2View.body` needs both
+    /// halves on every evaluation, and that body is re-run on any of the
+    /// view's ~60 `@State` changes — drag offsets, menu/sheet flags, text
+    /// buffers. Deriving the split there cost an ObjC++ `timingRowIndices()`
+    /// call plus two O(rows) filters per keystroke and per drag frame, which
+    /// is what the sustained-CPU reports on `body.get` were burning.
+    /// `row.timing != nil` is the same predicate `timingRowIndices()` gives:
+    /// `reloadRows` populates `timing` exactly for the indices in that list.
+    private(set) var timingRows: [RowInfo] = []
+    private(set) var modelRows: [RowInfo] = []
     var sequenceFiles: [SequenceEntry] = []
 
     // Audio state
@@ -1013,7 +1024,7 @@ class SequencerViewModel {
     /// memory pressure — `_renderEngine->SignalAbort()` runs from
     /// `HandleMemoryWarning`). Drives a tap-to-dismiss banner the
     /// user can clear once they re-render and re-save.
-    var fseqWriteSkippedMessage: String?
+    var warningBannerMessage: String?
     private static let memoryWarningThresholdMB: Int64 = 256
     private static let memoryRecoveredThresholdMB: Int64 = 384  // hysteresis
     private var memoryPressureSource: DispatchSourceMemoryPressure?
@@ -1180,6 +1191,11 @@ class SequencerViewModel {
             return
         }
         loadInFlight = true
+        // Belt and braces alongside iPadRenderContext's ModelMutationScope: the
+        // detached load rebuilds every Model the open sequence references, so a
+        // render-dependency sweep against the old ones is wrong on its own
+        // terms, not just unsafe. Restarted in finishLoad().
+        stopDirtyPolling()
         showFolderPath = path
         mediaFolderPaths = mediaFolders
 
@@ -1294,6 +1310,9 @@ class SequencerViewModel {
     /// release the guard here.
     private func finishLoad() {
         loadInFlight = false
+        if isSequenceLoaded {
+            startDirtyPolling()
+        }
         if let pending = pendingLoadRequest {
             pendingLoadRequest = nil
             loadShowFolder(path: pending.path, mediaFolders: pending.mediaFolders)
@@ -1518,7 +1537,7 @@ class SequencerViewModel {
         stopAutosaveTimer()
         cancelBackgroundRender()
         isSequenceLoaded = false
-        rows = []
+        setRows([])
 
         // Heavy: full .xsq XML parse + audio decode in the bridge.
         // On the main actor this was tripping the 0x8BADF00D
@@ -1794,10 +1813,47 @@ class SequencerViewModel {
         let path = document.currentSequencePath()
         guard !path.isEmpty else { return false }
         guard document.setFrameIntervalMS(Int32(frameMS)) else { return false }
+
+        // Packaged (`.xsqz`) sequences can't be reopened by their
+        // `currentSequencePath()`: that is the extracted `.xsq` inside
+        // the package sandbox dir, which `closeSequence` deletes. Stash
+        // the just-repacked package somewhere the teardown doesn't
+        // reach and reopen from there, the same way a Files tap does.
+        if document.isPackagedSequence() {
+            let originalURL = packageOriginalURL
+            guard saveSequence() else { return false }
+            let pkgPath = document.packagePath()
+            guard !pkgPath.isEmpty,
+                  let stashed = stashPackageForReopen(atPath: pkgPath) else { return false }
+            await closeSequence()
+            openPackagedSequence(sandboxPath: stashed.path, originalURL: originalURL)
+            return true
+        }
+
         guard saveSequence() else { return false }
         await closeSequence()
         openSequence(path: path)
         return true
+    }
+
+    /// Copy a package out of the sandbox dir `closeSequence` wipes into
+    /// a fresh scratch dir, so a close/reopen cycle has something to
+    /// reopen. The new dir becomes the package sandbox dir on reopen
+    /// and is cleaned up by the next close.
+    private func stashPackageForReopen(atPath pkgPath: String) -> URL? {
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory
+            .appendingPathComponent("xsqz-reopen-\(UUID().uuidString)", isDirectory: true)
+        let dest = dir.appendingPathComponent((pkgPath as NSString).lastPathComponent)
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try fm.copyItem(at: URL(fileURLWithPath: pkgPath), to: dest)
+        } catch {
+            print("changeFrameInterval: could not stage \(pkgPath) for reopen: \(error)")
+            try? fm.removeItem(at: dir)
+            return nil
+        }
+        return dest
     }
 
     func saveSequence() -> Bool {
@@ -1861,7 +1917,7 @@ class SequencerViewModel {
                     // write; surface a banner so the user knows to
                     // re-render and re-save once memory recovers.
                     print("saveSequence: skipping fseq write — render was aborted before completing")
-                    fseqWriteSkippedMessage =
+                    warningBannerMessage =
                         "FSEQ not written — the render was interrupted (likely low memory). Re-render and save again to regenerate it."
                 } else {
                     _ = XLSequenceDocument.obtainAccess(toPath: fseqPath,
@@ -1871,7 +1927,7 @@ class SequencerViewModel {
                     } else {
                         // Success path — clear any stale banner from
                         // a prior aborted save.
-                        fseqWriteSkippedMessage = nil
+                        warningBannerMessage = nil
                     }
                 }
             }
@@ -2354,15 +2410,37 @@ class SequencerViewModel {
             if isDirty { _ = saveSequence() }
             await closeSequence()
         }
+        // The layout autosave timer writes `xlights_rgbeffects.xbkp`
+        // from in-memory state; letting it fire across the restore
+        // would leave a "recover unsaved changes" offer holding the
+        // pre-restore layout. Stop it, and drop any existing autosave.
+        stopAutosaveTimer()
         let runPath = run.path
-        let errors = await Task.detached { () -> [String] in
-            var errs: [String] = []
-            if (try? ShowFolderBackup.createBackup(showFolder: show, forceAllFiles: true)) == nil {
-                errs.append("Warning: could not take a pre-restore safety backup.")
+
+        // A restore that can't be undone is not one we should start.
+        // The safety backup failing (or partially failing) means the
+        // pre-restore state isn't recoverable, so bail with the error
+        // rather than overwriting the show folder anyway.
+        let safetyErrors = await Task.detached { () -> [String] in
+            do {
+                return try ShowFolderBackup.createBackup(showFolder: show, forceAllFiles: true).errors
+            } catch {
+                return [error.localizedDescription]
             }
-            errs += ShowFolderBackup.restore(files: files, fromRun: runPath, toShowFolder: show)
-            return errs
         }.value
+        if !safetyErrors.isEmpty {
+            startAutosaveTimer()
+            return ["Restore cancelled: the pre-restore safety backup did not complete."] + safetyErrors
+        }
+
+        let errors = await Task.detached { () -> [String] in
+            ShowFolderBackup.restore(files: files, fromRun: runPath, toShowFolder: show)
+        }.value
+        // The restored show file is now the newest state on disk; any
+        // layout autosave predates it and must not be offered.
+        document.discardLayoutAutosave()
+        pendingLayoutAutosaveRecovery = false
+        startAutosaveTimer()
         // Reload so OutputManager/ModelManager/presets pick up the
         // restored files (desktop's SetDir(showDirectory, true)).
         loadShowFolder(path: show, mediaFolders: mediaFolderPaths)
@@ -2469,7 +2547,7 @@ class SequencerViewModel {
         isRendering = false
         sequenceName = nil
         hasAudio = false
-        rows = []
+        setRows([])
         waveformPeaks = []
         onsetTimesMS = []
         showOnsets = false
@@ -3329,8 +3407,7 @@ class SequencerViewModel {
         // (spinner keeps spinning) while we wait for workers to
         // unwind; once they're done we chain into the fresh render.
         if isRendering {
-            renderPollTimer?.invalidate()
-            renderPollTimer = nil
+            cancelBackgroundRender()
             let doc = document
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 _ = doc.abortRenderAndWait(3.0)
@@ -3350,8 +3427,23 @@ class SequencerViewModel {
         isRenderDone = false
         renderProgress = 0
         let doc = document
-        let thread = Thread {
-            doc.renderAll()
+        let thread = Thread { [weak self] in
+            if doc.renderAll() { return }
+            // No pass was registered (models being rebuilt, previous render
+            // still draining, or no valid sequence data). `isRenderDone()`
+            // reads true immediately, so the poll below would flip the UI to
+            // "rendered" with nothing rendered — clear the state instead.
+            print("SequencerViewModel: render pass skipped; nothing was rendered")
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.renderPollTimer?.invalidate()
+                    self.renderPollTimer = nil
+                    self.isRendering = false
+                    self.isRenderDone = false
+                    self.renderProgress = 0
+                }
+            }
         }
         thread.qualityOfService = .userInitiated
         thread.start()
@@ -3385,6 +3477,11 @@ class SequencerViewModel {
     private func cancelBackgroundRender() {
         renderPollTimer?.invalidate()
         renderPollTimer = nil
+        // The per-model progress sheet polls the batch list on its own
+        // 0.25s main-loop timer. Anything that goes on to abort/drain
+        // the batch has to take the sheet down first, or that timer
+        // keeps walking jobs that are being destroyed underneath it.
+        showingRenderProgress = false
     }
 
     /// Start (or reuse) a short poll that bumps
@@ -5531,10 +5628,31 @@ class SequencerViewModel {
         }
         guard endMS > startMS + 10 else { return false }
 
+        // A dropped file is nearly always an inbox temp copy iOS purges
+        // shortly after the drop, so referencing it where it landed
+        // gives the sequence a path that stops resolving. Copy it into
+        // the show folder first, under desktop's per-type subfolder
+        // (tabSequencer.cpp's drop handler), and reference the copy.
+        var sourcePath = path
+        if !isUnderShowOrMediaFolder(sourcePath) {
+            guard let copied = document.moveFile(toShowFolder: sourcePath,
+                                                  subdirectory: Self.showSubfolder(forEffect: effectName)),
+                  copied != sourcePath else {
+                // `warningBannerMessage` drives the app's generic
+                // dismissible warning banner; it is the only surface
+                // the grid can reach for a non-modal error like this.
+                warningBannerMessage =
+                    "Couldn't copy \"\((path as NSString).lastPathComponent)\" into the show folder, so no effect was created."
+                return false
+            }
+            sourcePath = copied
+            _ = XLSequenceDocument.obtainAccess(toPath: sourcePath, enforceWritable: false)
+        }
+
         // The file goes in as the effect's own filename setting; which
         // key that is depends on the effect, so ask the metadata rather
         // than hardcoding four spellings.
-        let stored = document.makeRelativePath(path)
+        let stored = document.makeRelativePath(sourcePath)
         let settings = fileSettingKey(forEffect: effectName).map { "\($0)=\(stored)" } ?? ""
         let idx = addEffectWithSettings(rowIndex: rowIndex, name: effectName,
                                          settings: settings,
@@ -5544,6 +5662,36 @@ class SequencerViewModel {
             selectEffect(rowIndex: rowIndex, effectIndex: idx)
             undoManager.setActionName("Add \(effectName) Effect")
             return true
+        }
+        return false
+    }
+
+    /// Show-folder subfolder a dropped file of this effect's type is
+    /// filed under. Same mapping desktop's grid drop handler uses
+    /// (`tabSequencer.cpp`), so a show edited on both looks the same.
+    private static func showSubfolder(forEffect name: String) -> String {
+        switch name {
+        case "Pictures": return "Images"
+        case "Shader": return "Shaders"
+        case "Video": return "Videos"
+        case "Glediator": return "Glediator"
+        default: return ""
+        }
+    }
+
+    /// Whether a path already lives under the show folder or one of the
+    /// configured media folders, in which case a dropped file needs no
+    /// copy. Prefix comparison on standardised paths — the drop case
+    /// this guards is an inbox temp path, nowhere near either root.
+    private func isUnderShowOrMediaFolder(_ path: String) -> Bool {
+        let target = (path as NSString).standardizingPath
+        var roots = mediaFolderPaths
+        if let show = showFolderPath { roots.append(show) }
+        for root in roots where !root.isEmpty {
+            let base = (root as NSString).standardizingPath
+            if target == base || target.hasPrefix(base.hasSuffix("/") ? base : base + "/") {
+                return true
+            }
         }
         return false
     }
@@ -9331,6 +9479,14 @@ class SequencerViewModel {
         timelineExtentMS = max(sequenceDurationMS, Int(document.maxEffectEndTimeMS()))
     }
 
+    /// Single writer for `rows` — keeps the `timingRows`/`modelRows` partition
+    /// in step with it. Assigning `rows` directly leaves the two stale.
+    private func setRows(_ newRows: [RowInfo]) {
+        rows = newRows
+        timingRows = newRows.filter { $0.timing != nil }
+        modelRows = newRows.filter { $0.timing == nil }
+    }
+
     func reloadRows() {
         var newRows: [RowInfo] = []
         let count = Int(document.visibleRowCount())
@@ -9438,7 +9594,7 @@ class SequencerViewModel {
             ))
         }
 
-        rows = newRows
+        setRows(newRows)
     }
 }
 

@@ -85,6 +85,11 @@ static const bool profRender = (getenv("XL_RENDER_PROFILE") != nullptr);
 // per-row buffer bytes at setup, clone-slot growth, and the process footprint
 // against the governor's budget.  Zero cost when unset.
 static const bool xldbgRenderMem = (getenv("XL_RENDER_MEM") != nullptr);
+// XL_RENDER_SETUP=1 times the synchronous half of Render() - everything the
+// CALLING thread does before the jobs reach the pool. That work sits on the main
+// thread on every edit-driven and playback render, so its cost is UI latency,
+// not render throughput, and none of the existing profiling covers it.
+static const bool xldbgRenderSetup = (getenv("XL_RENDER_SETUP") != nullptr);
 
 // -------------------------------------------------------------------------
 // Render memory governor
@@ -711,6 +716,11 @@ void RenderProgressInfo::CleanupJobs() {
     aggregators = nullptr;
     delete progressSink;
     progressSink = nullptr;
+    // UpdateRenderStatus calls CleanupJobs() -> callback -> delete/erase, and
+    // the callback can re-enter a walker over this (now-cleaned but not yet
+    // erased) entry. Zero the row count so such a walker sees an empty entry
+    // instead of dereferencing the just-freed jobs/aggregators arrays.
+    numRows.store(0);
 }
 
 class SNPair {
@@ -1385,6 +1395,19 @@ public:
                         std::vector<std::string> ls;
                         Split(info.settingsMaps[layer].Get("LayersSelected", ""), '|', ls);
                         if (!ls.empty() && ls.back() == "Blend") {
+                            doBlendLayer = true;
+                            ls.pop_back();
+                        } else if (!ls.empty() && _seqElements != nullptr && _seqElements->SupportsModelBlending() &&
+                                   std::atoi(ls.back().c_str()) >= numLayers - layer - 1) {
+                            // Sequences saved before the "Blend" pseudo-layer existed (xLights
+                            // < 2024.09) could only select real layers below, so LayerSelectDialog
+                            // silently ignored any out-of-range index. Once the Blend row was added
+                            // immediately after the real layers, that same out-of-range value lines
+                            // up exactly with the Blend row's position - which is how the dialog
+                            // still reads it today (LayerSelectDialog.cpp's position-based parsing) -
+                            // it only offers/writes that row when SupportsModelBlending() is on, so
+                            // require the same here to avoid reinterpreting a stray legacy index as
+                            // blend for sequences that have model blending turned off globally.
                             doBlendLayer = true;
                             ls.pop_back();
                         }
@@ -3824,6 +3847,42 @@ void RenderEngine::BuildRenderTree(SequenceElements& elements, unsigned int mode
     }
 }
 
+// Everything PerformRenderSetup needs, captured at Render() time. The model
+// lists are copied rather than referenced: the caller's restrictToModels is a
+// const ref that need not outlive the call.
+struct RenderEngine::RenderSetupRequest {
+    SequenceElements* seqElements = nullptr;
+    SequenceData* seqData = nullptr;
+    std::list<Model*> models;
+    std::list<Model*> restrictToModels;
+    int startFrame = 0;
+    int endFrame = 0;
+    std::unique_ptr<IRenderProgressSink> sink;
+    bool clear = false;
+    RenderProgressInfo* pi = nullptr;
+};
+
+// High priority so a render's setup is not stuck behind the long render jobs of
+// an earlier one - that would move the latency rather than remove it.
+class RenderSetupJob : public Job {
+public:
+    explicit RenderSetupJob(RenderEngine* engine) : _engine(engine) {
+        SetHighPriority(true);
+    }
+    void Process() override {
+        _engine->DrainRenderSetupQueue();
+    }
+    bool DeleteWhenComplete() override {
+        return true;
+    }
+    const std::string GetName() const override {
+        return "RenderSetup";
+    }
+
+private:
+    RenderEngine* _engine;
+};
+
 void RenderEngine::Render(SequenceElements& seqElements,
                           SequenceData& seqData,
                           const std::list<Model*> models,
@@ -3833,6 +3892,59 @@ void RenderEngine::Render(SequenceElements& seqElements,
                           std::function<void(bool)>&& callback)
 {
     _abortedRenderJobs = 0;
+
+    // Once per dispatch, on the caller's thread, so an image the user drops in
+    // after a failed render is picked up on the next one without going back to
+    // a per-frame filesystem probe.
+    seqElements.GetSequenceMedia().ClearMissingImages();
+
+    // Registered before any of the setup below runs, not after the jobs are
+    // built. IsRenderDone() reports a batch pending purely by its presence in
+    // this list, so anything registered later leaves a window in which a render
+    // that is about to start looks finished - and AbortRender()'s callers act
+    // on that answer by freeing seqData out from under the jobs that follow.
+    // The window is short while this setup is synchronous; it is the whole
+    // duration of the setup once that moves to the job pool.
+    if (startFrame < 0) {
+        startFrame = 0;
+    }
+    if (endFrame >= (int)seqData.NumFrames()) {
+        endFrame = seqData.NumFrames() - 1;
+    }
+
+    RenderProgressInfo* pi = new RenderProgressInfo(std::move(callback));
+    // Set before the batch is visible, not during setup: RenderEffectForModel
+    // decides on the caller's thread whether an in-flight batch overlaps the
+    // model it is about to render, and it decides from exactly these. A batch
+    // whose setup had not run yet would otherwise carry an empty restriction,
+    // match nothing, and let two renders of the same model run at once.
+    pi->restriction = restrictToModels;
+    pi->startFrame = startFrame;
+    pi->endFrame = endFrame;
+    _renderProgressInfo.push_back(pi);
+    // The status timer is a wxTimer - it has to be started from here, never
+    // from the pool thread the setup runs on.
+    if (_onRenderStatusTimerStart) {
+        _onRenderStatusTimerStart();
+    }
+    // Nothing below may touch `callback` again - it lives on pi now.
+    //
+    // Registering early means an escape from the setup below would strand a
+    // batch that never completes, and a stranded batch is worse than the throw:
+    // IsRenderDone() never returns true again, so every later AbortRender waits
+    // out its full timeout. Buffer allocation for a large model is the throw
+    // this is guarding against.
+    struct UnregisterIfUnpopulated {
+        std::list<RenderProgressInfo*>& list;
+        RenderProgressInfo* pi;
+        bool handled = false;
+        ~UnregisterIfUnpopulated() {
+            if (!handled) {
+                list.remove(pi);
+                delete pi;
+            }
+        }
+    } piGuard{ _renderProgressInfo, pi };
 
 #ifdef __APPLE__
     // Precompute the largest size each video file is used at so the decoder can
@@ -3849,13 +3961,100 @@ void RenderEngine::Render(SequenceElements& seqElements,
     }
 #endif
 
+    // Hand the rest to the pool. Everything above had to be here: the render
+    // tree is read by the UI thread, and _renderProgressInfo is pushed to
+    // without a lock, so both stay on the caller's thread. What moves is the
+    // expensive part - the per-row RenderJob and PixelBufferClass construction.
+    auto req = std::make_unique<RenderSetupRequest>();
+    req->seqElements = &seqElements;
+    req->seqData = &seqData;
+    req->models = models;
+    req->restrictToModels = restrictToModels;
+    req->startFrame = startFrame;
+    req->endFrame = endFrame;
+    req->sink = std::move(sink);
+    req->clear = clear;
+    req->pi = pi;
+
+    // The setup owns the batch from here; its own guard completes it on escape.
+    piGuard.handled = true;
+
+    bool startJob = false;
+    {
+        std::lock_guard<std::mutex> lock(_setupQueueLock);
+        _setupQueue.push_back(std::move(req));
+        if (!_setupJobRunning) {
+            _setupJobRunning = true;
+            startJob = true;
+        }
+    }
+    if (startJob) {
+        _jobPool.PushJob(new RenderSetupJob(this));
+    }
+}
+
+void RenderEngine::DrainRenderSetupQueue() {
+    // One job drains the whole queue, which is what makes the setups both
+    // mutually exclusive and ordered without a dedicated thread.
+    for (;;) {
+        std::unique_ptr<RenderSetupRequest> req;
+        {
+            std::lock_guard<std::mutex> lock(_setupQueueLock);
+            if (_setupQueue.empty()) {
+                _setupJobRunning = false;
+                return;
+            }
+            req = std::move(_setupQueue.front());
+            _setupQueue.pop_front();
+        }
+        // A throw must not escape to the pool worker: the worker exits, the
+        // running flag above stays set, and every later Render() queues a
+        // setup nobody drains - renders silently stop for the session. The
+        // batch itself is completed by PerformRenderSetup's own guard.
+        try {
+            PerformRenderSetup(*req);
+        } catch (const std::exception& ex) {
+            spdlog::error("Render setup failed for frames {}-{}: {}", req->startFrame, req->endFrame, ex.what());
+        } catch (...) {
+            spdlog::error("Render setup failed for frames {}-{}: unknown exception", req->startFrame, req->endFrame);
+        }
+    }
+}
+
+void RenderEngine::PerformRenderSetup(RenderSetupRequest& req) {
+    // Bound to the names the body below already uses, so the moved code is
+    // unchanged rather than rewritten.
+    SequenceElements& seqElements = *req.seqElements;
+    SequenceData& seqData = *req.seqData;
+    const std::list<Model*>& models = req.models;
+    const std::list<Model*>& restrictToModels = req.restrictToModels;
+    int startFrame = req.startFrame;
+    int endFrame = req.endFrame;
+    std::unique_ptr<IRenderProgressSink> sink = std::move(req.sink);
+    const bool clear = req.clear;
+    RenderProgressInfo* pi = req.pi;
+
+    // Nothing below may leave the batch registered but unfinished: IsRenderDone
+    // would never go true again and every later AbortRender would burn its full
+    // timeout. Completing it lets the drain fire the callback and clean up.
+    struct CompleteOnEscape {
+        RenderProgressInfo* pi;
+        bool handled = false;
+        ~CompleteOnEscape() {
+            if (!handled) {
+                pi->completed.store(true);
+            }
+        }
+    } piGuard{ pi };
+
+    // Aborted before the setup ever ran - see RenderProgressInfo::abortRequested.
+    if (pi->abortRequested.load()) {
+        piGuard.handled = true;
+        pi->completed.store(true);
+        return;
+    }
+
     auto logger_render = spdlog::get("render");
-    if (startFrame < 0) {
-        startFrame = 0;
-    }
-    if (endFrame >= (int)seqData.NumFrames()) {
-        endFrame = seqData.NumFrames() - 1;
-    }
     std::list<NodeRange> ranges;
     if (restrictToModels.empty()) {
         ranges.push_back(NodeRange(0, seqData.NumChannels()));
@@ -3869,82 +4068,153 @@ void RenderEngine::Render(SequenceElements& seqElements,
     int numRows = models.size();
     RenderJob **jobs = new RenderJob*[numRows];
     AggregatorRenderer **aggregators = new AggregatorRenderer*[numRows];
-    std::vector<std::set<int>> channelMaps(seqData.NumChannels());
+    auto setupStart = std::chrono::steady_clock::now();
+    // Per-channel list of the rows that touch it, used just below to wire the
+    // job dependency edges. Only the channels the rendered models occupy are
+    // ever read or written, but this was a std::vector<std::set<int>> rebuilt at
+    // full show size on every dispatch - so a one-model render paid for every
+    // channel in the show. Measured on 198208 channels: 0.27ms on an M4 Max but
+    // 6.65ms on a Ryzen 7640HS and 19.18ms on an Intel N95, against a 25ms
+    // budget at 40fps, and paid again for every model a frame marks dirty.
+    //
+    // Keep the storage between calls and clear only the entries actually
+    // touched. thread_local because Render() runs on the main thread and on job
+    // threads via completion callbacks; it is never re-entered on one thread
+    // while the map is live - nothing between here and the scope guard calls
+    // back into Render.
+    auto mapStart = std::chrono::steady_clock::now();
+    static thread_local std::vector<std::vector<int>> channelMaps;
+    static thread_local std::vector<uint32_t> channelMapTouched;
+    if (channelMaps.size() < seqData.NumChannels()) {
+        channelMaps.resize(seqData.NumChannels());
+    }
+    channelMapTouched.clear();
+    struct ClearTouched {
+        std::vector<std::vector<int>>& maps;
+        std::vector<uint32_t>& touched;
+        ~ClearTouched() {
+            // clear() keeps each row list's capacity, so a repeated render over
+            // the same models stops allocating entirely.
+            for (uint32_t c : touched) {
+                maps[c].clear();
+            }
+            touched.clear();
+        }
+    } clearTouched{ channelMaps, channelMapTouched };
+    double mapMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - mapStart).count();
 
-    size_t row = 0;
-    for (auto it = models.begin(); it != models.end(); ++it, ++row) {
-        jobs[row] = nullptr;
-        aggregators[row] = new AggregatorRenderer(seqData.NumFrames());
+    auto rowsStart = std::chrono::steady_clock::now();
+    // Indexed access for the construction pass; models is a list.
+    std::vector<Model*> modelVec(models.begin(), models.end());
 
-        Element *rowEl = seqElements.GetElement((*it)->GetName());
+    // Pass 1 - build each row's job and aggregator. Rows are independent here:
+    // every write lands in that row's own slot, and the model data they read is
+    // only ever mutated on the main thread (ModelGroup::EnsureModelsCurrent
+    // bails outright when it is not on it), so this pass is a pure read of
+    // state the main thread warmed when it built the render tree.
+    //
+    // This is where the time is: PixelBufferClass::InitBuffer per row, 306ms
+    // for a 139 row render on an Intel N95.
+    auto buildRow = [&](int r) {
+        jobs[r] = nullptr;
+        aggregators[r] = new AggregatorRenderer(seqData.NumFrames());
 
+        Element* rowEl = seqElements.GetElement(modelVec[r]->GetName());
         if (rowEl == nullptr) {
-            //spdlog::critical("xLightsFrame::Render rowEl is nullptr ... this is going to crash looking for '{}'.", (const char *)(*it)->GetName().c_str());
-        } else {
-            if (rowEl->GetType() == ElementType::ELEMENT_TYPE_MODEL) {
-                ModelElement *me = dynamic_cast<ModelElement *>(rowEl);
+            return;
+        }
+        if (rowEl->GetType() != ElementType::ELEMENT_TYPE_MODEL) {
+            return;
+        }
+        ModelElement* me = dynamic_cast<ModelElement*>(rowEl);
+        if (me == nullptr) {
+            logger_render->critical("xLightsFrame::Render me is nullptr ... this is going to crash.");
+        }
+        bool hasEffects = HasEffects(me);
+        bool isRestricted = std::find(restrictToModels.begin(), restrictToModels.end(), modelVec[r]) != restrictToModels.end();
+        if (!hasEffects && !(isRestricted && clear)) {
+            return;
+        }
+        RenderJob* job = new RenderJob(me, seqData, &_ctx, this, &seqElements);
+        job->setRenderRange(startFrame, endFrame);
+        job->SetRangeRestriction(ranges);
+        // No progress sink == per-edit micro-batch (RenderEffectForModel);
+        // jump the JobPool queue ahead of a queued Render All so the
+        // grid/preview don't wait for its backlog to drain.
+        if (sink == nullptr) {
+            job->SetHighPriority(true);
+        }
+        if (seqElements.SupportsModelBlending()) {
+            job->SetModelBlending();
+        }
+        PixelBufferClass* buffer = job->getBuffer();
+        if (buffer == nullptr || buffer->GetNodeCount() == 0) {
+            delete job;
+            return;
+        }
+        jobs[r] = job;
+    };
+    // Small batches run serially. Handing four rows to the shared pool costs
+    // more in dispatch than it saves, and the playback path renders one model
+    // at a time - over-parallelising small units through that pool is a
+    // recurring cost in this codebase.
+    if (numRows >= 8) {
+        parallel_for(0, numRows, buildRow);
+    } else {
+        for (int r = 0; r < numRows; ++r) {
+            buildRow(r);
+        }
+    }
 
-                if (me == nullptr) {
-                    logger_render->critical("xLightsFrame::Render me is nullptr ... this is going to crash.");
-                }
-
-                bool hasEffects = HasEffects(me);
-                bool isRestricted = std::find(restrictToModels.begin(), restrictToModels.end(), *it) != restrictToModels.end();
-                if (hasEffects || (isRestricted && clear)) {
-                    RenderJob *job = new RenderJob(me, seqData, &_ctx, this, &seqElements);
-
-                    if (job == nullptr) {
-                        logger_render->critical("xLightsFrame::Render job is nullptr ... this is going to crash.");
-                    }
-
-                    job->setRenderRange(startFrame, endFrame);
-                    job->SetRangeRestriction(ranges);
-                    // No progress sink == per-edit micro-batch (RenderEffectForModel);
-                    // jump the JobPool queue ahead of a queued Render All so the
-                    // grid/preview don't wait for its backlog to drain.
-                    if (sink == nullptr) {
-                        job->SetHighPriority(true);
-                    }
-                    if (seqElements.SupportsModelBlending()) {
-                        job->SetModelBlending();
-                    }
-                    PixelBufferClass *buffer = job->getBuffer();
-                    if (buffer == nullptr || buffer->GetNodeCount() == 0) {
-                        delete job;
-                        continue;
-                    }
-
-                    jobs[row] = job;
-                    aggregators[row]->addNext(job);
-                    if (xldbgEffSum) {
-                        fprintf(stderr, "ROW %zu %s\n", row, (*it)->GetName().c_str());
-                    }
-                    size_t cn = buffer->GetChanCountPerNode();
-                    for (size_t node = 0; node < buffer->GetNodeCount(); ++node) {
-                        uint32_t start = buffer->NodeStartChannel(node);
-                        for (size_t c = 0; c < cn; ++c) {
-                            size_t cnum = start + c;
-                            if (cnum < seqData.NumChannels()) {
-                                for (const auto i : channelMaps[cnum]) {
-                                    int idx = i;
-                                    if ((size_t)idx != row) {
-                                        if (jobs[idx]->addNext(aggregators[row])) {
-                                            aggregators[row]->incNumAggregated();
-                                            if (xldbgEffSum) {
-                                                fprintf(stderr, "EDGE %d -> %zu\n", idx, row);
-                                            }
-                                        }
-                                    }
+    // Pass 2 - wire the job dependency edges. Serial and in row order by
+    // necessity: a row's edges are decided by which earlier rows already
+    // claimed each channel, and that ordering is what makes the graph identical
+    // to the single loop this replaces.
+    size_t row = 0;
+    for (row = 0; row < (size_t)numRows; ++row) {
+        RenderJob* job = jobs[row];
+        if (job == nullptr) {
+            continue;
+        }
+        aggregators[row]->addNext(job);
+        if (xldbgEffSum) {
+            fprintf(stderr, "ROW %zu %s\n", row, modelVec[row]->GetName().c_str());
+        }
+        PixelBufferClass* buffer = job->getBuffer();
+        size_t cn = buffer->GetChanCountPerNode();
+        for (size_t node = 0; node < buffer->GetNodeCount(); ++node) {
+            uint32_t start = buffer->NodeStartChannel(node);
+            for (size_t c = 0; c < cn; ++c) {
+                size_t cnum = start + c;
+                if (cnum < seqData.NumChannels()) {
+                    for (const auto i : channelMaps[cnum]) {
+                        int idx = i;
+                        if ((size_t)idx != row) {
+                            if (jobs[idx]->addNext(aggregators[row])) {
+                                aggregators[row]->incNumAggregated();
+                                if (xldbgEffSum) {
+                                    fprintf(stderr, "EDGE %d -> %zu\n", idx, row);
                                 }
-                                channelMaps[cnum].insert(row);
                             }
                         }
+                    }
+                    // Rows are visited in increasing order and a row can
+                    // revisit a channel through overlapping nodes, so a
+                    // duplicate is always the last entry. That makes this
+                    // exactly the ordered, unique sequence the std::set
+                    // produced.
+                    if (channelMaps[cnum].empty()) {
+                        channelMapTouched.push_back((uint32_t)cnum);
+                        channelMaps[cnum].push_back((int)row);
+                    } else if (channelMaps[cnum].back() != (int)row) {
+                        channelMaps[cnum].push_back((int)row);
                     }
                 }
             }
         }
     }
 
+    double rowsMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rowsStart).count();
     logger_render->debug("Aggregators created.");
 
     if (xldbgRenderMem) {
@@ -3970,13 +4240,31 @@ void RenderEngine::Render(SequenceElements& seqElements,
         }
     }
 
-    channelMaps.clear();
+    if (xldbgRenderSetup) {
+        double totalMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - setupStart).count();
+        std::string names;
+        for (const auto& m : restrictToModels) {
+            if (!names.empty()) {
+                names += ",";
+            }
+            names += m->GetName();
+        }
+        fprintf(stderr, "XL_RENDER_SETUP rows=%d frames=%d channels=%u channelMaps=%.2fms rowsAndBuffers=%.2fms total=%.2fms models=[%s]\n",
+                numRows, endFrame - startFrame + 1, (unsigned)seqData.NumChannels(),
+                mapMs, rowsMs, totalMs, names.c_str());
+    }
+    auto clearStart = std::chrono::steady_clock::now();
     if (clear) {
         for (int f = startFrame; f <= endFrame; f++) {
             for (const auto& it : ranges) {
                 seqData[f].Zero(it.start, it.end - it.start + 1);
             }
         }
+    }
+    double clearMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clearStart).count();
+    if (xldbgRenderSetup) {
+        fprintf(stderr, "XL_RENDER_SETUP   clear=%.2fms (%d frames x %u channels)\n",
+                clearMs, endFrame - startFrame + 1, (unsigned)seqData.NumChannels());
     }
 
     logger_render->debug("Data cleared.");
@@ -3992,7 +4280,17 @@ void RenderEngine::Render(SequenceElements& seqElements,
     if (count == 0) {
         delete[] jobs;
         delete[] aggregators;
-        callback(_abortedRenderJobs > 0);
+        // Unregister and fire inline rather than leaving a completed entry for
+        // the drain: a host with no status timer running (headless) would never
+        // drain it, and AbortRender would then wait out its full timeout on a
+        // batch that never had a job.
+        // Completed in place rather than removed here: the drain owns removal,
+        // and once this setup runs off the calling thread it must not be
+        // mutating a list the UI thread walks unlocked. Every host that can
+        // reach this polls IsRenderDone (the desktop status timer, headless's
+        // wait loop), which fires the callback and deletes the entry.
+        piGuard.handled = true;
+        pi->completed.store(true);
         // sink auto-deleted by unique_ptr
         return;
     }
@@ -4003,13 +4301,9 @@ void RenderEngine::Render(SequenceElements& seqElements,
         statusJobs[i] = jobs[i]; // implicit upcast; nullptr rows allowed
     }
 
-    RenderProgressInfo* pi = new RenderProgressInfo(std::move(callback));
-    pi->numRows = numRows;
-    pi->startFrame = startFrame;
-    pi->endFrame = endFrame;
+
     pi->jobs = statusJobs;
     pi->progressSink = sink.release(); // RenderProgressInfo takes ownership
-    pi->restriction = restrictToModels;
     pi->aggregators = aggregators;
     pi->jobsRemaining.store((int)count);
     pi->totalJobs = (int)count;
@@ -4019,20 +4313,46 @@ void RenderEngine::Render(SequenceElements& seqElements,
         if (jobs[row]) jobs[row]->SetRenderProgressInfo(pi);
     }
 
-    _renderProgressInfo.push_back(pi);
-    if (_onRenderStatusTimerStart) _onRenderStatusTimerStart();
+    // Published last, after every field a walker would reach through it. See
+    // RenderProgressInfo::numRows.
+    pi->numRows.store(numRows);
+
+    // Fully populated and about to own live jobs - the batch is real now, so
+    // the guard must not take it back.
+    piGuard.handled = true;
+
+    // SignalAbort walks jobs[0..numRows), so an abort that landed between the
+    // check at the top of this setup and the publish just above found nothing
+    // to abort. Re-checking after the publish closes that window: an abort
+    // either ran before it and is seen here, or ran after it and saw the jobs.
+    if (pi->abortRequested.load()) {
+        for (row = 0; row < (size_t)numRows; ++row) {
+            if (jobs[row]) {
+                jobs[row]->AbortRender();
+                ++_abortedRenderJobs;
+            }
+        }
+    }
+
+    // Everything the sink needs happens before the first push. Once a job is
+    // on the pool the batch can complete - an aborted job finishes on its first
+    // slice - and the host's drain deletes the batch and this sink the moment
+    // it does, so nothing below the pushes may touch pi again.
+    if (pi->progressSink) {
+        for (row = 0; row < (size_t)numRows; ++row) {
+            if (jobs[row]) {
+                pi->progressSink->SetupJobProgress(jobs[row]);
+            }
+        }
+        pi->progressSink->OnRenderSetupComplete();
+    }
 
     // First pass: push jobs that have no upstream dependencies so they can
     // start rendering while we finish setup on the rest.
     for (row = 0; row < (size_t)numRows; ++row) {
-        if (jobs[row]) {
-            if (aggregators[row]->getNumAggregated() == 0) {
-                jobs[row]->setPreviousFrameDone(END_OF_RENDER_FRAME);
-                _jobPool.PushJob(jobs[row]);
-            }
-            if (pi->progressSink) {
-                pi->progressSink->SetupJobProgress(jobs[row]);
-            }
+        if (jobs[row] && aggregators[row]->getNumAggregated() == 0) {
+            jobs[row]->setPreviousFrameDone(END_OF_RENDER_FRAME);
+            _jobPool.PushJob(jobs[row]);
         }
     }
 
@@ -4047,10 +4367,6 @@ void RenderEngine::Render(SequenceElements& seqElements,
     logger_render->debug("Job pool new size {}.", (int)_jobPool.size());
 
     delete[] jobs;
-
-    if (pi->progressSink) {
-        pi->progressSink->OnRenderSetupComplete();
-    }
 }
 
 static void addModelsUpTo(std::list<Model*> &models, const std::list<Model *> &toAdd, Model *upTo) {
@@ -4156,6 +4472,10 @@ void RenderEngine::RenderDirtyModels(SequenceElements& _sequenceElements, Sequen
 
 void RenderEngine::SignalAbort() {
     for (auto rpi : _renderProgressInfo) {
+        // Reaches a batch whose setup has not run yet, which owns no jobs to
+        // abort. Without this the setup would go on to build and run the render
+        // that was just cancelled, and AbortRender would wait for all of it.
+        rpi->abortRequested.store(true);
         for (size_t row = 0; row < (size_t)rpi->numRows; ++row) {
             if (rpi->jobs[row]) {
                 rpi->jobs[row]->AbortRender();
@@ -4229,6 +4549,10 @@ void RenderEngine::RenderEffectForModel(const std::string &model, int startms, i
                     if (endframe < rpi->endFrame) {
                         endframe = rpi->endFrame;
                     }
+                    // Both halves matter: a batch already built is stopped by
+                    // aborting its jobs, and one still queued for setup has no
+                    // jobs yet, so it is stopped by the flag its setup checks.
+                    rpi->abortRequested.store(true);
                     for (size_t row = 0; row < (size_t)rpi->numRows; ++row) {
                         if (rpi->jobs[row]) {
                             rpi->jobs[row]->AbortRender();

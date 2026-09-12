@@ -994,11 +994,11 @@ void SubModelsPanel::OnImportBtnPopup(wxCommandEvent& event)
                     if (choices2.GetCount() == 1) {
                         substates.push_back(choices2[0]);
                     } else {
-                        wxMultiChoiceDialog dlg2(GetParent(), "", "Select Sub-state(s)", choices2);
+                        CheckboxSelectDialog dlg2(GetParent(), _("Select Sub-state(s)"), choices2);
                         if (dlg2.ShowModal() == wxID_OK) {
-                            for (auto i : dlg2.GetSelections())
+                            for (auto const& ss : dlg2.GetSelectedItems())
                             {
-                                substates.push_back(choices2[i]);
+                                substates.push_back(ss.ToStdString());
                             }
                         }
                     }
@@ -1059,11 +1059,11 @@ void SubModelsPanel::OnImportBtnPopup(wxCommandEvent& event)
                         choices2.Add(it.first);
                     }
                 }
-                wxMultiChoiceDialog dlg2(GetParent(), "", "Select face elements", choices2);
+                CheckboxSelectDialog dlg2(GetParent(), _("Select face elements"), choices2);
                 if (dlg2.ShowModal() == wxID_OK) {
                     std::list<std::string> elements;
-                    for (auto i : dlg2.GetSelections()) {
-                        elements.push_back(choices2[i]);
+                    for (auto const& el : dlg2.GetSelectedItems()) {
+                        elements.push_back(el.ToStdString());
                     }
                     if (elements.size() > 0)
                     {
@@ -1452,7 +1452,7 @@ void SubModelsPanel::ApplySubmodelName()
     int index = GetSelectedIndex();
     wxASSERT(index >= 0);
 
-    wxString name = wxString(Model::SafeModelName(TextCtrl_Name->GetValue().ToStdString()));
+    wxString name = wxString(Model::SafeModelName(TextCtrl_Name->GetValue().ToStdString(), true));
 
     if (name.IsEmpty()) {
         TextCtrl_Name->SetBackgroundColour(*wxRED);
@@ -1926,6 +1926,15 @@ void SubModelsPanel::ValidateWindow()
         _animPlaying ||
         (ListCtrl_SubModels->GetSelectedItemCount() == 1 && TypeNotebook->GetSelection() == 0)
     );
+
+    if (_modelPreview) {
+        _modelPreview->SetPencilEnabled(CanEditPreviewNodes());
+    }
+}
+
+bool SubModelsPanel::CanEditPreviewNodes() const
+{
+    return ListCtrl_SubModels->GetSelectedItemCount() == 1 && TypeNotebook->GetSelection() == 0;
 }
 
 void SubModelsPanel::UnSelectAll()
@@ -2223,7 +2232,7 @@ void SubModelsPanel::Generate()
         return;
 
     for (int i = 0; i < dialog.GetCount(); i++) {
-        wxString basename = wxString(Model::SafeModelName(dialog.GetBaseName().ToStdString()));
+        wxString basename = wxString(Model::SafeModelName(dialog.GetBaseName().ToStdString(), true));
         wxString name = GenerateSubModelName(basename);
 
         if (GetSubModelInfoIndex(name) != -1) {
@@ -2682,6 +2691,7 @@ void SubModelsPanel::OnPreviewMouseLeave(wxMouseEvent& event)
 void SubModelsPanel::OnPreviewLeftDown(wxMouseEvent& event)
 {
     if (!_isActive) return;
+    if (!CanEditPreviewNodes()) return;
     if (_modelPreview && _modelPreview->HitTestPencilIcon(event.GetX(), event.GetY())) {
         _modelPreview->ShowPencilSizeMenu();
         return;
@@ -2705,6 +2715,7 @@ void SubModelsPanel::OnPreviewLeftDown(wxMouseEvent& event)
 void SubModelsPanel::OnPreviewLeftDClick(wxMouseEvent& event)
 {
     if (!_isActive) return;
+    if (!CanEditPreviewNodes()) return;
     glm::vec3 ray_origin;
     glm::vec3 ray_direction;
     GetMouseLocation(event.GetX(), event.GetY(), ray_origin, ray_direction);
@@ -3944,12 +3955,12 @@ void SubModelsPanel::ExportSubmodelToOtherModels()
     xLightsFrame* xlights = xLightsApp::GetFrame();
     wxArrayString choices = getModelList(&xlights->AllModels);
 
-    wxMultiChoiceDialog dlg(this, "Export SubModels to Other Models", "Choose Model(s)", choices);
+    CheckboxSelectDialog dlg(this, "Export SubModels to Other Models", choices);
     OptimiseDialogPosition(&dlg);
 
     if (dlg.ShowModal() == wxID_OK) {
-        for (auto const& idx : dlg.GetSelections()) {
-            Model* m = xlights->GetModel(choices.at(idx));
+        for (auto const& name : dlg.GetSelectedItems()) {
+            Model* m = xlights->GetModel(name);
             SaveSubModelInfoIntoThisModel(m);
             for (auto& it : m->GetSubModels()) {
                 it->IncrementChangeCount();

@@ -8,7 +8,9 @@
  * License: https://github.com/xLightsSequencer/xLights/blob/master/License.txt
  **************************************************************/
 
+#include <algorithm>
 #include <cassert>
+#include <vector>
 
 #include "ModelGroup.h"
 #include "ModelManager.h"
@@ -418,6 +420,63 @@ void ModelGroup::Accept(BaseObjectVisitor& visitor) const {
     visitor.Visit(*this);
 }
 
+namespace {
+    // The cache locks this thread currently holds shared, outermost first. The
+    // read paths nest on the same object: GetBufferSize resolves "Per Preview"
+    // through the virtual InitRenderBufferNodes, and the stacked styles size
+    // themselves from inside InitRenderBufferNodes. std::shared_mutex is not
+    // re-entrant, and libc++ and SRWLOCK stop admitting readers once a writer
+    // is waiting, so a nested lock_shared on a render thread wedged against a
+    // main-thread rebuild and froze the app. A nested reader rides the outer
+    // hold instead.
+    thread_local std::vector<const std::shared_mutex*> tlsCacheReadsHeld;
+
+    bool ThreadHoldsCacheRead(const std::shared_mutex& m) {
+        return std::find(tlsCacheReadsHeld.begin(), tlsCacheReadsHeld.end(), &m) != tlsCacheReadsHeld.end();
+    }
+
+    // Readers of a ModelGroup's cache take it shared; the two mutators take it
+    // exclusively. Both become transparent for the thread that already holds the
+    // write lock, so a rebuild can walk its own members (one of which may be a
+    // nested group that recurses back through the read paths) without deadlocking.
+    struct CacheReadLock {
+        std::shared_lock<std::shared_mutex> lk;
+        const std::shared_mutex* held = nullptr;
+        CacheReadLock(std::shared_mutex& m, bool skip) {
+            if (skip || ThreadHoldsCacheRead(m)) {
+                return;
+            }
+            lk = std::shared_lock<std::shared_mutex>(m);
+            held = &m;
+            tlsCacheReadsHeld.push_back(held);
+        }
+        ~CacheReadLock() {
+            if (held != nullptr) {
+                auto it = std::find(tlsCacheReadsHeld.rbegin(), tlsCacheReadsHeld.rend(), held);
+                if (it != tlsCacheReadsHeld.rend()) {
+                    tlsCacheReadsHeld.erase(std::next(it).base());
+                }
+            }
+        }
+    };
+    struct CacheWriteLock {
+        std::unique_lock<std::shared_mutex> lk;
+        std::atomic<std::thread::id>* owner = nullptr;
+        CacheWriteLock(std::shared_mutex& m, std::atomic<std::thread::id>& o, bool skip) {
+            if (!skip) {
+                lk = std::unique_lock<std::shared_mutex>(m);
+                owner = &o;
+                owner->store(std::this_thread::get_id(), std::memory_order_relaxed);
+            }
+        }
+        ~CacheWriteLock() {
+            if (owner != nullptr) {
+                owner->store(std::thread::id{}, std::memory_order_relaxed);
+            }
+        }
+    };
+}
+
 void LoadRenderBufferNodes(Model *m, const std::string &type, const std::string &camera, std::vector<NodeBaseClassPtr> &newNodes, int &bufferWi, int &bufferHi, int stagger) {
 
     if (m == nullptr) return;
@@ -569,7 +628,8 @@ void ModelGroup::SetModels(const std::vector<std::string>& models)
 
 bool ModelGroup::RebuildBuffers() {
     // Rebuild buffer nodes and geometry from current member variables
-    
+    CacheWriteLock _cacheWrite(cacheLock, cacheWriter, HoldsCacheWrite());
+
     std::string layout = m_layout;
     defaultBufferStyle = layout;
     if (layout == "grid" || layout == "minimalGrid") {
@@ -595,14 +655,14 @@ bool ModelGroup::RebuildBuffers() {
     bool didnotexist = false;
     for (const auto& modelName : modelNames) {
         Model* c = modelManager.GetModel(modelName);
-        if (c != nullptr) {
+        if (c != nullptr && c != this) {
             models.push_back(c);
             if (c->IsActive()) {
                 activeModels.push_back(c);
             }
             changeCount += c->GetChangeCount();
             nc += c->GetNodeCount();
-        } else if (!modelName.empty()) {
+        } else if (c == nullptr && !modelName.empty()) {
             // model does not exist yet ... but it may soon
             didnotexist = true;
         }
@@ -802,8 +862,15 @@ void ModelGroup::EnsureModelsCurrent() const
 
 void ModelGroup::ResetModels()
 {
+    CacheWriteLock _cacheWrite(cacheLock, cacheWriter, HoldsCacheWrite());
     modelsGeneration = modelManager.GetModelGeneration();
-    models.clear();
+    // Sticky, and compared against the previous resolution: ResetModelGroups
+    // uses it to decide whose cloned render nodes are now stale.  Sticky
+    // because a nested group is reset both by its own pass and by an outer
+    // group recursing into it, and the second pass would otherwise report "no
+    // change" and clear the first pass's answer.
+    std::vector<Model*> previous;
+    previous.swap(models);
     activeModels.clear();
 
     for (const auto& modelName : modelNames) {
@@ -817,6 +884,9 @@ void ModelGroup::ResetModels()
                 activeModels.push_back(c);
             }
         }
+    }
+    if (previous != models) {
+        modelsChangedOnReset = true;
     }
 }
 
@@ -877,17 +947,21 @@ void ModelGroup::AddModel(const std::string &name) {
 
 void ModelGroup::ModelRemoved(const std::string &oldName) {
     std::string trimmedOldName = Trim(oldName);
-    
-    // Remove all instances of the model from modelNames
+
+    // Remove all instances of the model from modelNames, including submodel
+    // references stored as "BaseName/SubModel" (see ModelRenamed for the
+    // same base-name extraction).
     auto it = modelNames.begin();
     while (it != modelNames.end()) {
-        if (Trim(*it) == trimmedOldName) {
+        std::string trimmed = Trim(*it);
+        std::string base = trimmed.substr(0, trimmed.find('/'));
+        if (trimmed == trimmedOldName || base == trimmedOldName) {
             it = modelNames.erase(it);
         } else {
             ++it;
         }
     }
-    
+
     // Rebuild the models and activeModels vectors from modelNames
     ResetModels();
 }
@@ -970,19 +1044,30 @@ bool ModelGroup::SubModelRenamed(const std::string &oldName, const std::string &
 bool ModelGroup::CheckForChanges() const {
     EnsureModelsCurrent();
     unsigned long l = 0;
-    for (const auto& it : models) {
-        ModelGroup *grp = dynamic_cast<ModelGroup*>(it);
-        if (grp != nullptr) {
-            grp->CheckForChanges();
+    unsigned long expected = 0;
+    {
+        CacheReadLock _cacheRead(cacheLock, HoldsCacheWrite());
+        for (const auto& it : models) {
+            ModelGroup *grp = dynamic_cast<ModelGroup*>(it);
+            if (grp != nullptr) {
+                grp->CheckForChanges();
+            }
+            l += it->GetChangeCount();
         }
-        l += it->GetChangeCount();
+        expected = changeCount;
     }
 
-    if (l != changeCount) {
+    if (l != expected) {
         if (!IsMainThread()) {
             //calling reset on any thread other than the main thread is bad.  In theory, any changes to the group/model
             //would only be done on the main thread after an abortRender call so we shouldn't get here, but we are
             //seeing stack traces in crash reports that show otherwise so likely some abortRender calls are missing.
+            return false;
+        }
+        if (ThreadHoldsCacheRead(cacheLock)) {
+            // Reached from inside one of this group's own read paths; the
+            // rebuild needs the write lock and a reader cannot upgrade. The
+            // outer read already ran this check before taking the lock.
             return false;
         }
         
@@ -996,6 +1081,7 @@ bool ModelGroup::CheckForChanges() const {
 
 void ModelGroup::GetBufferSize(const std::string &tp, const std::string &camera, const std::string &transform, int &BufferWi, int &BufferHt, int stagger) const {
     CheckForChanges();
+    CacheReadLock _cacheRead(cacheLock, HoldsCacheWrite());
     std::string type = tp;
     if (type.compare(0, 9, "Per Model") == 0) {
         type = "Default";
@@ -1145,6 +1231,7 @@ void ModelGroup::InitRenderBufferNodes(const std::string& tp,
                                        int& BufferWi, int& BufferHt, int stagger, bool deep) const
 {
     CheckForChanges();
+    CacheReadLock _cacheRead(cacheLock, HoldsCacheWrite());
     std::string type = tp;
     if (type.compare(0, 9, "Per Model") == 0) {
         type = "Default";

@@ -35,6 +35,7 @@
 #include <wx/tokenzr.h>
 #include <wx/settings.h>
 #include <wx/display.h>
+#include <wx/weakref.h>
 #include <wx/tooltip.h>
 #include <wx/valnum.h>
 #include <wx/version.h>
@@ -42,6 +43,7 @@
 #include <wx/zipstrm.h>
 
 #include <cctype>
+#include <cstdlib>
 #include <cstring>
 #include <thread>
 #include <string>
@@ -79,6 +81,10 @@
 #include <wx/mstream.h>
 #include "model/GenerateCustomModelDialog.h"
 #include "klightmapper/CustomModelMethodPickerDialog.h"
+#include "media/LiveCameraCapture.h"   // XLIGHTS_HAVE_LIVE_CAMERA
+#ifdef XLIGHTS_HAVE_LIVE_CAMERA
+#include "custommodelbuilder/CustomModelBuilderDialog.h"
+#endif
 #include "klightmapper/KLightMapperBridge.h"
 #include "sequencer/GenerateLyricsDialog.h"
 #include "src-core/ai/AIFeatureManager.h"
@@ -190,6 +196,7 @@
 #include "ai/WxServiceSettingsStore.h"
 #include "models/DMX/DmxMovingHeadComm.h"
 #include "color/ColorPanel.h"
+#include "setup/ShowDirectoriesDialog.h"
 
 #include "../dependencies/wxHTTPServer/wxhttpserver.h"
 
@@ -1741,6 +1748,9 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     config->Read("xLightsAutoShowHousePreview", &_autoShowHousePreview, false);
     spdlog::debug("Autoshow House Preview: {}.", toStr(_autoShowHousePreview));
 
+    config->Read("xLightsHousePreviewKeepOnTop", &_housePreviewKeepOnTop, false);
+    spdlog::debug("House Preview Keep on Top: {}.", toStr(_housePreviewKeepOnTop));
+
     config->Read("xLightsZoomMethodToCursor", &_zoomMethodToCursor, true);
     spdlog::debug("Zoom Method To Cursor: {}.", toStr(_zoomMethodToCursor));
 
@@ -1812,8 +1822,11 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     spdlog::debug("LayoutPanel creation done.");
     layoutPanel->LabelDirectoriesFooter->Bind(wxEVT_LEFT_DCLICK,
                              [this](wxMouseEvent&) {
-                                 wxCommandEvent evt;
-                                 OnMenuOpenFolderSelected(evt);
+                                                  if (wxGetKeyState(WXK_SHIFT)) {
+                                                      wxLaunchDefaultApplication(showDirectory);
+                                                  } else {
+                                                      OpenShowDirectoriesDialog();
+                                                  }
                              });
     FlexGridSizerPreview->Add(layoutPanel, 1, wxALL | wxEXPAND, 5);
     FlexGridSizerPreview->Fit(PanelPreview);
@@ -2012,6 +2025,7 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     }
 
     config->Read("xLightsIconSize", &mIconSize, 16);
+    mIconSizePreference = mIconSize;
     SetToolIconSize(mIconSize);
     spdlog::debug("Icon size: {}.", mIconSize);
 
@@ -2049,6 +2063,7 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     spdlog::debug("Backup purge age: {} days.", BackupPurgeDays);
 
     config->Read("xLightsGridSpacing", &mGridSpacing, 16);
+    mGridSpacingPreference = mGridSpacing;
     SetGridSpacing(mGridSpacing);
     spdlog::debug("Grid spacing: {}.", mGridSpacing);
 
@@ -2400,9 +2415,9 @@ xLightsFrame::~xLightsFrame()
     } else {
         config->Write("ToolbarLocations", TOOLBAR_SAVE_VERSION + MainAuiManager->SavePerspective());
     }
-    config->Write("xLightsIconSize", mIconSize);
+    config->Write("xLightsIconSize", mIconSizePreference);
     SaveToolbarLayout(config, "EffectsToolbarLayout", _effectsToolbarLayout);
-    config->Write("xLightsGridSpacing", mGridSpacing);
+    config->Write("xLightsGridSpacing", mGridSpacingPreference);
     config->Write("xLightsGridIconBackgrounds", mGridIconBackgrounds);
     config->Write("xLightsShowAlternateTimingFormat", mShowAlternateTimingFormat);
     config->Write("xLightsGroupEffectIndicator", mShowGroupEffectIndicator);
@@ -4213,15 +4228,7 @@ void xLightsFrame::SetEffectAssistMode(int i)
 
 void xLightsFrame::SetEffectAssistWindowState(bool show)
 {
-    bool visible = m_mgr->GetPane("EffectAssist").IsShown();
-    if (visible && !show) {
-        m_mgr->GetPane("EffectAssist").Hide();
-        m_mgr->Update();
-    } else if (!visible && show) {
-        m_mgr->GetPane("EffectAssist").Show();
-        m_mgr->Update();
-    }
-    UpdateViewMenu();
+    SetPaneVisibility("EffectAssist", show);
 }
 
 void xLightsFrame::UpdateEffectAssistWindow(Effect* effect, RenderableEffect* ren_effect)
@@ -4264,6 +4271,20 @@ void xLightsFrame::CheckUnsavedChanges()
         if (wxYES == wxMessageBox("Save Models, Views, and Perspectives changes?",
                                   "Models, Views, and Perspectives Changes Confirmation", wxICON_QUESTION | wxYES_NO | wxNO_DEFAULT, this)) {
             SaveEffectsFile();
+        } else {
+            // Changes were explicitly discarded ... backdate the autosave backup (if
+            // any) below the real file's mtime so LoadEffectsFile() doesn't re-offer
+            // the same discarded changes as a "newer autosave found" prompt next open.
+            wxFileName fn(CurrentDir, XLIGHTS_RGBEFFECTS_FILE);
+            wxFileName bkp(CurrentDir, XLIGHTS_RGBEFFECTS_FILE_BACKUP);
+            if (FileExists(fn) && FileExists(bkp)) {
+                wxDateTime xmltime = fn.GetModificationTime();
+                wxDateTime xbkptime = bkp.GetModificationTime();
+                if (xmltime.IsValid() && xbkptime.IsValid() && xbkptime > xmltime) {
+                    xmltime -= wxTimeSpan(0, 0, 3, 0); // FAT time resolution is 2 seconds
+                    bkp.SetTimes(&xmltime, &xmltime, &xmltime);
+                }
+            }
         }
     }
 
@@ -4472,8 +4493,20 @@ void xLightsFrame::OnMenu_GenerateCustomModelSelected(wxCommandEvent& event)
     // (Windows); klbridge has a backend for each. Previously gated on a
     // non-empty camera list; the Remote RTSP option makes the picker useful
     // even with no local camera.
-    const auto cams = klbridge::DiscoverContinuityCameras();
-    {
+    // The scan library can be present and loadable and still be unable to
+    // record or decode: on Linux its codec tail is a companion library chosen
+    // at runtime to match the host's FFmpeg, and a host with no FFmpeg runtime
+    // has none to choose. Offering the picker anyway would open a scan window
+    // that dies on the first frame, so fall through to the classic flow after
+    // saying why — the reason names the packages to install.
+    const std::string scanProblem = klbridge::ScanBackendProblem();
+    const auto cams = scanProblem.empty() ? klbridge::DiscoverContinuityCameras()
+                                          : std::vector<klbridge::CameraInfo>{};
+    if (!scanProblem.empty()) {
+        SetCursor(wxCURSOR_DEFAULT);
+        DisplayWarning("Camera scanning is unavailable:\n\n" + scanProblem, this);
+        SetCursor(wxCURSOR_WAIT);
+    } else {
         CustomModelMethodPickerDialog picker(this, cams);
         picker.CenterOnParent();
         SetCursor(wxCURSOR_DEFAULT);
@@ -4544,6 +4577,26 @@ void xLightsFrame::OnMenu_GenerateCustomModelSelected(wxCommandEvent& event)
                     scanDumpParent, completion);
                 return;
             }
+#ifdef XLIGHTS_HAVE_LIVE_CAMERA
+            if (picker.GetChoice() == CustomModelMethodPickerDialog::Choice::WebcamTouchUp) {
+                // Unlike CameraScan/RTSPScan, this drives an *existing*
+                // model's nodes directly through the output system rather
+                // than reconstructing a new one, so it is shown modally
+                // here instead of via the async completion callback (#3791).
+                {
+                    CustomModelBuilderDialog dialog(this, &_outputManager, picker.GetSelectedWebcamSymbolicLink());
+                    dialog.CenterOnParent();
+                    dialog.ShowModal();
+                }
+                if (output) { EnableOutputs(); }
+                if (timerRunning) { OutputTimer.Start(); }
+                if (mps == MEDIAPLAYINGSTATE::PLAYING) {
+                    CurrentSeqXmlFile->GetMedia()->Play();
+                    SetAudioControls();
+                }
+                return;
+            }
+#endif
             // A scan was chosen but with no valid camera / URL — restore
             // and fall through to the classic dialog below.
         }
@@ -4604,6 +4657,16 @@ void xLightsFrame::CreateDebugReport(xlCrashHandler* crashHandler)
     wxDebugReportCompress* const report = &crashHandler->GetDebugReport();
 
     report->SetCompressedFileDirectory(CurrentDir);
+
+    // The crash path builds its own file list rather than calling
+    // AddDebugFilesToReport, so this sidecar had been reaching only the manual
+    // Package Debug Files zip - never an actual crash report, which is the one
+    // case it exists for. Verified against the uploads: no crash zip carried it.
+    const std::string machineConfig = GetMachineConfigSummary();
+    if (!machineConfig.empty()) {
+        report->AddText("machine_config.txt", wxString::FromUTF8(machineConfig),
+                        "Machine configuration");
+    }
 
     wxFileName fn(CurrentDir, OutputManager::GetNetworksFileName());
     if (FileExists(fn)) {
@@ -4822,7 +4885,7 @@ void xLightsFrame::AddDebugFilesToReport(wxDebugReport& report)
     // Attached in its own right rather than relied on from the log: the log
     // rotates, and once it has, nothing in the report says what machine it came
     // from.
-    const std::string& machineConfig = GetMachineConfigSummary();
+    const std::string machineConfig = GetMachineConfigSummary();
     if (!machineConfig.empty()) {
         report.AddText("machine_config.txt", wxString::FromUTF8(machineConfig),
                        "Machine configuration");
@@ -5752,6 +5815,35 @@ std::string xLightsFrame::CheckSequence(bool displayInEditor, bool writeToFile)
 
 }
 
+namespace {
+
+// wxMessageBox sizes itself to fit its whole message with no scrolling, so a
+// long asset list pushes the OK button off-screen. Show it in a fixed-size
+// dialog with a scrolling read-only text area instead, so OK stays visible
+// no matter how long the list is.
+void ShowScrollableMessage(wxWindow* parent, const std::string& message, const std::string& caption)
+{
+    wxDialog dlg(parent, wxID_ANY, caption, wxDefaultPosition, wxDefaultSize,
+                 wxDEFAULT_DIALOG_STYLE | wxCAPTION | wxRESIZE_BORDER);
+
+    auto* outer = new wxBoxSizer(wxVERTICAL);
+    auto* text = new wxTextCtrl(&dlg, wxID_ANY, message, wxDefaultPosition, wxSize(600, 350),
+                                 wxTE_MULTILINE | wxTE_READONLY);
+    outer->Add(text, 1, wxALL | wxEXPAND, 10);
+
+    auto* btnSizer = new wxStdDialogButtonSizer();
+    btnSizer->Add(new wxButton(&dlg, wxID_OK, "OK"), 0, wxALL, 4);
+    btnSizer->Realize();
+    outer->Add(btnSizer, 0, wxALIGN_CENTER | wxBOTTOM, 10);
+
+    dlg.SetSizer(outer);
+    dlg.SetSize(wxSize(650, 450));
+    dlg.CenterOnParent();
+    dlg.ShowModal();
+}
+
+} // namespace
+
 void xLightsFrame::ValidateEffectAssets()
 {
     std::string missing;
@@ -5786,10 +5878,10 @@ void xLightsFrame::ValidateEffectAssets()
 
     if ((!_renderMode && !_checkSequenceMode) || _promptBatchRenderIssues) {
         if (missing != "") {
-            wxMessageBox("Sequence references files which cannot be found:\nShow Folder: " + showDirectory + "\n\n" + missing + "\n Use Tools/Check Sequence for more details.", "Missing assets");
+            ShowScrollableMessage(this, "Sequence references files which cannot be found:\nShow Folder: " + showDirectory + "\n\n" + missing + "\n Use Tools/Check Sequence for more details.", "Missing assets");
         }
         if (relocated != "") {
-            wxMessageBox("Sequence references files which have been moved. Paths will be updated on save:\nShow Folder: " + showDirectory + "\n\n" + relocated, "Relocated assets");
+            ShowScrollableMessage(this, "Sequence references files which have been moved. Paths will be updated on save:\nShow Folder: " + showDirectory + "\n\n" + relocated, "Relocated assets");
         }
     }
 }
@@ -6909,7 +7001,7 @@ std::string xLightsFrame::MoveToShowFolder(const std::string& file, const std::s
 
     if (!wxDir::Exists(dir)) {
         wxFileName d;
-        if (!d.Mkdir(dir)) {
+        if (!d.Mkdir(dir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL)) {
             spdlog::error("Unable to create target folder {}.", (const char*)dir.c_str());
         }
     }
@@ -6928,7 +7020,13 @@ std::string xLightsFrame::MoveToShowFolder(const std::string& file, const std::s
 
     if (!FileExists(target)) {
         spdlog::debug("Copying file {} to {}.", (const char*)file.c_str(), (const char*)target.c_str());
-        wxCopyFile(file, target, false);
+        // Hand back the original on failure: callers store the result as the
+        // new reference, and a path to a file that was never written is
+        // worse than the one they already had.
+        if (!wxCopyFile(file, target, false)) {
+            spdlog::error("Unable to copy {} to {}.", (const char*)file.c_str(), (const char*)target.c_str());
+            return file;
+        }
     } else if (reuse) {
         spdlog::debug("Reusing file {} for {}.", (const char*)target.c_str(), (const char*)file.c_str());
     }
@@ -6994,6 +7092,11 @@ bool xLightsFrame::CleanupRGBEffectsFileLocations()
     }
 
     return true;
+}
+
+void xLightsFrame::OpenShowDirectoriesDialog() {
+    ShowDirectoriesDialog dlg(this);
+    dlg.ShowModal();
 }
 
 void xLightsFrame::OnMenuItem_CleanupFileLocationsSelected(wxCommandEvent& event)
@@ -7064,6 +7167,15 @@ void xLightsFrame::ToggleToolbarPane(const wxString& paneName)
     if (!pane.IsOk()) return;
     if (pane.IsShown()) {
         pane.Hide();
+        if (paneName == "ACToolbar" && Button_ACDisabled->IsChecked()) {
+            // Hiding the toolbar takes AC mode out of effect (IsACActive() checks
+            // toolbar visibility), so bring the button/UI state in line rather than
+            // leaving the normal sequencing controls stuck disabled.
+            Button_ACDisabled->SetValue(false);
+            ACToolbar->SetToolBitmap(ID_AUITOOLBARITEM_ACDISABLED, GetToolbarBitmapBundle("xlAC_DISABLED"));
+            UpdateACToolbar();
+            EnableSequenceControls(true);
+        }
     } else {
         pane.Show();
     }
@@ -7747,6 +7859,17 @@ void xLightsFrame::SetAutoShowHousePreview(bool b)
     _autoShowHousePreview = b;
 }
 
+ModelPreview* xLightsFrame::GetHousePreviewModelPreview() const
+{
+    return _housePreviewPanel != nullptr ? _housePreviewPanel->GetModelPreview() : nullptr;
+}
+
+void xLightsFrame::SetHousePreviewKeepOnTop(bool b)
+{
+    _housePreviewKeepOnTop = b;
+    wxConfigBase::Get()->Write("xLightsHousePreviewKeepOnTop", b);
+}
+
 void xLightsFrame::SetZoomMethodToCursor(bool b)
 {
     _zoomMethodToCursor = b;
@@ -7960,47 +8083,104 @@ void xLightsFrame::OnMenuItem_UpdateSelected(wxCommandEvent& event)
         DisplayInfo("This xLights was installed from the Microsoft Store / App Installer, which keeps it up to date automatically.", this);
         return;
     }
-    bool update_found = CheckForUpdate(3, false, true);
-    if (!update_found) {
-        DisplayInfo("Update check complete: No update found", this);
+    // Reports its own result: the check is asynchronous now, so "no update found"
+    // is shown from the response handler rather than from a return value here.
+    CheckForUpdate(3, false, true);
+}
+
+namespace {
+    // "2026-08-14T12:34:56Z" -> y/m/d.  Returns false if it isn't that shape.
+    bool ParseISODate(const std::string& s, int& y, int& m, int& d)
+    {
+        if (s.size() < 10 || s[4] != '-' || s[7] != '-') {
+            return false;
+        }
+        y = (int)std::strtol(s.c_str(), nullptr, 10);
+        m = (int)std::strtol(s.c_str() + 5, nullptr, 10);
+        d = (int)std::strtol(s.c_str() + 8, nullptr, 10);
+        return y > 0 && m >= 1 && m <= 12 && d >= 1 && d <= 31;
+    }
+
+    // __DATE__ format: "Aug 14 2026" (day is space padded).
+    bool ParseCompilerDate(const std::string& s, int& y, int& m, int& d)
+    {
+        static const char* MONTHS = "JanFebMarAprMayJunJulAugSepOctNovDec";
+        if (s.size() < 11) {
+            return false;
+        }
+        const char* p = std::strstr(MONTHS, s.substr(0, 3).c_str());
+        if (p == nullptr) {
+            return false;
+        }
+        m = (int)((p - MONTHS) / 3) + 1;
+        d = (int)std::strtol(s.c_str() + 4, nullptr, 10);
+        y = (int)std::strtol(s.c_str() + 7, nullptr, 10);
+        return y > 0 && d >= 1 && d <= 31;
+    }
+
+    // True if this build predates the release by more than the given number of
+    // months. Undecidable dates count as "not old" so an unexpected format never
+    // takes options away from the user.
+    bool IsBuildOlderThan(const std::string& releaseDate, int months)
+    {
+        int ry, rm, rd, by, bm, bd;
+        if (!ParseISODate(releaseDate, ry, rm, rd) || !ParseCompilerDate(xlights_build_date, by, bm, bd)) {
+            return false;
+        }
+        const int monthsApart = (ry - by) * 12 + (rm - bm);
+        return monthsApart > months || (monthsApart == months && rd >= bd);
     }
 }
 
-bool xLightsFrame::CheckForUpdate(int maxRetries, bool canSkipUpdates, bool showMessageBoxes)
+void xLightsFrame::CheckForUpdate(int maxRetries, bool canSkipUpdates, bool showMessageBoxes)
 {
+    MenuItem_Update->Enable(true);
+    RequestReleaseList(maxRetries, canSkipUpdates, showMessageBoxes);
+}
 
-    bool found_update = false;
+void xLightsFrame::RequestReleaseList(int retriesLeft, bool canSkipUpdates, bool showMessageBoxes)
+{
     // include 6 tags, first will LIKELY be the nightly, this then includes 5 to walk
     // back and find one that has the right asset for the platform
-    std::string githubTagURL = "https://api.github.com/repos/xLightsSequencer/xLights/releases?per_page=6";
-    MenuItem_Update->Enable(true);
-    int rc = 0;
+    const std::string githubTagURL = "https://api.github.com/repos/xLightsSequencer/xLights/releases?per_page=6";
     spdlog::debug("Downloading {}", (const char*)githubTagURL.c_str());
 
-    bool didConnect = false;
-    std::string resp;
-    nlohmann::json val;
-    for (int retry = 0; retry < maxRetries && !didConnect; retry++) {
-        resp = CurlManager::INSTANCE.doGet(githubTagURL, rc);
-        if (rc == 200 && !resp.empty()) {
-            try {
-                val = nlohmann::json::parse(resp, nullptr, false);
-                if (!val.is_discarded()) {
-                    didConnect = true;
-                }
-            } catch (...) {
-            }
-        } else {
-            wxSleep(1);
+    // Queued, not synchronous. The synchronous form pumped the UI through
+    // wxYieldIfNeeded, so this check - which runs from DoPostStartupCommands -
+    // dispatched arbitrary menu commands and timers from inside itself, before
+    // startup had finished. The idle handler in xLightsApp::ProcessIdle drives
+    // the queue, so the callback lands on the main thread with no nested loop.
+    wxWeakRef<xLightsFrame> self(this);
+    CurlManager::INSTANCE.addGet(githubTagURL, [self, retriesLeft, canSkipUpdates, showMessageBoxes](int rc, const std::string& resp) {
+        if (!self || self->IsExiting()) {
+            return;
         }
-    }
-    if (!didConnect) {
+        if (rc == 200 && !resp.empty()) {
+            self->HandleReleaseList(resp, canSkipUpdates, showMessageBoxes);
+            return;
+        }
+        if (retriesLeft > 1) {
+            self->RequestReleaseList(retriesLeft - 1, canSkipUpdates, showMessageBoxes);
+            return;
+        }
         spdlog::debug("Version update check failed. Unable to connect.");
         if (showMessageBoxes) {
             wxMessageBox("Unable to connect.", "Version update check failed");
         }
-        return true;
+    });
+}
+
+void xLightsFrame::HandleReleaseList(const std::string& resp, bool canSkipUpdates, bool showMessageBoxes)
+{
+    nlohmann::json val = nlohmann::json::parse(resp, nullptr, false);
+    if (val.is_discarded()) {
+        spdlog::debug("Version update check failed. Unable to connect.");
+        if (showMessageBoxes) {
+            wxMessageBox("Unable to connect.", "Version update check failed");
+        }
+        return;
     }
+
     wxString configver;
     auto* config = GetXLightsConfig();
     if (canSkipUpdates && (config != nullptr)) {
@@ -8015,6 +8195,7 @@ bool xLightsFrame::CheckForUpdate(int maxRetries, bool canSkipUpdates, bool show
 
     std::string downloadURL;
     std::string urlVersion;
+    std::string urlPublished;
     for (int x = 0; x < (int)val.size() && downloadURL.empty(); x++) {
         if (val[x].contains("name")) {
             std::string verName = val[x].contains("tag_name") ? val[x]["tag_name"].get<std::string>() : val[x]["name"].get<std::string>();
@@ -8025,36 +8206,55 @@ bool xLightsFrame::CheckForUpdate(int maxRetries, bool canSkipUpdates, bool show
                     if (url.ends_with(ASSET_EXT)) {
                         downloadURL = url;
                         urlVersion = verName;
+                        if (val[x].contains("published_at") && val[x]["published_at"].is_string()) {
+                            urlPublished = val[x]["published_at"].get<std::string>();
+                        }
                     }
                 }
             }
         }
     }
 
+    // Well behind the current release: don't let this one be ignored forever, and
+    // drop any version the user ignored earlier.
+    const bool allowIgnore = !IsBuildOlderThan(urlPublished, 6);
+    if (!allowIgnore) {
+        configver.clear();
+    }
+
     spdlog::debug("Current Version: '{}'. Latest Available '{}'. Skip Version '{}'.",
                       (const char*)xlights_version_string.c_str(),
                       (const char*)urlVersion.c_str(),
                       (const char*)configver.c_str());
-    if (!downloadURL.empty()) {
-#ifndef SIMULATE_UPGRADE
-        if ((urlVersion != configver) && (urlVersion != xlights_version_string) && IsVersionOlder(urlVersion, xlights_version_string))
-#endif
-        {
-            found_update = true;
-            UpdaterDialog* dialog = new UpdaterDialog(this);
-
-            dialog->urlVersion = urlVersion;
-            dialog->downloadUrl = downloadURL;
-            dialog->StaticTextUpdateLabel->SetLabel("You are currently running xLights " + xlights_version_string + "\n" + "Whereas the current release is " + urlVersion);
-            dialog->Show();
-        }
-    } else {
+    if (downloadURL.empty()) {
         spdlog::debug("Version update check failed. Unable to read available versions.");
         if (showMessageBoxes) {
             wxMessageBox("Unable to read available versions.", "Version update check failed");
         }
+        return;
     }
-    return found_update;
+
+#ifndef SIMULATE_UPGRADE
+    if ((urlVersion != configver) && (urlVersion != xlights_version_string) && IsVersionOlder(urlVersion, xlights_version_string))
+#endif
+    {
+        UpdaterDialog* dialog = new UpdaterDialog(this);
+
+        dialog->urlVersion = urlVersion;
+        dialog->downloadUrl = downloadURL;
+        dialog->StaticTextUpdateLabel->SetLabel("You are currently running xLights " + xlights_version_string + "\n" + "Whereas the current release is " + urlVersion);
+        if (!allowIgnore) {
+            dialog->DisableIgnore();
+        }
+        dialog->Show();
+        return;
+    }
+
+#ifndef SIMULATE_UPGRADE
+    if (showMessageBoxes) {
+        DisplayInfo("Update check complete: No update found", this);
+    }
+#endif
 }
 
 void xLightsFrame::SetSmallWaveform(bool b)
@@ -8154,9 +8354,7 @@ void xLightsFrame::ShowPresetsPanel()
         EffectTreeDlg->InitItems(_effectPresetManager);
         _effectPresetsInitialized = true;
     }
-    m_mgr->GetPane("EffectPresets").Show();
-    m_mgr->Update();
-    UpdateViewMenu();
+    SetPaneVisibility("EffectPresets", true);
 }
 
 uint64_t xLightsFrame::BadDriveAccess(const std::list<std::string>& files, std::list<std::pair<std::string, uint64_t>>& slow, uint64_t thresholdUS)
@@ -8202,14 +8400,7 @@ void xLightsFrame::TogglePresetsPanel()
         EffectTreeDlg->InitItems(_effectPresetManager);
         _effectPresetsInitialized = true;
     }
-    bool visible = m_mgr->GetPane("EffectPresets").IsShown();
-    if (visible) {
-        m_mgr->GetPane("EffectPresets").Hide();
-    } else {
-        m_mgr->GetPane("EffectPresets").Show();
-    }
-    m_mgr->Update();
-    UpdateViewMenu();
+    TogglePaneVisibility("EffectPresets");
 }
 
 void xLightsFrame::ShowHideEffectPresetsWindow(wxCommandEvent& event)
@@ -8245,6 +8436,30 @@ bool xLightsFrame::TogglePaneVisibility(const wxString& name, bool initSequencer
     if (nowShown != nullptr) {
         *nowShown = shown;
     }
+    return true;
+}
+
+bool xLightsFrame::SetPaneVisibility(const wxString& name, bool show, bool initSequencer)
+{
+    // Same hazards as TogglePaneVisibility above - see the comment there. This
+    // variant exists for the callers driven by state rather than by a click
+    // (perspective load, show/hide-all, the effect-assist mode), which reach
+    // the manager during teardown far more readily than a menu item does.
+    if (m_mgr == nullptr || IsExiting()) {
+        return false;
+    }
+    if (initSequencer) {
+        InitSequencer();
+    }
+    wxAuiPaneInfo& info = m_mgr->GetPane(name);
+    if (!info.IsOk()) {
+        return false;
+    }
+    if (info.IsShown() != show) {
+        show ? info.Show() : info.Hide();
+        m_mgr->Update();
+    }
+    UpdateViewMenu();
     return true;
 }
 
@@ -8397,10 +8612,12 @@ void xLightsFrame::SetXFadePort(int i)
 
 void xLightsFrame::LoadPhonemeDictionaries()
 {
+    wxString exeDir = wxFileName::FileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
     std::vector<std::string> searchDirs = {
         CurrentDir.ToStdString(),
         (wxStandardPaths::Get().GetResourcesDir() + "/dictionaries").ToStdString(),
-        wxFileName::FileName(wxStandardPaths::Get().GetExecutablePath()).GetPath().ToStdString()
+        (exeDir + "/dictionaries").ToStdString(),
+        exeDir.ToStdString()
     };
 
     wxProgressDialog dlg("Loading", "Loading phoneme dictionaries", 100, this, wxPD_APP_MODAL | wxPD_AUTO_HIDE);

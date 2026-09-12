@@ -35,6 +35,7 @@
 #include "WQ.xpm"
 
 #include "ModelFacesPanel.h"
+#include "shared/dialogs/CheckboxSelectDialog.h"
 #include "FaceMatrixHelpers.h"
 #include "render/SequenceFile.h"
 #include "shared/utils/NodesGridCellEditor.h"
@@ -47,6 +48,8 @@
 #include "models/Model.h"
 #include "models/Node.h"
 #include "models/SubModel.h"
+#include <algorithm>
+#include <vector>
 #include "xLightsApp.h"
 #include "utils/VectorMath.h"
 #include "models/CustomModel.h"
@@ -730,14 +733,27 @@ void ModelFacesPanel::SelectFaceModel(const std::string& name)
 void ModelFacesPanel::OnMatrixNameChoiceSelect(wxCommandEvent& event)
 {
     SelectFaceModel(NameChoice->GetString(NameChoice->GetSelection()).ToStdString());
+    if (_modelPreview) {
+        _modelPreview->SetPencilEnabled(CanUsePencil());
+    }
+}
+
+bool ModelFacesPanel::CanEditPreviewNodes() const
+{
+    return NameChoice->GetSelection() != wxNOT_FOUND && FaceTypeChoice->GetSelection() != MATRIX_FACE;
+}
+
+bool ModelFacesPanel::CanUsePencil() const
+{
+    return CanEditPreviewNodes() && FaceTypeChoice->GetSelection() != SINGLE_NODE_FACE;
 }
 
 void ModelFacesPanel::OnButtonMatrixAddClicked(wxCommandEvent& event)
 {
     wxTextEntryDialog dlg(this, "New Face", "Enter name for new face definition");
     if (dlg.ShowModal() == wxID_OK) {
-        std::string n = dlg.GetValue().ToStdString();
-        if (NameChoice->FindString(n) == wxNOT_FOUND) {
+        std::string n = Model::SafeModelName(dlg.GetValue().ToStdString(), true);
+        if (!n.empty() && NameChoice->FindString(n) == wxNOT_FOUND) {
             NameChoice->Append(n);
             NameChoice->SetStringSelection(n);
             SelectFaceModel(n);
@@ -1293,6 +1309,9 @@ void ModelFacesPanel::OnFaceTypeChoicePageChanged(wxChoicebookEvent& event)
     }
     SelectFaceModel(name);
     UpdatePreview("", *wxWHITE);
+    if (_modelPreview) {
+        _modelPreview->SetPencilEnabled(CanUsePencil());
+    }
 }
 
 void ModelFacesPanel::OnNodeRangeGridCellLeftDClick(wxGridEvent& event)
@@ -1579,12 +1598,11 @@ void ModelFacesPanel::ImportSubmodel(wxGridEvent& event)
     }
 
     const std::string name = NameChoice->GetString(NameChoice->GetSelection()).ToStdString();
-    wxMultiChoiceDialog dlg(GetParent(), "", "Select SubModel", choices);
+    CheckboxSelectDialog dlg(GetParent(), _("Select SubModel"), choices);
 
     if (dlg.ShowModal() == wxID_OK) {
         wxArrayString allNodes;
-        for (auto const& idx : dlg.GetSelections()) {
-            wxString smName = choices.at(idx);
+        for (auto const& smName : dlg.GetSelectedItems()) {
             wxString nodes;
             if (_getSubModelRanges) {
                 nodes = _getSubModelRanges(smName.ToStdString());
@@ -1812,8 +1830,8 @@ void ModelFacesPanel::CopyFaceData()
     auto const& currentName = NameChoice->GetString(index);
     wxTextEntryDialog dlg(this, "Copy Face", "Enter name for copied face definition", currentName);
     if (dlg.ShowModal() == wxID_OK) {
-        std::string n = dlg.GetValue().ToStdString();
-        if (NameChoice->FindString(n) == wxNOT_FOUND) {
+        std::string n = Model::SafeModelName(dlg.GetValue().ToStdString(), true);
+        if (!n.empty() && NameChoice->FindString(n) == wxNOT_FOUND) {
             NameChoice->Append(n);
 
             faceData[n] = faceData[currentName];
@@ -1835,8 +1853,8 @@ void ModelFacesPanel::RenameFace()
     auto const& currentName = NameChoice->GetString(index);
     wxTextEntryDialog dlg(this, "Rename Face", "Enter new name for face definition", currentName);
     if (dlg.ShowModal() == wxID_OK) {
-        std::string n = dlg.GetValue().ToStdString();
-        if (NameChoice->FindString(n) == wxNOT_FOUND) {
+        std::string n = Model::SafeModelName(dlg.GetValue().ToStdString(), true);
+        if (!n.empty() && NameChoice->FindString(n) == wxNOT_FOUND) {
             NameChoice->Delete(index);
             NameChoice->Insert(n, index);
 
@@ -1896,6 +1914,7 @@ void ModelFacesPanel::OnPreviewMouseLeave(wxMouseEvent& event)
 void ModelFacesPanel::OnPreviewLeftDown(wxMouseEvent& event)
 {
     if (!_isActive) return;
+    if (!CanEditPreviewNodes()) return;
     if (_modelPreview && _modelPreview->HitTestPencilIcon(event.GetX(), event.GetY())) {
         _modelPreview->ShowPencilSizeMenu();
         return;
@@ -1915,6 +1934,7 @@ void ModelFacesPanel::OnPreviewLeftDown(wxMouseEvent& event)
 void ModelFacesPanel::OnPreviewLeftDClick(wxMouseEvent& event)
 {
     if (!_isActive) return;
+    if (!CanEditPreviewNodes()) return;
     if (!_modelPreview) return;
     glm::vec3 ray_origin;
     glm::vec3 ray_direction;
@@ -2032,6 +2052,22 @@ void ModelFacesPanel::SelectAllInBoundingRect(bool shiftDwn, bool freeform)
     }
     const std::string name = NameChoice->GetString(NameChoice->GetSelection()).ToStdString();
     if (name == "") {
+        return;
+    }
+
+    if (faceData[name]["Type"] == "SingleNode") {
+        int row = SingleNodeGrid->GetGridCursorRow();
+        if (row < 0)
+            return;
+        std::vector<int> nodes = GetDragSelectedNodes(freeform);
+        if (nodes.empty())
+            return;
+        // Single Node rows hold exactly one node -- take the first node the
+        // drag/pencil touched rather than building a range out of all of them.
+        std::string node = model->GetNodeName(nodes[0] - 1, true);
+        SingleNodeGrid->SetCellValue(row, CHANNEL_COL, node);
+        SingleNodeGrid->Refresh();
+        GetValue(SingleNodeGrid, row, CHANNEL_COL, faceData[name]);
         return;
     }
 
@@ -2171,11 +2207,20 @@ void ModelFacesPanel::OnTimer1Trigger(wxTimerEvent& event)
     if (!model) return;
     wxASSERT(_outputManager->IsOutputting());
     _outputManager->StartFrame(0);
+    std::vector<unsigned char> buf;
     for (uint32_t n = 0; n < model->GetNodeCount(); ++n) {
         auto ch = model->NodeStartChannel(n);
         if (std::find(begin(_selected), end(_selected), n) != end(_selected)) {
+            // model->GetNodeColor(n)'s node was already set to the face's actual
+            // configured colour by the selection-highlight code (for the model preview),
+            // so read the real per-node channel bytes back rather than a flat test value.
+            // Some node types (e.g. SuperString) write more than 8 bytes in
+            // GetForChannels, so size the buffer from the model rather than
+            // using a fixed-size stack array.
+            buf.assign(std::max(model->GetChanCountPerNode(), 1), 0);
+            model->GetNodeChannelValues(n, buf.data());
             for (uint8_t c = 0; c < model->GetChanCountPerNode(); ++c) {
-                _outputManager->SetOneChannel(ch++, 30);
+                _outputManager->SetOneChannel(ch++, buf[c]);
             }
         } else {
             for (uint8_t c = 0; c < model->GetChanCountPerNode(); ++c) {
@@ -2410,13 +2455,13 @@ void ModelFacesPanel::ExportFacesToOtherModels()
     xLightsFrame* xlights = xLightsApp::GetFrame();
     wxArrayString choices = getModelList(&xlights->AllModels);
 
-    wxMultiChoiceDialog dlg(this, "Export Face Definitions to Other Models", "Choose Model(s)", choices);
+    CheckboxSelectDialog dlg(this, "Export Face Definitions to Other Models", choices);
     OptimiseDialogPosition(&dlg);
 
     if (dlg.ShowModal() == wxID_OK) {
         std::map<std::string, std::map<std::string, std::string>> sourceFaces = GetFaceInfo();
-        for (auto const& idx : dlg.GetSelections()) {
-            Model* targetModel = xlights->GetModel(choices.at(idx));
+        for (auto const& name : dlg.GetSelectedItems()) {
+            Model* targetModel = xlights->GetModel(name);
             targetModel->SetFaceInfo(sourceFaces);
             targetModel->IncrementChangeCount();
         }

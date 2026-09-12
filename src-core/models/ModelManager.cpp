@@ -11,6 +11,8 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <functional>
+#include <set>
 #include <spdlog/fmt/fmt.h>
 #include <thread>
 
@@ -198,20 +200,27 @@ bool ModelManager::Rename(const std::string& oldName, const std::string& newName
     model->Rename(nn);
     model->name = nn;
     if (dynamic_cast<SubModel*>(model) == nullptr) {
-        std::lock_guard<std::recursive_mutex> lock(_modelMutex);
+        std::unique_lock<std::recursive_mutex> lock(_modelMutex);
         bool changed = false;
+        std::vector<ModelGroup*> groups;
         for (auto& it2 : models) {
-            changed |= it2.second->ModelRenamed(on, nn);
+            // Groups are deliberately left to the unlocked pass below:
+            // ModelGroup::ModelRenamed resets the group's cache, and that lock
+            // must never be taken under _modelMutex (see ModelGroup::cacheLock).
+            ModelGroup* mg = dynamic_cast<ModelGroup*>(it2.second);
+            if (mg != nullptr) {
+                groups.push_back(mg);
+            } else {
+                changed |= it2.second->ModelRenamed(on, nn);
+            }
         }
         models.erase(models.find(on));
         models[nn] = model;
+        lock.unlock();
 
         // go through all the model groups looking for things that might need to be renamed
-        for (const auto& it : models) {
-            ModelGroup* mg = dynamic_cast<ModelGroup*>(it.second);
-            if (mg != nullptr) {
-                changed |= mg->ModelRenamed(on, nn);
-            }
+        for (auto* mg : groups) {
+            changed |= mg->ModelRenamed(on, nn);
         }
 
         // Keep Model Sets coherent with the rename.
@@ -344,16 +353,81 @@ void ModelManager::ResetModelGroups() const
     // spdlog::debug("ModelManager resetting groups.");
 
     // This goes through all the model groups which hold model pointers and ensure their model pointers are correct
-    std::lock_guard<std::recursive_mutex> lock(_modelMutex);
-    for (const auto& it : models) {
-        if (it.second != nullptr && it.second->GetDisplayAs() == DisplayAsType::ModelGroup) {
-            ((ModelGroup*)(it.second))->ResetModels();
+    //
+    // Only the snapshot is taken under _modelMutex.  A render thread reading a
+    // group's cache holds that group's cache lock across the GetModel calls it
+    // makes to resolve members, so the one safe order is cache lock then
+    // _modelMutex - holding _modelMutex across the ResetModels/RebuildBuffers
+    // below (which take the cache lock exclusively) is the inversion, and it
+    // deadlocks the whole app against a render in progress.  Rebuilding the
+    // list of models is a main thread operation, as is this, so the snapshot
+    // stays valid once the lock is dropped.
+    std::vector<ModelGroup*> groups;
+    {
+        std::lock_guard<std::recursive_mutex> lock(_modelMutex);
+        for (const auto& it : models) {
+            if (it.second != nullptr && it.second->GetDisplayAs() == DisplayAsType::ModelGroup) {
+                groups.push_back((ModelGroup*)(it.second));
+            }
         }
     }
-    for (const auto& it : models) {
-        if (it.second != nullptr && it.second->GetDisplayAs() == DisplayAsType::ModelGroup) {
-            ((ModelGroup*)(it.second))->CheckForChanges();
+    for (auto* g : groups) {
+        g->ClearModelsChangedOnReset();
+    }
+    for (auto* g : groups) {
+        g->ResetModels();
+    }
+
+    // A group also caches CLONES of its members' nodes, and every clone carries
+    // a raw Model* back to the member it came from.  Callers reach here having
+    // just replaced or deleted models, so those clones now name models that are
+    // about to be freed - and the pointer, not the node data, is what a render
+    // dereferences frames later.  CheckForChanges cannot be the thing that
+    // rebuilds them: it only fires when the members' change counts move (a
+    // replacement can carry the same count) and it refuses to run off the main
+    // thread, which is exactly where the base-show merge does its replacing.
+    // Rebuild here instead, where the caller has already made it safe to mutate.
+    std::set<ModelGroup*> stale;
+    for (auto* g : groups) {
+        if (g->ModelsChangedOnReset()) {
+            stale.insert(g);
         }
+    }
+    // A group whose member GROUP was rebuilt clones from that group's nodes, so
+    // it is stale too.  Fixpoint rather than one pass: nesting can be deeper.
+    for (bool grew = true; grew;) {
+        grew = false;
+        for (auto* g : groups) {
+            if (stale.count(g) != 0) {
+                continue;
+            }
+            for (Model* m : g->Models()) {
+                if (m != nullptr && m->GetDisplayAs() == DisplayAsType::ModelGroup
+                    && stale.count((ModelGroup*)m) != 0) {
+                    stale.insert(g);
+                    grew = true;
+                    break;
+                }
+            }
+        }
+    }
+    // Members before the groups that contain them, so an outer group clones
+    // nodes that have already been refreshed.  Marking visited before
+    // recursing breaks the cycle two groups naming each other would form.
+    std::set<ModelGroup*> done;
+    std::function<void(ModelGroup*)> rebuild = [&](ModelGroup* g) {
+        if (g == nullptr || stale.count(g) == 0 || !done.insert(g).second) {
+            return;
+        }
+        for (Model* m : g->Models()) {
+            if (m != nullptr && m->GetDisplayAs() == DisplayAsType::ModelGroup) {
+                rebuild((ModelGroup*)m);
+            }
+        }
+        g->RebuildBuffers();
+    };
+    for (auto* g : stale) {
+        rebuild(g);
     }
 }
 
@@ -593,8 +667,8 @@ void ModelManager::AddModelGroups(pugi::xml_node n, const std::string& mname, bo
 
 bool ModelManager::RecalcStartChannels() const
 {
-    
-    std::lock_guard<std::recursive_mutex> lock(_modelMutex);
+
+    std::unique_lock<std::recursive_mutex> lock(_modelMutex);
 
     auto swStart = std::chrono::steady_clock::now();
     bool changed = false;
@@ -681,6 +755,10 @@ bool ModelManager::RecalcStartChannels() const
         }
     }
 
+    // Released first: ResetModelGroups takes the group cache locks, which must
+    // never be taken under _modelMutex (see ModelGroup::cacheLock), and the
+    // recursive mutex would otherwise stay held through it from this frame.
+    lock.unlock();
     ResetModelGroups();
 
     // Commenting out as this doesn't need to happen unless we have changes and when we do it is redundant as the only
@@ -698,13 +776,23 @@ bool ModelManager::RecalcStartChannels() const
 
 void ModelManager::DisplayStartChannelCalcWarning() const
 {
+    static const size_t MAX_MODELS_LISTED = 15;
     static std::string lastwarn = "";
     std::string msg = "Could not calculate start channels for models:\n";
     std::lock_guard<std::recursive_mutex> lock(_modelMutex);
+    size_t count = 0;
+    size_t total = 0;
     for (const auto& it : models) {
         if (it.second->GetDisplayAs() != DisplayAsType::ModelGroup && !it.second->CouldComputeStartChannel) {
-            msg += it.second->name + " : " + it.second->ModelStartChannel + "\n";
+            total++;
+            if (count < MAX_MODELS_LISTED) {
+                msg += it.second->name + " : " + it.second->ModelStartChannel + "\n";
+                count++;
+            }
         }
+    }
+    if (total > MAX_MODELS_LISTED) {
+        msg += "... and " + std::to_string(total - MAX_MODELS_LISTED) + " more. See Check Sequence for the full list.\n";
     }
 
     if (msg != lastwarn) {
@@ -1156,8 +1244,16 @@ bool ModelManager::LoadGroups(pugi::xml_node groupNode, int previewW, int previe
     bool changed = false;
     std::list<pugi::xml_node> toBeDone;
     std::set<std::string> allModels;
-    std::lock_guard<std::recursive_mutex> lock(_modelMutex);
     XmlDeserializingModelFactory factory;
+
+    // _modelMutex is only taken around the map itself.  Deserialize and
+    // RebuildBuffers take the group cache locks, which must never be taken
+    // under _modelMutex (see ModelGroup::cacheLock for the order).  Loading
+    // groups is a main thread operation, so nothing else is adding models.
+    auto publish = [this](Model* model) {
+        std::lock_guard<std::recursive_mutex> lock(_modelMutex);
+        models[model->name] = model;
+    };
 
     // do all the models without embedded groups first or where the model order means everything exists
     for (pugi::xml_node e = groupNode.first_child(); e; e = e.next_sibling()) {
@@ -1173,7 +1269,7 @@ bool ModelManager::LoadGroups(pugi::xml_node groupNode, int previewW, int previe
                         ModelGroup* mg = dynamic_cast<ModelGroup*>(model);
                         if (mg != nullptr) {
                             mg->RebuildBuffers();
-                            models[model->name] = model;
+                            publish(model);
                         }
                     }
                 } else {
@@ -1184,10 +1280,13 @@ bool ModelManager::LoadGroups(pugi::xml_node groupNode, int previewW, int previe
     }
 
     // add in models and SubModels
-    for (const auto& it : models) {
-        allModels.insert(it.second->GetName());
-        for (auto it2 : it.second->GetSubModels()) {
-            allModels.insert(it2->GetFullName());
+    {
+        std::lock_guard<std::recursive_mutex> lock(_modelMutex);
+        for (const auto& it : models) {
+            allModels.insert(it.second->GetName());
+            for (auto it2 : it.second->GetSubModels()) {
+                allModels.insert(it2->GetFullName());
+            }
         }
     }
 
@@ -1213,7 +1312,7 @@ bool ModelManager::LoadGroups(pugi::xml_node groupNode, int previewW, int previe
                     if (mg != nullptr) {
                         bool reset = mg->RebuildBuffers();
                         assert(reset);
-                        models[model->name] = model;
+                        publish(model);
                     }
                 }
             } else {
@@ -1236,7 +1335,7 @@ bool ModelManager::LoadGroups(pugi::xml_node groupNode, int previewW, int previe
             if (mg != nullptr) {
                 bool reset = mg->RebuildBuffers();
                 assert(!reset);
-                models[model->name] = model;
+                publish(model);
             }
         }
     }
@@ -1485,44 +1584,57 @@ void ModelManager::AddModel(Model* model)
     // Lock before we add models ... this is required because LoadModels loads this in parallel
 
     if (model != nullptr) {
-        std::lock_guard<std::recursive_mutex> _lock(_modelMutex);
         Model* oldm = nullptr;
-        auto it = models.find(model->name);
-        if (it != models.end()) {
-            oldm = it->second;
+        {
+            std::lock_guard<std::recursive_mutex> _lock(_modelMutex);
+            auto it = models.find(model->name);
+            if (it != models.end()) {
+                oldm = it->second;
+            }
+            // Publish the replacement before resetting the groups, then free the old
+            // model. Resetting while the map still held the old (or a null) entry
+            // left every group that names this model pointing at the model we are
+            // about to free, or silently dropped it from the group until something
+            // else happened to reset them.
+            models[model->name] = model;
+            // Bumped before the groups are reset, not after: ResetModels stamps
+            // whatever generation is current when it runs, so incrementing
+            // afterwards left every group looking stale to EnsureModelsCurrent and
+            // bought a second, redundant re-resolve at some arbitrary later point.
+            _modelGeneration++;
         }
-        // Publish the replacement before resetting the groups, then free the old
-        // model. Resetting while the map still held the old (or a null) entry
-        // left every group that names this model pointing at the model we are
-        // about to free, or silently dropped it from the group until something
-        // else happened to reset them.
-        models[model->name] = model;
+        // Outside _modelMutex: the mutex is recursive, so ResetModelGroups
+        // dropping its own hold does nothing while this frame still has one,
+        // and the group cache locks it takes must never be taken under
+        // _modelMutex (see ModelGroup::cacheLock for the order).
         if (oldm != nullptr) {
             ResetModelGroups();
             delete oldm;
         }
-        _modelGeneration++;
     }
 }
 
 void ModelManager::ReplaceModel(const std::string &name, Model* nm) {
     if (nm != nullptr && name != "") {
-        std::lock_guard<std::recursive_mutex> _lock(_modelMutex);
         Model* oldm = nullptr;
-        auto it = models.find(name);
-        if (it != models.end()) {
-            oldm = it->second;
-            if (nm->name != name) {
-                // Renamed. The old key has to go or it keeps handing out the
-                // model freed below - to the groups reset here and to every
-                // later lookup of the old name.
-                models.erase(it);
+        {
+            std::lock_guard<std::recursive_mutex> _lock(_modelMutex);
+            auto it = models.find(name);
+            if (it != models.end()) {
+                oldm = it->second;
+                if (nm->name != name) {
+                    // Renamed. The old key has to go or it keeps handing out the
+                    // model freed below - to the groups reset here and to every
+                    // later lookup of the old name.
+                    models.erase(it);
+                }
             }
+            models[nm->name] = nm;
+            _modelGeneration++;
         }
-        models[nm->name] = nm;
+        // Outside _modelMutex, as in AddModel.
         ResetModelGroups();
         delete oldm;
-        _modelGeneration++;
     }
 }
 
@@ -2227,6 +2339,7 @@ bool ModelManager::Delete(const std::string& name)
                 }
                 _setManager.OnModelDeleted(mn);
                 models.erase(it);
+                _modelGeneration++;
                 ResetModelGroups();
 
                 // If models are chained to us then make their start channel ... our start channel
@@ -2238,7 +2351,6 @@ bool ModelManager::Delete(const std::string& name)
                 }
 
                 delete model;
-                _modelGeneration++;
                 if (_renderContext) _renderContext->MarkRgbEffectsChanged();
                 return true;
             }

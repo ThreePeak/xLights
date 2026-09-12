@@ -119,7 +119,7 @@ struct XLightsApp: App {
                 viewModel.shutdownForBackground()
             case .active:
                 XLDiagnosticUploader.shared.beginCurrentSession()
-                XLDiagnosticUploader.shared.kickoff()
+                XLDiagnosticUploader.shared.kickoffOnForegroundReturn()
             @unknown default:
                 break
             }
@@ -256,9 +256,9 @@ struct ContentView: View {
                     count: viewModel.brokenMediaCount,
                     onReview: { showMediaManager = true })
             }
-            if let msg = viewModel.fseqWriteSkippedMessage {
+            if let msg = viewModel.warningBannerMessage {
                 FseqSkippedBanner(message: msg) {
-                    viewModel.fseqWriteSkippedMessage = nil
+                    viewModel.warningBannerMessage = nil
                 }
             }
             if viewModel.isSequenceLoaded && viewModel.isReadOnly {

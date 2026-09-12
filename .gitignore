@@ -49,6 +49,9 @@ lib/linux/libliquidfun.a
 # KLightMapper desktop scan library — fetched, not committed (ci_scripts/fetch_klightmapper.*).
 # bin64/klightmapper.dll is already covered by bin64/*.dll above.
 lib/linux/libklightmapper.so
+lib/linux/libklightmapper_av*.so
+lib/linux/.klightmapper_version
+lib/windows64/.klightmapper_version
 lib/windows64/klightmapper.lib
 include/klightmapper/
 *.opensdf
@@ -82,3 +85,13 @@ tools/*.exe
 tools/vulkan_bin/
 tools/vulkan_extracted/
 .vscode/
+
+# Shared dependency bundle for Windows - fetched by ci_scripts/fetch_dependencies.ps1,
+# never committed. This is what replaces the binaries that used to live in
+# lib/windows64 and bin64.
+/dependencies-bundle/
+
+# ONNX Runtime (DirectML) — fetched from its NuGet package, not committed
+# (ci_scripts/fetch_dependencies.ps1). The DLL under bin64 and the import
+# library under lib/windows64 are already covered by the rules above.
+include/onnxruntime/

@@ -24,7 +24,7 @@ SUDO		= `which sudo`
 
 SUBDIRS         = xLights
 
-WXWIDGETS_TAG=xlights_2026.13
+WXWIDGETS_TAG=xlights_2026.17c
 ISPC_VERSION=1.31.0
 ISPC_ARCH=$(shell uname -m)
 
@@ -43,7 +43,7 @@ endif
 .NOTPARALLEL:
 .SECONDEXPANSION:
 
-all: wxwidgets33 cbp2make linkliquid libxlsxwriter ispc klightmapper glslang makefile vulkanshaders subdirs
+all: wxwidgets33 cbp2make linkliquid ispc klightmapper makefile vulkanshaders subdirs
 
 #############################################################################
 
@@ -83,31 +83,6 @@ linkliquid:
 		fi; \
 	fi
 
-libxlsxwriter: FORCE
-	@printf "Linking libxlsxwriter\n"
-	@if test ! -e dependencies/libxlsxwriter/lib/libxlsxwriter.a; \
-		then cd dependencies/libxlsxwriter; \
-		${MAKE} -s; \
-	fi
-
-# glslang (GLSL -> SPIR-V) for the native Vulkan Shader effect.  Lean static
-# build (no optimizer / binaries / tests — Vulkan consumes SPIR-V directly, so
-# no SPIRV-Tools/spirv-cross needed), installed to a staging prefix whose
-# include/ layout (glslang/Public, glslang/SPIRV, ...) matches macOS so the
-# shared translate code #includes the same paths on both.
-glslang: FORCE
-	@printf "Checking glslang\n"
-	@if test ! -e dependencies/glslang-build/install/lib/libglslang.a; \
-		then printf "Building glslang\n"; \
-		cmake -S dependencies/glslang -B dependencies/glslang-build \
-			-DCMAKE_BUILD_TYPE=Release -DENABLE_OPT=OFF -DGLSLANG_TESTS=OFF \
-			-DENABLE_GLSLANG_BINARIES=OFF -DBUILD_SHARED_LIBS=OFF -DBUILD_EXTERNAL=OFF \
-			-DSPIRV-Headers_SOURCE_DIR=$(CURDIR)/dependencies/SPIRV-Headers \
-			-DCMAKE_INSTALL_PREFIX=$(CURDIR)/dependencies/glslang-build/install > /dev/null; \
-		cmake --build dependencies/glslang-build -j$$(nproc) > /dev/null; \
-		cmake --install dependencies/glslang-build > /dev/null; \
-	fi
-
 wxwidgets33: FORCE
 	@printf "Checking wxwidgets\n"
 	@if test -f /etc/wxwidgets_tag && test "$$(cat /etc/wxwidgets_tag)" = "$(WXWIDGETS_TAG)"; \
@@ -123,11 +98,13 @@ wxwidgets33: FORCE
 		echo Completed build/install of wxwidgets; \
 		fi
 
+# Called unconditionally: the script itself compares the staged copy's version
+# stamp against ci_scripts/klightmapper_version.txt and exits immediately when
+# they match. Guarding on the .so's presence here instead would pin every
+# existing tree to whatever version it first fetched.
 klightmapper: FORCE
 	@printf "Checking KLightMapper desktop scan library\n"
-	@if test ! -e lib/linux/libklightmapper.so; then \
-		bash ci_scripts/fetch_klightmapper.sh; \
-	fi
+	@bash ci_scripts/fetch_klightmapper.sh
 
 ispc: FORCE
 	@printf "Checking ispc\n"
@@ -193,12 +170,17 @@ install:
 	@if test -e lib/linux/libklightmapper.so; then \
 		install -d -m 755 $(DESTDIR)/${PREFIX}/lib; \
 		install -m 755 -p lib/linux/libklightmapper.so $(DESTDIR)/${PREFIX}/lib/libklightmapper.so; \
+		for shim in lib/linux/libklightmapper_av*.so; do \
+			test -e "$$shim" || continue; \
+			install -m 755 -p "$$shim" $(DESTDIR)/${PREFIX}/lib/; \
+		done; \
 	fi
 
 uninstall:
 	-$(DEL_FILE) $(DESTDIR)/${PREFIX}/bin/xLights
 	-$(DEL_FILE) $(DESTDIR)/${PREFIX}/share/applications/xlights.desktop
 	-$(DEL_FILE) $(DESTDIR)/${PREFIX}/lib/libklightmapper.so
+	-$(DEL_FILE) $(DESTDIR)/${PREFIX}/lib/libklightmapper_av*.so
 
 #############################################################################
 

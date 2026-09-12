@@ -59,6 +59,7 @@
 #include "sequencer/MainSequencer.h"
 #include "layout/HousePreviewPanel.h"
 #include "utils/ExternalHooks.h"
+#include "XmlSerializer/XmlNodeKeys.h"
 #include "XmlSerializer/XmlSerializer.h"
 #include "XmlSerializer/StringSerializingVisitor.h"
 
@@ -141,6 +142,12 @@ void xLightsFrame::SerializePerspectives(BaseSerializingVisitor &visitor)
         attr.Add("name", p.name);
         attr.Add("settings", p.settings);
         attr.Add("version", p.version.empty() ? "2.0" : p.version);
+        if (p.gridSpacing > 0) {
+            attr.Add("gridSpacing", std::to_string(p.gridSpacing));
+        }
+        if (p.iconSize > 0) {
+            attr.Add("iconSize", std::to_string(p.iconSize));
+        }
         visitor.WriteOpenTag("perspective", attr, true);
     }
     visitor.WriteCloseTag();
@@ -148,15 +155,7 @@ void xLightsFrame::SerializePerspectives(BaseSerializingVisitor &visitor)
 
 void xLightsFrame::SerializeModelSets(BaseSerializingVisitor &visitor)
 {
-    visitor.WriteOpenTag("modelSets");
-    for (const auto& s : AllModels.GetSetManager().GetAllSets()) {
-        if (s->GetMembers().size() < 2) continue;
-        BaseSerializingVisitor::AttrCollector attr;
-        attr.Add("name", s->GetName());
-        attr.Add("models", s->GetMembersCsv());
-        visitor.WriteOpenTag("modelSet", attr, true);
-    }
-    visitor.WriteCloseTag();
+    XmlSerializer::SerializeAllModelSets(AllModels.GetSetManager(), visitor);
 }
 
 void xLightsFrame::OnBitmapButtonOpenSeqClick(wxCommandEvent& event)
@@ -553,6 +552,8 @@ void xLightsFrame::LoadEffectsFile()
                 pv.name = p.attribute("name").as_string();
                 pv.settings = p.attribute("settings").as_string();
                 pv.version = p.attribute("version").as_string("2.0");
+                pv.gridSpacing = p.attribute("gridSpacing").as_int(0);
+                pv.iconSize = p.attribute("iconSize").as_int(0);
                 _perspectives.push_back(pv);
             }
         }
@@ -1235,7 +1236,7 @@ void xLightsFrame::LoadModels(pugi::xml_node modelsNode,
 
     // Load Model Sets (translation-only links between models). Lives in a
     // <modelSets> sibling element under <xrgb>. See ModelSetManager.h.
-    pugi::xml_node modelSetsNode = modelGroupsNode.parent().child("modelSets");
+    pugi::xml_node modelSetsNode = modelGroupsNode.parent().child(XmlNodeKeys::ModelSetsNodeName);
     AllModels.GetSetManager().Load(modelSetsNode);
 
     // Add all models to default House Preview that are set to Default or All Previews
@@ -1545,6 +1546,19 @@ void xLightsFrame::OpenRenderAndSaveSequences(const wxArrayString &origFilenames
              fileNames.size(), _hwVideoAccleration ? "ON" : "OFF", UseGPURendering() ? "ON" : "OFF", seq.ToStdString());
     LogMemoryUsage("batch-render sequence start: " + seq.ToStdString());
     OpenSequence(seq, nullptr, "", true);
+
+    // OpenSequence returns void and has several paths that leave nothing open
+    // (unreadable file, a close the user refused). Everything below here
+    // dereferences CurrentSeqXmlFile, so drop this entry and carry on with the
+    // batch rather than faulting on the whole run.
+    if (CurrentSeqXmlFile == nullptr) {
+        spdlog::error("Batch render: {} could not be opened - skipping.", seq.ToStdString());
+        auto nFileNames = fileNames;
+        nFileNames.RemoveAt(0);
+        CallAfter(&xLightsFrame::OpenRenderAndSaveSequencesF, nFileNames, (exitOnDone ? RENDER_EXIT_ON_DONE : 0));
+        return;
+    }
+
     EnableSequenceControls(false);
 
     // if the fseq directory is not the show directory then ensure the fseq folder is set right

@@ -202,6 +202,7 @@ FPPConnectDialog::FPPConnectDialog(wxWindow* parent, OutputManager* outputManage
 	Connect(ID_BUTTON2, wxEVT_COMMAND_BUTTON_CLICKED, (wxObjectEventFunction)&FPPConnectDialog::OnFPPReDiscoverClick);
 	Connect(ID_BUTTON_Upload, wxEVT_COMMAND_BUTTON_CLICKED, (wxObjectEventFunction)&FPPConnectDialog::OnButton_UploadClick);
 	Connect(wxID_ANY, wxEVT_CLOSE_WINDOW, (wxObjectEventFunction)&FPPConnectDialog::OnClose);
+	Connect(wxID_CANCEL, wxEVT_COMMAND_BUTTON_CLICKED, (wxObjectEventFunction)&FPPConnectDialog::OnCancelButtonClick);
 	//*)
 
     FPPInstanceList->Bind(wxEVT_PAINT, &FPPConnectDialog::OnInstanceListPaint, this);
@@ -676,8 +677,24 @@ void FPPConnectDialog::PopulateFPPInstanceList(wxProgressDialog *prgs) {
             Choice1->SetSelection(2);
             fseqWidget = Choice1;
             fseqBorder = 0;
-        } else if (inst->fppType == FPP_TYPE::ESPIXELSTICK || inst->fppType == FPP_TYPE::GENIUS) {
+        } else if (inst->fppType == FPP_TYPE::ESPIXELSTICK ) {
             fseqWidget = new wxStaticText(FPPInstanceList, wxID_ANY, "V2 Sparse/Uncompressed", wxDefaultPosition, wxDefaultSize, 0, "ID_STATIC_TEXT_FS_" + rowStr);
+        } else if (inst->fppType == FPP_TYPE::GENIUS) {
+            wxChoice* Choice1 = new wxChoice(FPPInstanceList, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, 0, 0, wxDefaultValidator, FSEQ_COL + rowStr);
+            wxFont font = Choice1->GetFont();
+            font.SetPointSize(font.GetPointSize() - 2);
+            Choice1->SetFont(font);
+            if (inst->fullVersion.starts_with("1")) {
+                Choice1->Append(_("V2 Sparse/Uncompressed"));
+            } else {                
+                Choice1->Append(_("V2 Sparse/zlib"));
+                Choice1->Append(_("V2 Sparse/Uncompressed"));
+                Choice1->Append(_("V2 zlib"));
+                Choice1->Append(_("V2 Uncompressed"));
+            }
+            Choice1->SetSelection(0);
+            fseqWidget = Choice1;
+            fseqBorder = 0;
         } else {
             fseqWidget = new wxStaticText(FPPInstanceList, wxID_ANY, "V1", wxDefaultPosition, wxDefaultSize, 0, "ID_STATIC_TEXT_FS_" + rowStr);
         }
@@ -1032,78 +1049,106 @@ void FPPConnectDialog::LoadSequencesFromFolder(wxString const& dir, std::set<wxS
 
     wxArrayString files;
     try {
-    GetAllFilesInDir(dir, files, "*.x*");
+        GetAllFilesInDir(dir, files, "*.x*");
+    } catch (const std::exception& e) {
+        spdlog::warn("LoadSequencesFromFolder: exception listing *.x* files in folder: {} ({})", ToUTF8(dir), e.what());
+        files.clear();
+    } catch (...) {
+        spdlog::warn("LoadSequencesFromFolder: unknown (non-std) exception listing *.x* files in folder: {}", ToUTF8(dir));
+        files.clear();
+    }
 
     for (auto &filename : files) {
-        wxFileName fn(filename);
-        wxString file = fn.GetFullName();
-        if (file != XLIGHTS_RGBEFFECTS_FILE
-            && file != OutputManager::GetNetworksFileName()
-            && file != XLIGHTS_KEYBINDING_FILE
-            && (file.Lower().EndsWith("xml") || file.Lower().EndsWith("xsq"))
-            && FileExists(filename)) {
-            // Quick scan of first few KB to detect xLights sequence and media file
-            XsqFileInfo info = ScanXsqFile(ToUTF8(filename));
-            bool isSequence = info.isSequence;
-            std::string mediaName = info.mediaFile;
+        try {
+            wxFileName fn(filename);
+            wxString file = fn.GetFullName();
+            if (file != XLIGHTS_RGBEFFECTS_FILE
+                && file != OutputManager::GetNetworksFileName()
+                && file != XLIGHTS_KEYBINDING_FILE
+                && (file.Lower().EndsWith("xml") || file.Lower().EndsWith("xsq"))
+                && FileExists(filename)) {
+                // Quick scan of first few KB to detect xLights sequence and media file
+                XsqFileInfo info = ScanXsqFile(ToUTF8(filename));
+                bool isSequence = info.isSequence;
+                std::string mediaName = info.mediaFile;
 
-            xLightsFrame* frame = _frame;
+                xLightsFrame* frame = _frame;
 
-            // if fpp dir and show dir match then start with the fseq in the current dir ... only if that does not exist take the one from the show dir
-            // this is consistent with the code in SaveSequence
-            wxString fseqName = dir + wxFileName::GetPathSeparator() + file.substr(0, file.length() - 4) + ".fseq";
-            if (frame->GetFseqDirectory() != frame->GetShowDirectory() || !FileExists(fseqName)) {
-                fseqName = frame->GetFseqDirectory() + GetPathSeparator() + file.substr(0, file.length() - 4) + ".fseq";
-            }
-            if (isSequence) {
-                //need to check for existence of fseq
-                if (!FileExists(fseqName)) {
-                    isSequence = false;
+                // if fpp dir and show dir match then start with the fseq in the current dir ... only if that does not exist take the one from the show dir
+                // this is consistent with the code in SaveSequence
+                wxString fseqName = dir + wxFileName::GetPathSeparator() + file.substr(0, file.length() - 4) + ".fseq";
+                if (frame->GetFseqDirectory() != frame->GetShowDirectory() || !FileExists(fseqName)) {
+                    fseqName = frame->GetFseqDirectory() + GetPathSeparator() + file.substr(0, file.length() - 4) + ".fseq";
                 }
-            }
-            if (mediaName != "") {
-                if (!FileExists(mediaName)) {
-                    wxFileName fn(mediaName);
-                    for (auto &md : frame->GetMediaFolders()) {
-                        wxString tmn = md + GetPathSeparator() + fn.GetFullName();
-                        if (FileExists(tmn)) {
-                            mediaName = ToUTF8(tmn);
-                            break;
-                        }
+                if (isSequence) {
+                    //need to check for existence of fseq
+                    if (!FileExists(fseqName)) {
+                        isSequence = false;
                     }
+                }
+                if (mediaName != "") {
                     if (!FileExists(mediaName)) {
-                        std::string fixedMN = FileUtils::FixFile(ToUTF8(frame->CurrentDir), mediaName);
-                        if (!FileExists(fixedMN)) {
-                            spdlog::info("Could not find media: {} ", mediaName.c_str());
-                            mediaName = "";
-                        } else {
-                            mediaName = fixedMN;
+                        wxFileName fn(mediaName);
+                        for (auto &md : frame->GetMediaFolders()) {
+                            wxString tmn = md + GetPathSeparator() + fn.GetFullName();
+                            if (FileExists(tmn)) {
+                                mediaName = ToUTF8(tmn);
+                                break;
+                            }
+                        }
+                        if (!FileExists(mediaName)) {
+                            std::string fixedMN = FileUtils::FixFile(ToUTF8(frame->CurrentDir), mediaName);
+                            if (!FileExists(fixedMN)) {
+                                spdlog::info("Could not find media: {} ", mediaName.c_str());
+                                mediaName = "";
+                            } else {
+                                mediaName = fixedMN;
+                            }
                         }
                     }
                 }
-            }
-            spdlog::debug("XML:  {}   IsSeq:  {}    FSEQ:  {}   Media:  {}", (const char*)file.c_str(), isSequence, (const char*)fseqName.c_str(), (const char*)mediaName.c_str());
-            if (isSequence) {
+                spdlog::debug("XML:  {}   IsSeq:  {}    FSEQ:  {}   Media:  {}", (const char*)file.c_str(), isSequence, (const char*)fseqName.c_str(), (const char*)mediaName.c_str());
+                if (isSequence) {
 
-                // where you have show folders within show folders and sequences with the same name
-                // such as when you have an imported subfolder this can create duplicates ... so lets first check
-                // we dont already have the fseq file in the list
+                    // where you have show folders within show folders and sequences with the same name
+                    // such as when you have an imported subfolder this can create duplicates ... so lets first check
+                    // we dont already have the fseq file in the list
 
-                if (knownPaths.find(fseqName) == knownPaths.end()) {
-                    AddSequenceListItem(fseqName, mediaName, knownPaths);
+                    if (knownPaths.find(fseqName) == knownPaths.end()) {
+                        AddSequenceListItem(fseqName, mediaName, knownPaths);
+                    }
                 }
             }
+        } catch (const std::exception& e) {
+            spdlog::warn("LoadSequencesFromFolder: exception processing file: {} ({})", ToUTF8(filename), e.what());
+        } catch (...) {
+            spdlog::warn("LoadSequencesFromFolder: unknown (non-std) exception processing file: {}", ToUTF8(filename));
         }
     }
 
     // we also need to load fseq/eseq files which may not have the same name as an xsq file
     files.clear();
-    GetAllFilesInDir(dir, files, "*.?seq");
-    for (auto& filename : files) {
-        spdlog::debug("SEQ:  {}", ToUTF8(filename));
+    try {
+        GetAllFilesInDir(dir, files, "*.?seq");
+    } catch (const std::exception& e) {
+        spdlog::warn("LoadSequencesFromFolder: exception listing *.?seq files in folder: {} ({})", ToUTF8(dir), e.what());
+        files.clear();
+    } catch (...) {
+        spdlog::warn("LoadSequencesFromFolder: unknown (non-std) exception listing *.?seq files in folder: {}", ToUTF8(dir));
+        files.clear();
+    }
 
-        if (knownPaths.find(filename) == knownPaths.end()) {
-            AddSequenceListItem(filename, "", knownPaths);
+    for (auto& filename : files) {
+        try {
+            spdlog::debug("SEQ:  {}", ToUTF8(filename));
+
+            if (knownPaths.find(filename) == knownPaths.end()) {
+                AddSequenceListItem(filename, "", knownPaths);
+            }
+        } catch (const std::exception& e) {
+            spdlog::warn("LoadSequencesFromFolder: exception processing seq file: {} ({})", ToUTF8(filename), e.what());
+        } catch (...) {
+            spdlog::warn("LoadSequencesFromFolder: unknown (non-std) exception processing seq file: {}", ToUTF8(filename));
         }
     }
 
@@ -1112,13 +1157,13 @@ void FPPConnectDialog::LoadSequencesFromFolder(wxString const& dir, std::set<wxS
         bool fcont = directory.GetFirst(&file, wxEmptyString, wxDIR_DIRS);
         while (fcont) {
             if (file != "Backup") {
+                // Each subfolder recurses independently -- a failure two levels
+                // down shouldn't be reported against this folder, and shouldn't
+                // stop siblings of the failing subfolder from being scanned.
                 LoadSequencesFromFolder(dir + wxFileName::GetPathSeparator() + file, knownPaths);
             }
             fcont = directory.GetNext(&file);
         }
-    }
-    } catch (...) {
-        spdlog::warn("LoadSequencesFromFolder: exception scanning folder: {}", ToUTF8(dir));
     }
 }
 
@@ -1229,8 +1274,22 @@ void FPPConnectDialog::OnButton_UploadClick(wxCommandEvent& event)
         prgs.Fit();
         prgs.setActionLabel("Preparing Configuration");
 
+        _uploadProgressDialog = &prgs;
+        _uploadInProgress = true;
         CallAfter(&FPPConnectDialog::doUpload, &prgs, doUpload);
         int c = prgs.ShowModal();
+        _uploadInProgress = false;
+        _uploadProgressDialog = nullptr;
+
+        if (_closeRequestedDuringUpload) {
+            // The user tried to close this dialog while the upload was still
+            // running; we vetoed that close and cancelled the upload instead
+            // (see OnClose). Now that the nested modal has safely unwound,
+            // honor the close request.
+            _closeRequestedDuringUpload = false;
+            EndDialog(wxID_CLOSE);
+            return;
+        }
 
         if (!c) {
             SaveSettings();
@@ -1328,7 +1387,12 @@ void FPPConnectDialog::doUpload(FPPUploadProgressDialog *prgs, std::vector<bool>
                 inst->Restart(true);
             } else if (GetCheckValue(UPLOAD_CONTROLLER_COL + rowStr) && controller.size() == 1) {
                 BaseController* bc = BaseController::CreateBaseController(controller.front(), inst->ipAddress);
-                if (bc->UploadForImmediateOutput(&frame->AllModels, _outputManager, controller.front(), frame)) {
+                if (bc == nullptr) {
+                    // CreateBaseController returns null when the controller has no
+                    // caps, or resolves to a multicast address. Every other caller
+                    // checks; this one made a virtual call through the null instead.
+                    inst->messages.push_back("Unable to upload: no usable connection for this controller.");
+                } else if (bc->UploadForImmediateOutput(&frame->AllModels, _outputManager, controller.front(), frame)) {
                     auto ts = FormatTimestamp();
                     auto* config = GetXLightsConfig();
                     auto ctrlName = controller.front()->GetName();
@@ -1379,20 +1443,18 @@ void FPPConnectDialog::doUpload(FPPUploadProgressDialog *prgs, std::vector<bool>
                             m2 = "";
                         }
 
-                        int fseqType = 0;
-                        if (inst->fppType == FPP_TYPE::FPP) {
-                            fseqType = GetChoiceValueIndex(FSEQ_COL + rowStr);
-                        } else if (inst->fppType == FPP_TYPE::FALCONV4V5) {
-                            fseqType = GetChoiceValueIndex(FSEQ_COL + rowStr);
-                            // need to adjust so they are unique
-                            if (fseqType == 1) fseqType = 5;
-                            if (fseqType == 2) fseqType = 6;
+                        int fseqversion{ 1 };
+                        FSEQFile::CompressionType cType{ FSEQFile::CompressionType::none };
+                        bool sparse{ false };
+                        if (inst->fppType == FPP_TYPE::FPP || inst->fppType == FPP_TYPE::FALCONV4V5 || inst->fppType == FPP_TYPE::GENIUS || inst->fppType == FPP_TYPE::POWERDMX) {
+                            std::tie(fseqversion, cType, sparse) = DecodeFSEQVersionAndCompression(GetChoiceValue(FSEQ_COL + rowStr));
                         } else {
-                            fseqType = 3;
+                            fseqversion = 2;
+                            sparse = true;
                         }
                         cancelled |= inst->PrepareUploadSequence(seq,
                                                                 fseq, m2,
-                                                                fseqType);
+                                                                fseqversion, cType, sparse);
                     }
                     row++;
                 }
@@ -1803,9 +1865,40 @@ void FPPConnectDialog::ApplySavedHostSettings()
     }
 }
 
+bool FPPConnectDialog::RequestClose(int rc)
+{
+    if (_uploadInProgress) {
+        // Ending this dialog here would EndDialog() it while the nested
+        // Upload Progress dialog (parented to this one) is still running its
+        // own modal loop. That teardown race can leave the main frame
+        // permanently disabled with no visible dialog left to dismiss it.
+        // Cancel the upload instead and finish closing once
+        // OnButton_UploadClick's ShowModal() call unwinds.
+        _closeRequestedDuringUpload = true;
+        if (_uploadProgressDialog) {
+            _uploadProgressDialog->RequestCancel();
+        }
+        return false;
+    }
+    EndDialog(rc);
+    return true;
+}
+
 void FPPConnectDialog::OnClose(wxCloseEvent& event)
 {
-    EndDialog(0);
+    if (!RequestClose(0) && event.CanVeto()) {
+        event.Veto();
+    }
+}
+
+void FPPConnectDialog::OnCancelButtonClick(wxCommandEvent& event)
+{
+    // The outer dialog's own Cancel button (wxID_CANCEL) has no explicit
+    // handler by default, so wx's built-in wxDialogBase button handling
+    // calls EndDialog(wxID_CANCEL) directly -- bypassing OnClose() and the
+    // wxEVT_CLOSE_WINDOW event entirely, and with it the upload-in-progress
+    // guard above. Route it through the same guarded path.
+    RequestClose(wxID_CANCEL);
 }
 
 void FPPConnectDialog::SequenceListPopup(wxTreeListEvent& event)
@@ -1994,9 +2087,40 @@ wxString FPPConnectDialog::SequenceDisplayName(const wxString& filePath) const
 
 void FPPConnectDialog::DisplayDateModified(const wxString& filePath, wxTreeListItem &item) const
 {
-    if (FileExists(filePath)) {
-        wxDateTime last_modified_time(wxFileModificationTime(filePath));
+    if (!FileExists(filePath)) {
+        return;
+    }
+    try {
+        time_t mtime = wxFileModificationTime(filePath);
+        wxDateTime last_modified_time(mtime);
+        // A corrupted/out-of-range mtime (seen with some cloud-synced or
+        // cross-filesystem-copied files) leaves wxDateTime invalid; formatting
+        // it anyway is what was throwing/asserting for just this one file
+        // while every other file in the folder scanned fine.
+        if (!last_modified_time.IsValid()) {
+            spdlog::warn("DisplayDateModified: implausible modification time ({}) for file: {}", (long long)mtime, ToUTF8(filePath));
+            return;
+        }
         CheckListBox_Sequences->SetItemText(item, 1, last_modified_time.Format(wxT("%Y-%m-%d %H:%M:%S")) + "  ");
+    } catch (const std::exception& e) {
+        spdlog::warn("DisplayDateModified: exception formatting modification time for file: {} ({})", ToUTF8(filePath), e.what());
+    } catch (...) {
+        spdlog::warn("DisplayDateModified: unknown (non-std) exception formatting modification time for file: {}", ToUTF8(filePath));
     }
 }
 
+std::tuple<int, FSEQFile::CompressionType, bool> FPPConnectDialog::DecodeFSEQVersionAndCompression(const std::string& selection) const {
+    if (::Lower(selection).starts_with("v1")) {
+        return { 1, FSEQFile::CompressionType::none, false };
+    }    
+    const int ver { 2 };
+    bool sparse{ ::Contains(::Lower(selection), "sparse") };
+    FSEQFile::CompressionType cType{ FSEQFile::CompressionType::none };
+    if (::Contains(::Lower(selection), "zlib")) {
+        cType = FSEQFile::CompressionType::zlib;
+    }
+    if (::Contains(::Lower(selection), "zstd")) {
+        cType = FSEQFile::CompressionType::zstd;
+    }
+    return { ver, cType, sparse };
+}
