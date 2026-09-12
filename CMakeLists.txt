@@ -1056,6 +1056,7 @@ macro(xlights_ai_test TEST_NAME)
     set(TEST_SRCS AI/${TEST_NAME}.cpp ${XL_DEPS}/pugixml/src/pugixml.cpp ${ARGN})
     add_executable(${TEST_NAME} ${TEST_SRCS})
     target_include_directories(${TEST_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}
         ${CMAKE_SOURCE_DIR}/AI
         ${CMAKE_SOURCE_DIR}/src-core
         ${XL_INC}
@@ -1094,6 +1095,7 @@ xlights_ai_test(test_SubmodelDetectorAIGenerator AI/SubmodelDetectorAIGenerator.
 xlights_ai_test(test_SequenceRemappingAgent AI/SequenceRemappingAgent.cpp)
 xlights_ai_test(test_ShowLogDiagnosticsAnalyzer AI/ShowLogDiagnosticsAnalyzer.cpp)
 xlights_ai_test(test_PhonemeMap AI/PhonemeMap.cpp)
+xlights_ai_test(test_VideoSequenceEmulator AI/VideoSequenceEmulator.cpp)
 
 # ── Catch2-based tests ────────────────────────────────────────────────────────
 find_package(Catch2 3 QUIET)
@@ -1150,6 +1152,7 @@ add_custom_target(xLights_AI_Tests
         test_SequenceRemappingAgent
         test_ShowLogDiagnosticsAnalyzer
         test_PhonemeMap
+        test_VideoSequenceEmulator
     COMMENT "Build all xLights AI subsystem unit tests"
 )
 
