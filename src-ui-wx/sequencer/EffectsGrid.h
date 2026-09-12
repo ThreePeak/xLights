@@ -483,6 +483,9 @@ private:
     static const long ID_GRID_MNU_AI_EFFECT_VARIATIONS;
     static const long ID_GRID_MNU_AI_LAYER_BLENDING;
     static const long ID_GRID_MNU_AI_VIDEO_EMULATOR;
+    static const long ID_GRID_MNU_AI_NEURAL_SHADER;
+    static const long ID_GRID_MNU_AI_SNAPSHOT_HISTORY;
+    static const long ID_GRID_MNU_AI_ASSISTANT_PANEL;
     EventPlayEffectArgs* playArgs = nullptr;
 
     const SequenceData *seqData = nullptr;

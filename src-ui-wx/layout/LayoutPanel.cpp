@@ -7718,7 +7718,14 @@ void LayoutPanel::OnPreviewRightDown(wxMouseEvent& event)
     }
 
     mnu.AppendSeparator();
-    mnu.Append(ID_PREVIEW_AI_PROP_DESIGNER, _("AI Custom Prop Designer..."));
+    wxMenu* mnuAILayout = new wxMenu();
+    mnuAILayout->Append(ID_PREVIEW_AI_PROP_DESIGNER, _("AI Custom Prop Designer (2-Opt TSP & Batch)..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_PHOTO_3D_RECONSTRUCTOR, _("3D Photo Prop Mesh Reconstructor..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_SUBMODEL_DETECTOR, _("AI Submodel Detector..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_AUDIENCE_SIGHTLINE_OPTIMIZER, _("AI Audience Sightline & Visibility Optimizer..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_POWER_INSPECTOR, _("AI Power Injection Inspector..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_MODEL_MAPPER, _("AI Model Mapping Wizard..."));
+    mnu.AppendSubMenu(mnuAILayout, _("🎨 AI Layout & Prop Copilot"));
 
     mnu.Connect(wxEVT_MENU, (wxObjectEventFunction)&LayoutPanel::OnPreviewModelPopup, nullptr, this);
     PopupMenu(&mnu);
@@ -7733,6 +7740,14 @@ void LayoutPanel::OnPreviewModelPopup(wxCommandEvent& event)
     } else if (event.GetId() == ID_PREVIEW_AI_PROP_DESIGNER) {
         AICustomPropDesignerDialog dlg(this);
         dlg.ShowModal();
+    } else if (event.GetId() == xLightsFrame::ID_MENUITEM_AI_PHOTO_3D_RECONSTRUCTOR ||
+               event.GetId() == xLightsFrame::ID_MENUITEM_AI_SUBMODEL_DETECTOR ||
+               event.GetId() == xLightsFrame::ID_MENUITEM_AI_AUDIENCE_SIGHTLINE_OPTIMIZER ||
+               event.GetId() == xLightsFrame::ID_MENUITEM_AI_POWER_INSPECTOR ||
+               event.GetId() == xLightsFrame::ID_MENUITEM_AI_MODEL_MAPPER) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, event.GetId());
+        wxPostEvent(xlights, cmd);
+        return;
     } else if (event.GetId() == ID_PREVIEW_MODELS_NOT_ON_CONTROLLER) {
         UnSelectAllModels();
         for (auto m : modelPreview->GetModels()) {
@@ -11060,6 +11075,16 @@ void LayoutPanel::OnModelsPopup(wxCommandEvent& event) {
     
 
     int id = event.GetId();
+    if (id == xLightsFrame::ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER ||
+        id == xLightsFrame::ID_MENUITEM_AI_PHOTO_3D_RECONSTRUCTOR ||
+        id == xLightsFrame::ID_MENUITEM_AI_SUBMODEL_DETECTOR ||
+        id == xLightsFrame::ID_MENUITEM_AI_AUDIENCE_SIGHTLINE_OPTIMIZER ||
+        id == xLightsFrame::ID_MENUITEM_AI_POWER_INSPECTOR ||
+        id == xLightsFrame::ID_MENUITEM_AI_MODEL_MAPPER) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, id);
+        wxPostEvent(xlights, cmd);
+        return;
+    }
     if (id == ID_MNU_DELETE_MODEL) {
         spdlog::debug("LayoutPanel::OnModelsPopup DELETE_MODEL");
         DeleteSelectedModels();
@@ -12629,6 +12654,16 @@ void LayoutPanel::OnItemContextMenu(wxTreeListEvent& event)
     if (foundOverlapping) {
         mnuContext.Append(ID_MNU_MAKEALLSCNOTOVERLAPPING, "Make All Start Channels Not Overlapping");
     }
+
+    mnuContext.AppendSeparator();
+    wxMenu* mnuAILayout = new wxMenu();
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER, _("AI Custom Prop Designer (2-Opt TSP & Batch)..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_PHOTO_3D_RECONSTRUCTOR, _("3D Photo Prop Mesh Reconstructor..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_SUBMODEL_DETECTOR, _("AI Submodel Detector..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_AUDIENCE_SIGHTLINE_OPTIMIZER, _("AI Audience Sightline & Visibility Optimizer..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_POWER_INSPECTOR, _("AI Power Injection Inspector..."));
+    mnuAILayout->Append(xLightsFrame::ID_MENUITEM_AI_MODEL_MAPPER, _("AI Model Mapping Wizard..."));
+    mnuContext.AppendSubMenu(mnuAILayout, _("🎨 AI Layout & Prop Copilot"));
 
     mnuContext.Connect(wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&LayoutPanel::OnModelsPopup, nullptr, this);
     PopupMenu(&mnuContext);

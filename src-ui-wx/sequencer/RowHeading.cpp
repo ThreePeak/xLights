@@ -858,6 +858,15 @@ void RowHeading::rightClick( wxMouseEvent& event)
         }
 
         mnuLayer.AppendSeparator();
+        wxMenu* mnuAICopilot = new wxMenu();
+        mnuAICopilot->Append(xLightsFrame::ID_MENUITEM_AI_LYRIC_VISEME_ALIGNER, "🎵 AI Singing Face & Lyric Viseme Aligner (Whisper)...");
+        mnuAICopilot->Append(xLightsFrame::ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER, "🤖 AI Audio Stem Choreographer...");
+        mnuAICopilot->Append(xLightsFrame::ID_MENUITEM_AI_VIDEO_EMULATOR, "🎬 AI Video Sequence Emulation & Choreographer...");
+        mnuAICopilot->Append(xLightsFrame::ID_MENUITEM_AI_MODEL_MAPPER, "🗺️ AI Model Mapping Wizard...");
+        mnuAICopilot->Append(xLightsFrame::ID_MENUITEM_AI_ASSISTANT_PANEL, "✨ Toggle AI Copilot Assistant Panel (Ctrl+Shift+C)");
+        mnuLayer.AppendSubMenu(mnuAICopilot, "AI Copilot Tools");
+
+        mnuLayer.AppendSeparator();
         mnuLayer.Append(ID_ROW_MNU_EDIT_DISPLAY_ELEMENTS, "Edit Display Elements");
         mnuLayer.Connect(wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&RowHeading::OnLayerPopup, nullptr, this);
         Refresh(false);
@@ -1072,6 +1081,15 @@ static void ImportSyncedLyrics(SequenceElements* seqElements, TimingElement* ele
 void RowHeading::OnLayerPopup(wxCommandEvent& event)
 {
     int id = event.GetId();
+    if (id == xLightsFrame::ID_MENUITEM_AI_LYRIC_VISEME_ALIGNER ||
+        id == xLightsFrame::ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER ||
+        id == xLightsFrame::ID_MENUITEM_AI_VIDEO_EMULATOR ||
+        id == xLightsFrame::ID_MENUITEM_AI_MODEL_MAPPER ||
+        id == xLightsFrame::ID_MENUITEM_AI_ASSISTANT_PANEL) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, id);
+        wxPostEvent(xLightsFrame::GetFrame(), cmd);
+        return;
+    }
     if (id == ID_ROW_MNU_EDIT_DISPLAY_ELEMENTS) {
         wxCommandEvent displayElementEvent(EVT_SHOW_DISPLAY_ELEMENTS);
         wxPostEvent(GetParent(), displayElementEvent);

@@ -349,11 +349,29 @@ void TimeLine::mouseRightDown(wxMouseEvent& event)
         }
     }
 
+    mnuLayer.AppendSeparator();
+    wxMenu* mnuAITimeline = new wxMenu();
+    mnuAITimeline->Append(xLightsFrame::ID_MENUITEM_AI_AUDIO_STUDIO, "🎵 Open Audio & Lyric Studio...");
+    mnuAITimeline->Append(xLightsFrame::ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER, "🤖 AI Stem Beat & Peak Choreographer...");
+    mnuAITimeline->Append(xLightsFrame::ID_MENUITEM_AI_VIDEO_EMULATOR, "🎬 AI Video Sequence Emulation...");
+    mnuAITimeline->Append(xLightsFrame::ID_MENUITEM_AI_LYRIC_VISEME_ALIGNER, "AI Singing Face & Viseme Aligner...");
+    mnuLayer.AppendSubMenu(mnuAITimeline, "AI Copilot Timing");
+
     PopupMenu(&mnuLayer);
 }
 
 void TimeLine::OnPopup(wxCommandEvent& event)
 {
+    int rawId = event.GetId();
+    if (rawId == xLightsFrame::ID_MENUITEM_AI_AUDIO_STUDIO ||
+        rawId == xLightsFrame::ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER ||
+        rawId == xLightsFrame::ID_MENUITEM_AI_VIDEO_EMULATOR ||
+        rawId == xLightsFrame::ID_MENUITEM_AI_LYRIC_VISEME_ALIGNER) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, rawId);
+        wxPostEvent(xLightsFrame::GetFrame(), cmd);
+        return;
+    }
+
     int id = event.GetId() - 1;
 
     if (id + 1 == ID_ZOOMSEL) {

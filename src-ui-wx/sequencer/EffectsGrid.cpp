@@ -151,6 +151,9 @@ const long EffectsGrid::ID_MENUITEM_AI_GENERATE_EFFECT_FOR_SELECTION = EffectsGr
 const long EffectsGrid::ID_GRID_MNU_AI_EFFECT_VARIATIONS = wxNewId();
 const long EffectsGrid::ID_GRID_MNU_AI_LAYER_BLENDING = wxNewId();
 const long EffectsGrid::ID_GRID_MNU_AI_VIDEO_EMULATOR = wxNewId();
+const long EffectsGrid::ID_GRID_MNU_AI_NEURAL_SHADER = wxNewId();
+const long EffectsGrid::ID_GRID_MNU_AI_SNAPSHOT_HISTORY = wxNewId();
+const long EffectsGrid::ID_GRID_MNU_AI_ASSISTANT_PANEL = wxNewId();
 
 int findDataEffect::GetStrand() const {
     if (nl != nullptr) {
@@ -661,6 +664,9 @@ void EffectsGrid::rightClick(wxMouseEvent& event) {
         mnuAICopilot->Append(ID_GRID_MNU_AI_EFFECT_VARIATIONS, "🤖 Generate AI Effect Variations...");
         mnuAICopilot->Append(ID_GRID_MNU_AI_LAYER_BLENDING, "🤖 AI Layer Blending Advisor...");
         mnuAICopilot->Append(ID_GRID_MNU_AI_VIDEO_EMULATOR, "🎬 AI Video Sequence Emulation...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_NEURAL_SHADER, "✨ AI Neural Shader Synthesizer (GLSL)...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_SNAPSHOT_HISTORY, "📷 AI Visual History & Snapshots...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_ASSISTANT_PANEL, "⬡ Toggle AI Copilot Assistant (Ctrl+Shift+C)");
         mnuAICopilot->Connect(wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&EffectsGrid::OnGridPopup, nullptr, this);
         mnuLayer.AppendSubMenu(mnuAICopilot, "AI Copilot");
 
@@ -736,6 +742,9 @@ void EffectsGrid::rightClick(wxMouseEvent& event) {
         mnuAICopilot->Append(ID_GRID_MNU_AI_EFFECT_VARIATIONS, "🤖 Generate AI Effect Variations...");
         mnuAICopilot->Append(ID_GRID_MNU_AI_LAYER_BLENDING, "🤖 AI Layer Blending Advisor...");
         mnuAICopilot->Append(ID_GRID_MNU_AI_VIDEO_EMULATOR, "🎬 AI Video Sequence Emulation...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_NEURAL_SHADER, "✨ AI Neural Shader Synthesizer (GLSL)...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_SNAPSHOT_HISTORY, "📷 AI Visual History & Snapshots...");
+        mnuAICopilot->Append(ID_GRID_MNU_AI_ASSISTANT_PANEL, "⬡ Toggle AI Copilot Assistant (Ctrl+Shift+C)");
         mnuAICopilot->Connect(wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&EffectsGrid::OnGridPopup, nullptr, this);
         mnuLayer.AppendSubMenu(mnuAICopilot, "AI Copilot");
 
@@ -1157,6 +1166,24 @@ void EffectsGrid::OnGridPopup(wxCommandEvent& event) {
     } else if (id == ID_GRID_MNU_AI_VIDEO_EMULATOR) {
         if (xlights) {
             wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, xLightsFrame::ID_MENUITEM_AI_VIDEO_EMULATOR);
+            wxPostEvent(xlights, cmd);
+        }
+        return;
+    } else if (id == ID_GRID_MNU_AI_NEURAL_SHADER) {
+        if (xlights) {
+            wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, xLightsFrame::ID_MENUITEM_AI_NEURAL_SHADER_SYNTHESIZER);
+            wxPostEvent(xlights, cmd);
+        }
+        return;
+    } else if (id == ID_GRID_MNU_AI_SNAPSHOT_HISTORY) {
+        if (xlights) {
+            wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, xLightsFrame::ID_MENUITEM_AI_SNAPSHOT_HISTORY);
+            wxPostEvent(xlights, cmd);
+        }
+        return;
+    } else if (id == ID_GRID_MNU_AI_ASSISTANT_PANEL) {
+        if (xlights) {
+            wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, xLightsFrame::ID_MENUITEM_AI_ASSISTANT_PANEL);
             wxPostEvent(xlights, cmd);
         }
         return;

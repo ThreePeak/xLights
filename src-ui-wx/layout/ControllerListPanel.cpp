@@ -830,6 +830,17 @@ void ControllerListPanel::OnContextMenu(wxTreeListEvent& event) {
     mnu.Append(ID_CTRL_MNU_FPP_CONNECT, "FPP Connect")->Enable(allowed && isIpController);
 
     mnu.AppendSeparator();
+    wxMenu* mnuAIHw = new wxMenu();
+    mnuAIHw->Append(xLightsFrame::ID_MENUITEM_AI_HARDWARE_HUB, "Open Controller & Hardware Hub...");
+    mnuAIHw->AppendSeparator();
+    mnuAIHw->Append(xLightsFrame::ID_MENUITEM_AI_POWER_INSPECTOR, "AI Power Injection Inspector...");
+    mnuAIHw->Append(xLightsFrame::ID_MENUITEM_AI_FPP_SYNC, "AI FPP Controller Sync Advisor...");
+    mnuAIHw->Append(xLightsFrame::ID_MENUITEM_AI_DMX_ADVISOR, "AI DMX / E1.31 Address Conflict Advisor...");
+    mnuAIHw->Append(xLightsFrame::ID_MENUITEM_AI_THERMAL_THROTTLER, "AI Thermal & Current Load Safety...");
+    mnuAIHw->Append(xLightsFrame::ID_MENUITEM_AI_SHOW_DIAGNOSTICS, "AI Hardware Diagnostics & Telemetry...");
+    mnu.AppendSubMenu(mnuAIHw, "⚡ AI Hardware Copilot");
+
+    mnu.AppendSeparator();
     wxMenu* sort = new wxMenu();
     sort->Append(ID_CTRL_MNU_SORT_NAME, "by Name")->Enable(allowed);
     sort->Append(ID_CTRL_MNU_SORT_ID, "by ID")->Enable(allowed);
@@ -849,6 +860,16 @@ void ControllerListPanel::OnContextMenu(wxTreeListEvent& event) {
 
 void ControllerListPanel::OnPopup(wxCommandEvent& event) {
     long id = event.GetId();
+    if (id == xLightsFrame::ID_MENUITEM_AI_HARDWARE_HUB ||
+        id == xLightsFrame::ID_MENUITEM_AI_POWER_INSPECTOR ||
+        id == xLightsFrame::ID_MENUITEM_AI_FPP_SYNC ||
+        id == xLightsFrame::ID_MENUITEM_AI_DMX_ADVISOR ||
+        id == xLightsFrame::ID_MENUITEM_AI_THERMAL_THROTTLER ||
+        id == xLightsFrame::ID_MENUITEM_AI_SHOW_DIAGNOSTICS) {
+        wxCommandEvent cmd(wxEVT_COMMAND_MENU_SELECTED, id);
+        wxPostEvent(_frame, cmd);
+        return;
+    }
     if (id != ID_CTRL_MNU_EXPAND_ALL && id != ID_CTRL_MNU_COLLAPSE_ALL) {
         if (!NetworkChangesAllowed()) return;
     }
