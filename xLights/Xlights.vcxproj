@@ -522,6 +522,10 @@ xcopy /Y /S /I "$(SolutionDir)..\resources\meshobjects\*" "$(TargetDir)meshobjec
     <ClCompile Include="..\src-ui-wx\ai\AIColorPaletteDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AICopilotSpotlightDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AICustomPropDesignerDialog.cpp" />
+    <ClCompile Include="..\src-ui-wx\ai\AIAssistantPanel.cpp" />
+    <ClCompile Include="..\src-ui-wx\ai\AIAudioLyricStudioDialog.cpp" />
+    <ClCompile Include="..\src-ui-wx\ai\AIHardwareControllerHubDialog.cpp" />
+    <ClCompile Include="..\src-ui-wx\ai\AISequenceDiagnosticsHubDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIDMXAddressDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIFPPSyncDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIGrayCodePixelMapperDialog.cpp" />
@@ -1333,6 +1337,10 @@ xcopy /Y /S /I "$(SolutionDir)..\resources\meshobjects\*" "$(TargetDir)meshobjec
     <ClInclude Include="..\src-ui-wx\ai\AIAudioStemExtractorDialog.h" />
     <ClInclude Include="..\src-ui-wx\ai\AIColorPaletteDialog.h" />
     <ClInclude Include="..\src-ui-wx\ai\AICustomPropDesignerDialog.h" />
+    <ClInclude Include="..\src-ui-wx\ai\AIAssistantPanel.h" />
+    <ClInclude Include="..\src-ui-wx\ai\AIAudioLyricStudioDialog.h" />
+    <ClInclude Include="..\src-ui-wx\ai\AIHardwareControllerHubDialog.h" />
+    <ClInclude Include="..\src-ui-wx\ai\AISequenceDiagnosticsHubDialog.h" />
     <ClInclude Include="..\src-ui-wx\ai\AIDMXAddressDialog.h" />
     <ClInclude Include="..\src-ui-wx\ai\AIFPPSyncDialog.h" />
     <ClInclude Include="..\src-ui-wx\ai\AIGrayCodePixelMapperDialog.h" />

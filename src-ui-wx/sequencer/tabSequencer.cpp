@@ -53,6 +53,7 @@
 #include "xLightsVersion.h"
 #include "layout/HousePreviewPanel.h"
 #include "UtilFunctions.h"
+#include "src-ui-wx/ai/AIAssistantPanel.h"
 #include "media/JukeboxPanel.h"
 #include "diagnostics/FindDataPanel.h"
 #include "sequencer/EffectsPanel.h"
@@ -199,6 +200,10 @@ void xLightsFrame::CreateSequencer()
     spdlog::debug("CreateSequencer: Adding Search Panel.");
     _searchPanel = new SearchPanel(&_sequenceElements, mainSequencer, PanelSequencer);
     m_mgr->AddPane(_searchPanel, wxAuiPaneInfo().Name(wxT("SearchPanel")).Caption(wxT("Search Panel")).Left().Layer(1).Hide());
+
+    spdlog::debug("CreateSequencer: Adding AI Copilot Assistant Panel.");
+    _aiAssistantPanel = new xLights::AI::AIAssistantPanel(PanelSequencer, this);
+    m_mgr->AddPane(_aiAssistantPanel, wxAuiPaneInfo().Name(wxT("AIAssistant")).Caption(wxT("AI Copilot Assistant")).Right().Layer(1).BestSize(320, 520).Hide());
 
     m_mgr->AddPane(effectPalettePanel,wxAuiPaneInfo().Name(wxT("EffectDropper")).Caption(wxT("Effects")).Top().Layer(0).Hide());
     m_mgr->AddPane(_valueCurvesPanel, wxAuiPaneInfo().Name(wxT("ValueCurveDropper")).Caption(wxT("Value Curves")).Top().Layer(0).Hide());

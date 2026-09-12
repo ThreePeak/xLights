@@ -134,6 +134,10 @@
 #include "src-ui-wx/ai/AIVideoSequenceEmulatorDialog.h"
 #include "src-ui-wx/ai/AISnapshotHistoryDialog.h"
 #include "src-ui-wx/ai/AIStatusBar.h"
+#include "src-ui-wx/ai/AIAssistantPanel.h"
+#include "src-ui-wx/ai/AIAudioLyricStudioDialog.h"
+#include "src-ui-wx/ai/AIHardwareControllerHubDialog.h"
+#include "src-ui-wx/ai/AISequenceDiagnosticsHubDialog.h"
 #include "AI/AIModelGeometryUtils.h"
 #include "diagnostics/ShowFolderSearchDialog.h"
 #include "sequencer/TopEffectsPanel.h"
@@ -369,6 +373,10 @@ const wxWindowID xLightsFrame::ID_MENUITEM_SAVE_AS_PERSPECTIVE = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_LOAD_PERSPECTIVE = wxNewId();
 const wxWindowID xLightsFrame::ID_MNU_PERSPECTIVES_AUTOSAVE = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM7 = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_ASSISTANT_PANEL = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_AUDIO_STUDIO = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_HARDWARE_HUB = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_DIAGNOSTICS_HUB = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_DISPLAY_ELEMENTS = wxNewId();
 const wxWindowID xLightsFrame::ID_MENU_TOGGLE_MODEL_PREVIEW = wxNewId();
 const wxWindowID xLightsFrame::ID_MENU_TOGGLE_HOUSE_PREVIEW = wxNewId();
@@ -1132,33 +1140,63 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     Menu1->Append(MenuItemFindShowFolder);
     wxMenu* MenuAITools = new wxMenu();
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_COPILOT_SPOTLIGHT, _("AI Copilot Universal Spotlight...\tCtrl+Shift+A"), _("Quick launcher and search palette for all 53 AI Copilot capabilities"), wxITEM_NORMAL));
+    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_ASSISTANT_PANEL, _("AI Copilot Assistant Panel\tCtrl+Shift+C"), _("Toggle dockable AI assistant sidebar"), wxITEM_NORMAL));
     MenuAITools->AppendSeparator();
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER, _("AI Custom Prop Designer..."), _("Design, refine, and 3D preview custom props using AI"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SEQUENCE_VALIDATOR, _("AI Sequence Validator..."), _("Validate sequence against physical rules and bounds"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SHOW_DIAGNOSTICS, _("AI Show Health & Log Diagnostics..."), _("Pre-show health check, spdlog triage, and duplicate universe detection"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SEQUENCE_REMAPPER, _("AI Cross-Display Sequence Remapper..."), _("16-D vector embedding and cosine similarity sequence porting"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_LYRIC_VISEME_ALIGNER, _("AI Singing Face & Lyric Viseme Aligner..."), _("Forced-alignment phoneme to 8-state viseme lip-sync generator"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_PHOTOREALISTIC_RENDERER, _("3D Photorealistic Visualizer (ControlNet / SD Mode)..."), _("On-demand neural physics photorealistic render and video export"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_PHOTO_3D_RECONSTRUCTOR, _("3D Photo Prop Mesh Reconstructor (Single & Multi-Angle)..."), _("Reconstruct and edit custom props from single or multi-angle photos"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_THERMAL_THROTTLER, _("AI Thermal & Current Load Safety Throttler..."), _("Simulate current/thermal load, report incidents, and apply micro-dimming curves"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_AUDIENCE_SIGHTLINE_OPTIMIZER, _("AI Audience Sightline & Visibility Optimizer..."), _("Multi-photo vantage point calibration, 3D raycast occlusion, and prop tilt optimizer"), wxITEM_NORMAL));
+
+    // 1. Layout & 3D Prop Studio
+    wxMenu* menuPropStudio = new wxMenu();
+    menuPropStudio->Append(new wxMenuItem(menuPropStudio, ID_MENUITEM_AI_CUSTOM_PROP_DESIGNER, _("Open Layout & 3D Prop Studio..."), _("Integrated 3D prop design, mesh reconstruction, and raycast visualization hub"), wxITEM_NORMAL));
+    menuPropStudio->AppendSeparator();
+    menuPropStudio->Append(new wxMenuItem(menuPropStudio, ID_MENUITEM_AI_PHOTO_3D_RECONSTRUCTOR, _("3D Photo Prop Mesh Reconstructor..."), _("Reconstruct and edit custom props from single or multi-angle photos"), wxITEM_NORMAL));
+    menuPropStudio->Append(new wxMenuItem(menuPropStudio, ID_MENUITEM_AI_PHOTOREALISTIC_RENDERER, _("3D Photorealistic Visualizer (ControlNet / SD)..."), _("On-demand neural physics photorealistic render and video export"), wxITEM_NORMAL));
+    menuPropStudio->Append(new wxMenuItem(menuPropStudio, ID_MENUITEM_AI_VR_SPATIAL_COPILOT, _("AI 3D Layout VR/AR Spatial Walkthrough..."), _("1:1 Scale XR yard walkthrough and conversational obstacle clearance assistant"), wxITEM_NORMAL));
+    menuPropStudio->Append(new wxMenuItem(menuPropStudio, ID_MENUITEM_AI_AUDIENCE_SIGHTLINE_OPTIMIZER, _("AI Audience Sightline & Visibility Optimizer..."), _("Multi-photo vantage point calibration, 3D raycast occlusion, and prop tilt optimizer"), wxITEM_NORMAL));
+    menuPropStudio->Append(new wxMenuItem(menuPropStudio, ID_MENUITEM_AI_SUBMODEL_DETECTOR, _("AI Submodel Detector..."), _("Auto-detect segments, spokes, rings, and outlines"), wxITEM_NORMAL));
+    menuPropStudio->Append(new wxMenuItem(menuPropStudio, ID_MENUITEM_AI_CAMERA_MAPPER, _("AI Camera Pixel Mapper..."), _("2D/3D camera capture and Gray code pixel calibration"), wxITEM_NORMAL));
+    MenuAITools->AppendSubMenu(menuPropStudio, _("🎨 Layout & 3D Prop Studio"));
+
+    // 2. Audio & Singing Face Studio
+    wxMenu* menuAudioStudio = new wxMenu();
+    menuAudioStudio->Append(new wxMenuItem(menuAudioStudio, ID_MENUITEM_AI_AUDIO_STUDIO, _("Open Audio & Singing Face Studio..."), _("Integrated HTDemucs stems, peak choreographer, Whisper lip-sync & harmonic palettes"), wxITEM_NORMAL));
+    menuAudioStudio->AppendSeparator();
+    menuAudioStudio->Append(new wxMenuItem(menuAudioStudio, ID_MENUITEM_AI_AUDIO_STEMS, _("AI Audio Stem Extractor (Demucs)..."), _("Split audio into vocal, bass, drum, and synth stems"), wxITEM_NORMAL));
+    menuAudioStudio->Append(new wxMenuItem(menuAudioStudio, ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER, _("AI Audio Stem Intelligence & Choreographer..."), _("Stem peak extraction, timing mark generation, and delta effect choreographer"), wxITEM_NORMAL));
+    menuAudioStudio->Append(new wxMenuItem(menuAudioStudio, ID_MENUITEM_AI_LYRIC_VISEME_ALIGNER, _("AI Singing Face & Lyric Viseme Aligner (Whisper)..."), _("Forced-alignment phoneme to 8-state viseme lip-sync generator"), wxITEM_NORMAL));
+    menuAudioStudio->Append(new wxMenuItem(menuAudioStudio, ID_MENUITEM_AI_SHOW_NARRATIVE_COMPOSER, _("AI Show Narrative & Voiceover Storyboard Composer..."), _("Compose festive story scripts, neural voiceovers, and auto-align Whisper timing tracks"), wxITEM_NORMAL));
+    MenuAITools->AppendSubMenu(menuAudioStudio, _("🎵 Audio & Singing Face Studio"));
+
+    // 3. Sequencing & Video Choreography
+    wxMenu* menuSequenceStudio = new wxMenu();
+    menuSequenceStudio->Append(new wxMenuItem(menuSequenceStudio, ID_MENUITEM_AI_VIDEO_EMULATOR, _("AI Video Sequence Emulation & Choreographer..."), _("Multimodal sequence video clip/URL analysis, layout adaptation, and automated choreography"), wxITEM_NORMAL));
+    menuSequenceStudio->Append(new wxMenuItem(menuSequenceStudio, ID_MENUITEM_AI_NEURAL_SHADER_SYNTHESIZER, _("AI Neural Shader Synthesizer (GLSL / ISF GPU)..."), _("Synthesize GPU fragment shaders from natural language prompts with live 60 FPS preview"), wxITEM_NORMAL));
+    menuSequenceStudio->Append(new wxMenuItem(menuSequenceStudio, ID_MENUITEM_AI_SEQUENCE_REMAPPER, _("AI Cross-Display Sequence Remapper..."), _("16-D vector embedding and cosine similarity sequence porting"), wxITEM_NORMAL));
+    menuSequenceStudio->Append(new wxMenuItem(menuSequenceStudio, ID_MENUITEM_AI_MODEL_MAPPER, _("AI Model Mapping Wizard..."), _("Map downloaded sequence effects to your layout"), wxITEM_NORMAL));
+    menuSequenceStudio->Append(new wxMenuItem(menuSequenceStudio, ID_MENUITEM_AI_LUA_GENERATOR, _("AI Lua Script Generator..."), _("Generate Lua automation scripts using LLM prompts"), wxITEM_NORMAL));
+    MenuAITools->AppendSubMenu(menuSequenceStudio, _("🎬 Sequencing & Video Choreography"));
+
+    // 4. Controller & Hardware Engineering
+    wxMenu* menuHardwareHub = new wxMenu();
+    menuHardwareHub->Append(new wxMenuItem(menuHardwareHub, ID_MENUITEM_AI_HARDWARE_HUB, _("Open Controller & Hardware Hub..."), _("Integrated ESP32 pinouts, power injection, FPP sync, DMX routing & telemetry"), wxITEM_NORMAL));
+    menuHardwareHub->AppendSeparator();
+    menuHardwareHub->Append(new wxMenuItem(menuHardwareHub, ID_MENUITEM_AI_POWER_INSPECTOR, _("AI Power Injection Inspector (Ohm's Law)..."), _("Calculate voltage drops and optimal power injection"), wxITEM_NORMAL));
+    menuHardwareHub->Append(new wxMenuItem(menuHardwareHub, ID_MENUITEM_AI_FPP_SYNC, _("AI FPP Controller Sync Advisor..."), _("Analyze and optimize FPP controller channel layouts"), wxITEM_NORMAL));
+    menuHardwareHub->Append(new wxMenuItem(menuHardwareHub, ID_MENUITEM_AI_DMX_ADVISOR, _("AI DMX Address Conflict Advisor..."), _("Detect and remap DMX/E1.31 address collisions"), wxITEM_NORMAL));
+    menuHardwareHub->Append(new wxMenuItem(menuHardwareHub, ID_MENUITEM_AI_THERMAL_THROTTLER, _("AI Thermal & Current Load Safety Throttler..."), _("Simulate current/thermal load, report incidents, and apply micro-dimming curves"), wxITEM_NORMAL));
+    menuHardwareHub->Append(new wxMenuItem(menuHardwareHub, ID_MENUITEM_AI_PIXEL_AUTO_HEALING, _("AI Computer Vision Dead Pixel Auto-Healer..."), _("Diagnose dead pixels via test camera and real-time Laplacian interpolate color"), wxITEM_NORMAL));
+    MenuAITools->AppendSubMenu(menuHardwareHub, _("⚡ Controller & Hardware Engineering"));
+
+    // 5. Diagnostics, Version Control & Safety
+    wxMenu* menuDiagnosticsHub = new wxMenu();
+    menuDiagnosticsHub->Append(new wxMenuItem(menuDiagnosticsHub, ID_MENUITEM_AI_DIAGNOSTICS_HUB, _("Open Sequence Diagnostics & Safety Hub..."), _("Integrated physical rule linter, state snapshots, Git visual AST diff & log triage"), wxITEM_NORMAL));
+    menuDiagnosticsHub->AppendSeparator();
+    menuDiagnosticsHub->Append(new wxMenuItem(menuDiagnosticsHub, ID_MENUITEM_AI_SEQUENCE_VALIDATOR, _("AI Sequence Validator & Linter..."), _("Validate sequence against physical rules and bounds"), wxITEM_NORMAL));
+    menuDiagnosticsHub->Append(new wxMenuItem(menuDiagnosticsHub, ID_MENUITEM_AI_SHOW_DIAGNOSTICS, _("AI Show Health & Log Diagnostics..."), _("Pre-show health check, spdlog triage, and duplicate universe detection"), wxITEM_NORMAL));
+    menuDiagnosticsHub->Append(new wxMenuItem(menuDiagnosticsHub, ID_MENUITEM_AI_SEQUENCE_VISUAL_GIT, _("AI Sequence Visual Git & Timeline Diff Merge..."), _("Collaborative sequence version control, timeline diffing, and 4-way merge resolver"), wxITEM_NORMAL));
+    menuDiagnosticsHub->Append(new wxMenuItem(menuDiagnosticsHub, ID_MENUITEM_AI_SNAPSHOT_HISTORY, _("AI Visual History Timeline & Snapshot State Manager..."), _("Photoshop-style state snapshots, time-travel restore, and component exporter"), wxITEM_NORMAL));
+    MenuAITools->AppendSubMenu(menuDiagnosticsHub, _("🩺 Diagnostics, Version Control & Safety"));
+
+    MenuAITools->AppendSeparator();
     MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_ENGINE_SETTINGS, _("AI Copilot & LLM Engine Settings..."), _("Configure cloud and local LLM providers, API keys, temperature, and token budgets"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SHOW_NARRATIVE_COMPOSER, _("AI Show Narrative & Voiceover Storyboard Composer..."), _("Compose festive story scripts, neural voiceovers, and auto-align Whisper timing tracks"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_PIXEL_AUTO_HEALING, _("AI Computer Vision Dead Pixel Auto-Healer..."), _("Diagnose dead pixels via test camera and real-time Laplacian interpolate color"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_NEURAL_SHADER_SYNTHESIZER, _("AI Neural Shader Synthesizer (GLSL / ISF GPU)..."), _("Synthesize GPU fragment shaders from natural language prompts with live 60 FPS preview"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_VR_SPATIAL_COPILOT, _("AI 3D Layout VR/AR Spatial Walkthrough Copilot..."), _("1:1 Scale XR yard walkthrough and conversational obstacle clearance assistant"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SEQUENCE_VISUAL_GIT, _("AI Sequence Visual Git & Timeline Diff Merge..."), _("Collaborative sequence version control, timeline diffing, and 4-way merge resolver"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_AUDIO_CHOREOGRAPHER, _("AI Audio Stem Intelligence & Effect Choreographer..."), _("Stem peak extraction, timing mark generation, and non-destructive delta effect choreographer"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_VIDEO_EMULATOR, _("AI Video Sequence Emulation & Choreographer..."), _("Multimodal sequence video clip/URL analysis, layout adaptation, pre-flight consultation, and automated sequence generation"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SNAPSHOT_HISTORY, _("AI Visual History Timeline & Snapshot State Manager..."), _("Photoshop-style state snapshots, time-travel restore, and granular component package exporter"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_POWER_INSPECTOR, _("AI Power Injection Inspector..."), _("Calculate voltage drops and optimal power injection"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_FPP_SYNC, _("AI FPP Controller Sync Advisor..."), _("Analyze and optimize FPP controller channel layouts"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_DMX_ADVISOR, _("AI DMX Address Conflict Advisor..."), _("Detect and remap DMX/E1.31 address collisions"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_LUA_GENERATOR, _("AI Lua Script Generator..."), _("Generate Lua automation scripts using LLM prompts"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_MODEL_MAPPER, _("AI Model Mapping Wizard..."), _("Map downloaded sequence effects to your layout"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_SUBMODEL_DETECTOR, _("AI Submodel Detector..."), _("Auto-detect segments, spokes, rings, and outlines"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_CAMERA_MAPPER, _("AI Camera Pixel Mapper..."), _("2D/3D camera capture and Gray code pixel calibration"), wxITEM_NORMAL));
-    MenuAITools->Append(new wxMenuItem(MenuAITools, ID_MENUITEM_AI_AUDIO_STEMS, _("AI Audio Stem Extractor..."), _("Split audio into vocal, bass, drum, and synth stems"), wxITEM_NORMAL));
     Menu1->AppendSubMenu(MenuAITools, _("&AI Copilot Tools"));
     MenuBar->Append(Menu1, _("&Tools"));
     MenuView = new wxMenu();
@@ -1221,6 +1259,8 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     MenuItem18->Append(MenuItemJukebox);
     MenuItemFindData = new wxMenuItem(MenuItem18, ID_MNU_FINDDATA, _("Find Effect Data"), wxEmptyString, wxITEM_CHECK);
     MenuItem18->Append(MenuItemFindData);
+    MenuItemAIAssistant = new wxMenuItem(MenuItem18, ID_MENUITEM_AI_ASSISTANT_PANEL, _("AI Copilot Assistant"), wxEmptyString, wxITEM_CHECK);
+    MenuItem18->Append(MenuItemAIAssistant);
     MenuItem18->AppendSeparator();
     MenuItem1 = new wxMenu();
     MenuItem_SD_HP = new wxMenuItem(MenuItem1, ID_MNU_SUPPRESSDOCK_HP, _("House Preview"), wxEmptyString, wxITEM_CHECK);
@@ -1428,6 +1468,10 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     Connect(ID_MENUITEM_AI_SUBMODEL_DETECTOR, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAISubmodelDetectorSelected);
     Connect(ID_MENUITEM_AI_CAMERA_MAPPER, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAICameraMapperSelected);
     Connect(ID_MENUITEM_AI_AUDIO_STEMS, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIAudioStemsSelected);
+    Connect(ID_MENUITEM_AI_ASSISTANT_PANEL, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::ShowHideAIAssistantWindow);
+    Connect(ID_MENUITEM_AI_AUDIO_STUDIO, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIAudioStudioSelected);
+    Connect(ID_MENUITEM_AI_HARDWARE_HUB, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIHardwareHubSelected);
+    Connect(ID_MENUITEM_AI_DIAGNOSTICS_HUB, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIDiagnosticsHubSelected);
     Connect(ID_MNU_GENERATELYRICS, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_GenerateLyricsSelected);
     Connect(ID_MENUITEM_CONVERT, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItemConvertSelected);
     Connect(ID_MNU_PREPAREAUDIO, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_PrepareAudioSelected);
@@ -6242,6 +6286,25 @@ void xLightsFrame::OnMenuAISnapshotHistorySelected(wxCommandEvent& WXUNUSED(even
     dlg.ShowModal();
 }
 
+void xLightsFrame::OnMenuAIAudioStudioSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIAudioLyricStudioDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAIHardwareHubSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIHardwareControllerHubDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAIDiagnosticsHubSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AISequenceDiagnosticsHubDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::ShowHideAIAssistantWindow(wxCommandEvent& WXUNUSED(event)) {
+    TogglePaneVisibility("AIAssistant", true);
+}
+
 void xLightsFrame::RunAmbientSequenceLinter() {
     if (!m_aiStatusBar) return;
 
@@ -6299,6 +6362,9 @@ void xLightsFrame::RunAmbientSequenceLinter() {
         summary = wxString::Format(wxT("%d issues found (%s)"), issueCount, wxString::FromUTF8(firstIssue));
     }
     m_aiStatusBar->SetDiagnosticWarningCount(issueCount, summary);
+    if (_aiAssistantPanel) {
+        _aiAssistantPanel->SetDiagnosticWarningCount(issueCount, summary);
+    }
 }
 
 void xLightsFrame::ShiftEffectsOnLayer(EffectLayer* el, int milliseconds)
@@ -9412,7 +9478,8 @@ void xLightsFrame::UpdateViewMenu()
         { "SequenceVideo", MenuItemVideoPreview },
         { "Jukebox", MenuItemJukebox },
         { "FindData", MenuItemFindData },
-        { "SearchPanel", MenuItemSearchEffects }
+        { "SearchPanel", MenuItemSearchEffects },
+        { "AIAssistant", MenuItemAIAssistant }
     };
 
     wxAuiPaneInfoArray& info = m_mgr->GetAllPanes();

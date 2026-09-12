@@ -62,6 +62,11 @@
 #include <set>
 #include <vector>
 
+namespace xLights::AI {
+    class AIStatusBar;
+    class AIAssistantPanel;
+}
+
 #ifdef LINUX
 #include <unistd.h>
 #endif
@@ -610,6 +615,10 @@ public:
     void OnMenuAIAudioChoreographerSelected(wxCommandEvent& event);
     void OnMenuAIVideoEmulatorSelected(wxCommandEvent& event);
     void OnMenuAISnapshotHistorySelected(wxCommandEvent& event);
+    void OnMenuAIAudioStudioSelected(wxCommandEvent& event);
+    void OnMenuAIHardwareHubSelected(wxCommandEvent& event);
+    void OnMenuAIDiagnosticsHubSelected(wxCommandEvent& event);
+    void ShowHideAIAssistantWindow(wxCommandEvent& event);
     void OnMenuItem_Help_ForumSelected(wxCommandEvent& event);
     void OnMenuItem_Help_DownloadSelected(wxCommandEvent& event);
     void OnMenuItem_Help_ReleaseNotesSelected(wxCommandEvent& event);
@@ -870,6 +879,10 @@ public:
     static const wxWindowID ID_MENUITEM_LOAD_PERSPECTIVE;
     static const wxWindowID ID_MNU_PERSPECTIVES_AUTOSAVE;
     static const wxWindowID ID_MENUITEM7;
+    static const wxWindowID ID_MENUITEM_AI_ASSISTANT_PANEL;
+    static const wxWindowID ID_MENUITEM_AI_AUDIO_STUDIO;
+    static const wxWindowID ID_MENUITEM_AI_HARDWARE_HUB;
+    static const wxWindowID ID_MENUITEM_AI_DIAGNOSTICS_HUB;
     static const wxWindowID ID_MENUITEM_DISPLAY_ELEMENTS;
     static const wxWindowID ID_MENU_TOGGLE_MODEL_PREVIEW;
     static const wxWindowID ID_MENU_TOGGLE_HOUSE_PREVIEW;
@@ -984,6 +997,7 @@ public:
     wxMenuItem* MenuItemColourDropper;
     wxMenuItem* MenuItemColours;
     wxMenuItem* MenuItemConvert;
+    wxMenuItem* MenuItemAIAssistant;
     wxMenuItem* MenuItemDisplayElements;
     wxMenuItem* MenuItemEffectAssist;
     wxMenuItem* MenuItemEffectDropper;
@@ -1901,6 +1915,7 @@ private:
     SelectPanel *_selectPanel = nullptr;
     SequenceVideoPanel* sequenceVideoPanel = nullptr;
     SearchPanel* _searchPanel = nullptr;
+    xLights::AI::AIAssistantPanel* _aiAssistantPanel = nullptr;
     std::unique_ptr<ScriptsDialog> _scriptsDialog{ nullptr };
     std::unique_ptr<class WxServiceSettingsStore> _serviceSettingsStore;
     std::unique_ptr<ServiceManager> _serviceManager{ nullptr };
