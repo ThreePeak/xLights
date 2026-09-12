@@ -144,6 +144,8 @@
 #include "src-ui-wx/ai/AIAudioLyricStudioDialog.h"
 #include "src-ui-wx/ai/AIHardwareControllerHubDialog.h"
 #include "src-ui-wx/ai/AISequenceDiagnosticsHubDialog.h"
+#include "src-ui-wx/ai/AIFlightRecorderDialog.h"
+#include "AI/AIFlightRecorder.h"
 #include "AI/AIModelGeometryUtils.h"
 #include "diagnostics/ShowFolderSearchDialog.h"
 #include "sequencer/TopEffectsPanel.h"
@@ -384,6 +386,7 @@ const wxWindowID xLightsFrame::ID_MENUITEM_AI_ASSISTANT_PANEL = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_AUDIO_STUDIO = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_HARDWARE_HUB = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_AI_DIAGNOSTICS_HUB = wxNewId();
+const wxWindowID xLightsFrame::ID_MENUITEM_AI_FLIGHT_RECORDER = wxNewId();
 const wxWindowID xLightsFrame::ID_MENUITEM_DISPLAY_ELEMENTS = wxNewId();
 const wxWindowID xLightsFrame::ID_MENU_TOGGLE_MODEL_PREVIEW = wxNewId();
 const wxWindowID xLightsFrame::ID_MENU_TOGGLE_HOUSE_PREVIEW = wxNewId();
@@ -1207,6 +1210,7 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     menuDiagnosticsHub->Append(new wxMenuItem(menuDiagnosticsHub, ID_MENUITEM_AI_SHOW_DIAGNOSTICS, _("AI Show Health & Log Diagnostics..."), _("Pre-show health check, spdlog triage, and duplicate universe detection"), wxITEM_NORMAL));
     menuDiagnosticsHub->Append(new wxMenuItem(menuDiagnosticsHub, ID_MENUITEM_AI_SEQUENCE_VISUAL_GIT, _("AI Sequence Visual Git & Timeline Diff Merge..."), _("Collaborative sequence version control, timeline diffing, and 4-way merge resolver"), wxITEM_NORMAL));
     menuDiagnosticsHub->Append(new wxMenuItem(menuDiagnosticsHub, ID_MENUITEM_AI_SNAPSHOT_HISTORY, _("AI Visual History Timeline & Snapshot State Manager..."), _("Photoshop-style state snapshots, time-travel restore, and component exporter"), wxITEM_NORMAL));
+    menuDiagnosticsHub->Append(new wxMenuItem(menuDiagnosticsHub, ID_MENUITEM_AI_FLIGHT_RECORDER, _("AI Problem Steps & Flight Recorder..."), _("Interactive PSR session recorder and verbose diagnostic bundle generator"), wxITEM_NORMAL));
     MenuAITools->AppendSubMenu(menuDiagnosticsHub, _("🩺 Diagnostics, Version Control & Safety"));
 
     MenuAITools->AppendSeparator();
@@ -1368,6 +1372,7 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     MenuHelp->AppendSeparator();
     MenuHelp->Append(new wxMenuItem(MenuHelp, ID_MENUITEM_AI_COPILOT_SPOTLIGHT, _("AI Copilot Universal Spotlight...\tCtrl+Shift+A"), _("Quick launcher and search palette for all 53 AI Copilot capabilities"), wxITEM_NORMAL));
     MenuHelp->Append(new wxMenuItem(MenuHelp, ID_MENUITEM_AI_SHOW_DIAGNOSTICS, _("AI Show Health & Log Diagnostics..."), _("Pre-show health check, spdlog triage, and duplicate universe detection"), wxITEM_NORMAL));
+    MenuHelp->Append(new wxMenuItem(MenuHelp, ID_MENUITEM_AI_FLIGHT_RECORDER, _("AI Problem Steps & Flight Recorder..."), _("Interactive PSR session recorder and verbose diagnostic bundle generator"), wxITEM_NORMAL));
     MenuHelp->Append(new wxMenuItem(MenuHelp, ID_MENUITEM_AI_ENGINE_SETTINGS, _("AI Copilot & LLM Engine Settings..."), _("Configure cloud and local LLM providers, API keys, and token budgets"), wxITEM_NORMAL));
     MenuItem2 = new wxMenuItem(MenuHelp, wxID_ABOUT, _("About"), _("Show info about this application"), wxITEM_NORMAL);
     MenuHelp->Append(MenuItem2);
@@ -1504,6 +1509,7 @@ xLightsFrame::xLightsFrame(wxWindow* parent, int ab, wxWindowID id, bool renderO
     Connect(ID_MENUITEM_AI_AUDIO_STUDIO, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIAudioStudioSelected);
     Connect(ID_MENUITEM_AI_HARDWARE_HUB, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIHardwareHubSelected);
     Connect(ID_MENUITEM_AI_DIAGNOSTICS_HUB, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIDiagnosticsHubSelected);
+    Connect(ID_MENUITEM_AI_FLIGHT_RECORDER, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuAIFlightRecorderSelected);
     Connect(ID_MNU_GENERATELYRICS, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_GenerateLyricsSelected);
     Connect(ID_MENUITEM_CONVERT, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItemConvertSelected);
     Connect(ID_MNU_PREPAREAUDIO, wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xLightsFrame::OnMenuItem_PrepareAudioSelected);
@@ -6415,6 +6421,11 @@ void xLightsFrame::OnMenuAIHardwareHubSelected(wxCommandEvent& WXUNUSED(event)) 
 
 void xLightsFrame::OnMenuAIDiagnosticsHubSelected(wxCommandEvent& WXUNUSED(event)) {
     xLights::AI::AISequenceDiagnosticsHubDialog dlg(this);
+    dlg.ShowModal();
+}
+
+void xLightsFrame::OnMenuAIFlightRecorderSelected(wxCommandEvent& WXUNUSED(event)) {
+    xLights::AI::AIFlightRecorderDialog dlg(this);
     dlg.ShowModal();
 }
 

@@ -624,6 +624,7 @@ public:
     void OnMenuAIAudioStudioSelected(wxCommandEvent& event);
     void OnMenuAIHardwareHubSelected(wxCommandEvent& event);
     void OnMenuAIDiagnosticsHubSelected(wxCommandEvent& event);
+    void OnMenuAIFlightRecorderSelected(wxCommandEvent& event);
     void ShowHideAIAssistantWindow(wxCommandEvent& event);
     void OnMenuItem_Help_ForumSelected(wxCommandEvent& event);
     void OnMenuItem_Help_DownloadSelected(wxCommandEvent& event);
@@ -889,6 +890,7 @@ public:
     static const wxWindowID ID_MENUITEM_AI_AUDIO_STUDIO;
     static const wxWindowID ID_MENUITEM_AI_HARDWARE_HUB;
     static const wxWindowID ID_MENUITEM_AI_DIAGNOSTICS_HUB;
+    static const wxWindowID ID_MENUITEM_AI_FLIGHT_RECORDER;
     static const wxWindowID ID_MENUITEM_DISPLAY_ELEMENTS;
     static const wxWindowID ID_MENU_TOGGLE_MODEL_PREVIEW;
     static const wxWindowID ID_MENU_TOGGLE_HOUSE_PREVIEW;

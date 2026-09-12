@@ -1145,6 +1145,7 @@ xlights_ai_test(test_SequenceRemappingAgent AI/SequenceRemappingAgent.cpp)
 xlights_ai_test(test_ShowLogDiagnosticsAnalyzer AI/ShowLogDiagnosticsAnalyzer.cpp)
 xlights_ai_test(test_PhonemeMap AI/PhonemeMap.cpp)
 xlights_ai_test(test_VideoSequenceEmulator AI/VideoSequenceEmulator.cpp)
+xlights_ai_test(test_AIFlightRecorder AI/AIFlightRecorder.cpp)
 
 # ── Catch2-based tests ────────────────────────────────────────────────────────
 find_package(Catch2 3 QUIET)

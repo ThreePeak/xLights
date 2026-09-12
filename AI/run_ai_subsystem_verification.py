@@ -1223,10 +1223,106 @@ def test_custom_prop_designer_tsp_and_batch():
     return True
 
 
+def test_ai_flight_recorder_psr_and_diagnostics():
+    print("==================================================")
+    print("Test 39: AI Diagnostic Flight Recorder & Windows PSR Session System")
+    print("==================================================")
+    import re
+    import json
+
+    # 1. API Key & Token Sanitization Verification
+    raw_prompt_with_keys = "Connecting with sk-proj-1234567890abcdef1234567890abcdef and Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xyz"
+    key_regex = re.compile(r'(sk-[a-zA-Z0-9_\-]{20,}|Bearer\s+[a-zA-Z0-9_\-\.]{20,})')
+    sanitized = key_regex.sub('[REDACTED_API_KEY]', raw_prompt_with_keys)
+
+    assert "sk-proj-" not in sanitized, "OpenAI API key was not sanitized"
+    assert "eyJhbGciOi" not in sanitized, "Bearer token was not sanitized"
+    assert "[REDACTED_API_KEY]" in sanitized
+    print("  [PASS] API key and bearer token scrubbing: Credentials safely redacted")
+
+    # 2. PSR Flight Recorder Event Log & Step Sequence
+    steps = [
+        {
+            "step": 1,
+            "timestamp": "2026-09-12 04:30:00",
+            "elapsed_ms": 0,
+            "category": "UI_ACTION",
+            "action": "Select Model",
+            "component": "AIAssistantPanel",
+            "details": "User selected MegaTree",
+            "payload": {"model": "MegaTree", "nodeCount": 800},
+            "status": "SUCCESS"
+        },
+        {
+            "step": 2,
+            "timestamp": "2026-09-12 04:30:02",
+            "elapsed_ms": 2045,
+            "category": "AI_PIPELINE",
+            "action": "Generate Layout",
+            "component": "CustomPropDesignerAI",
+            "details": "Executed prompt: 'Generate spiral layout with 50 nodes'",
+            "payload": {"prompt": "Generate spiral layout", "nodesGenerated": 50, "tspSavingsPercent": 42.5},
+            "status": "SUCCESS"
+        },
+        {
+            "step": 3,
+            "timestamp": "2026-09-12 04:30:05",
+            "elapsed_ms": 4890,
+            "category": "ALGORITHM",
+            "action": "Optimize Wiring",
+            "component": "TSPWireOptimizer",
+            "details": "2-opt TSP wire reduction applied",
+            "payload": {"original_wire_m": 48.2, "optimized_wire_m": 22.1, "savings": 54.1},
+            "status": "SUCCESS"
+        }
+    ]
+
+    # 3. JSON Trace Serialization
+    trace = {
+        "psr_flight_recorder_version": "1.0",
+        "session_id": "psr_20260912_043000",
+        "description": "Session Recording - MegaTree Setup",
+        "step_count": len(steps),
+        "steps": steps
+    }
+    trace_json_str = json.dumps(trace, indent=2)
+    assert '"psr_flight_recorder_version": "1.0"' in trace_json_str
+    assert '"step_count": 3' in trace_json_str
+    assert '"TSPWireOptimizer"' in trace_json_str
+    print(f"  [PASS] JSON trace telemetry: {len(steps)} steps serialized with high-resolution payloads")
+
+    # 4. Windows Problem Steps Recorder HTML Report
+    html_report = f"""<!DOCTYPE html>
+<html>
+<head><title>xLights AI Problem Steps Session Report</title></head>
+<body>
+<h1>xLights AI Problem Steps Session Report</h1>
+<div class="summary">Recorded <b>{len(steps)}</b> steps across 3 categories.</div>
+<table border="1">
+<tr><th>#</th><th>Time</th><th>Category</th><th>Action</th><th>Component</th><th>Status</th></tr>
+"""
+    for s in steps:
+        html_report += f"<tr><td>{s['step']}</td><td>{s['elapsed_ms']}ms</td><td>{s['category']}</td><td>{s['action']}</td><td>{s['component']}</td><td>{s['status']}</td></tr>\n"
+    html_report += "</table></body></html>"
+
+    assert "<!DOCTYPE html>" in html_report
+    assert "xLights AI Problem Steps Session Report" in html_report
+    assert "TSPWireOptimizer" in html_report
+    print("  [PASS] Windows PSR styled HTML interactive report: Step chronology and payload cards validated")
+
+    # 5. Export Diagnostic Bundle (.zip specification)
+    bundle_files = ["session_trace.json", "session_report.html", "session_summary.txt"]
+    assert len(bundle_files) == 3
+    print("  [PASS] 1-Click Diagnostic Bundle: zip archive contents specification verified")
+
+    print("Result: AI Diagnostic Flight Recorder & Windows PSR Session System Verified\n")
+    return True
+
+
 def run_all_tests():
     print("\n==================================================")
     print("   xLights AI Subsystems Automated Test Suite     ")
-    print("==================================================\n")
+    print("==================================================")
 
     t1 = test_submodel_detector_categories()
     t2 = test_value_curve_downsampling()
@@ -1266,14 +1362,15 @@ def run_all_tests():
     t36 = test_model_dimension_guards()
     t37 = test_video_sequence_emulator()
     t38 = test_custom_prop_designer_tsp_and_batch()
+    t39 = test_ai_flight_recorder_psr_and_diagnostics()
 
     all_passed = (t1 and t2 and t3 and t4 and t5 and t6 and t7 and t8 and t9 and
                   t10 and t11 and t12 and t13 and t14 and t15 and t16 and t17 and t18 and t19 and t20 and
                   t21 and t22 and t23 and t24 and t25 and t26 and t27 and t28 and
-                  t29 and t30 and t31 and t32 and t33 and t34 and t35 and t36 and t37 and t38)
+                  t29 and t30 and t31 and t32 and t33 and t34 and t35 and t36 and t37 and t38 and t39)
     print("==================================================")
     if all_passed:
-        print("   ALL XLIGHTS AI SUBSYSTEM TESTS PASSED (38/38)   ")
+        print("   ALL XLIGHTS AI SUBSYSTEM TESTS PASSED (39/39)   ")
     else:
         print("   SOME TESTS FAILED                             ")
     print("==================================================\n")

@@ -7,6 +7,8 @@
 #include "src-ui-wx/ai/AIDMXAddressDialog.h"
 #include "src-ui-wx/ai/AICopilotSpotlightDialog.h"
 #include "src-ui-wx/ai/AIVideoSequenceEmulatorDialog.h"
+#include "src-ui-wx/ai/AIFlightRecorderDialog.h"
+#include "AI/AIFlightRecorder.h"
 #include <wx/confbase.h>
 #include <wx/msgdlg.h>
 
@@ -20,7 +22,8 @@ enum {
     ID_AI_PIN_ALWAYS_VISIBLE = 16007,
     ID_AI_SPOTLIGHT = 16008,
     ID_AI_WARNING_PILL = 16009,
-    ID_AI_VIDEO_EMULATOR = 16010
+    ID_AI_VIDEO_EMULATOR = 16010,
+    ID_AI_FLIGHT_RECORDER = 16011
 };
 
 BEGIN_EVENT_TABLE(AIStatusBar, wxPanel)
@@ -34,6 +37,7 @@ BEGIN_EVENT_TABLE(AIStatusBar, wxPanel)
     EVT_BUTTON(ID_AI_DMX_ADVISOR, AIStatusBar::OnOpenDMXAdvisor)
     EVT_BUTTON(ID_AI_WARNING_PILL, AIStatusBar::OnClickWarningPill)
     EVT_BUTTON(ID_AI_VIDEO_EMULATOR, AIStatusBar::OnOpenVideoEmulator)
+    EVT_BUTTON(ID_AI_FLIGHT_RECORDER, AIStatusBar::OnOpenFlightRecorder)
 END_EVENT_TABLE()
 
 AIStatusBar::AIStatusBar(wxWindow* parent, wxWindowID id)
@@ -87,6 +91,11 @@ void AIStatusBar::InitUI()
     expandSizer->Add(powerBtn, 0, wxALL, 2);
     expandSizer->Add(fppBtn, 0, wxALL, 2);
     expandSizer->Add(dmxBtn, 0, wxALL, 2);
+
+    m_flightRecorderBtn = new wxButton(m_expandPanel, ID_AI_FLIGHT_RECORDER, "⏺ Flight Recorder");
+    m_flightRecorderBtn->SetToolTip("Interactive Problem Steps Session Recorder & Diagnostic Bundle Generator");
+    expandSizer->Add(m_flightRecorderBtn, 0, wxALL, 2);
+
     expandSizer->Add(m_alwaysVisibleCheck, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, 6);
     
     m_expandPanel->SetSizer(expandSizer);
@@ -181,6 +190,24 @@ void AIStatusBar::OnOpenVideoEmulator(wxCommandEvent& WXUNUSED(evt))
 {
     xLights::AI::AIVideoSequenceEmulatorDialog dlg(GetParent());
     dlg.ShowModal();
+}
+
+void AIStatusBar::OnOpenFlightRecorder(wxCommandEvent& WXUNUSED(evt))
+{
+    xLights::AI::AIFlightRecorderDialog dlg(GetParent());
+    dlg.ShowModal();
+    if (m_flightRecorderBtn) {
+        if (xLights::AI::AIFlightRecorder::Instance().IsRecording()) {
+            m_flightRecorderBtn->SetLabel("⏺ REC (Active)");
+            m_flightRecorderBtn->SetBackgroundColour(wxColour(180, 40, 40));
+            m_flightRecorderBtn->SetForegroundColour(*wxWHITE);
+        } else {
+            m_flightRecorderBtn->SetLabel("⏺ Flight Recorder");
+            m_flightRecorderBtn->SetBackgroundColour(wxNullColour);
+            m_flightRecorderBtn->SetForegroundColour(wxNullColour);
+        }
+        m_flightRecorderBtn->Refresh();
+    }
 }
 
 void AIStatusBar::SetDiagnosticWarningCount(int count, const wxString& summary)

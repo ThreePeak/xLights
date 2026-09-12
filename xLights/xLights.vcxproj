@@ -543,6 +543,8 @@ xcopy /Y /S /I "$(SolutionDir)..\resources\meshobjects\*" "$(TargetDir)meshobjec
     <ClCompile Include="..\src-ui-wx\ai\AIAudioChoreographerDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIVideoSequenceEmulatorDialog.cpp" />
     <ClCompile Include="..\AI\VideoSequenceEmulator.cpp" />
+    <ClCompile Include="..\AI\AIFlightRecorder.cpp" />
+    <ClCompile Include="..\src-ui-wx\ai\AIFlightRecorderDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIControllerDiscoveryDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIEngineSettingsDialog.cpp" />
     <ClCompile Include="..\src-ui-wx\ai\AIESP32HardwareOptimizerDialog.cpp" />
@@ -1339,6 +1341,8 @@ xcopy /Y /S /I "$(SolutionDir)..\resources\meshobjects\*" "$(TargetDir)meshobjec
     <ClInclude Include="..\AI\AIXmlSanitizer.h" />
     <ClInclude Include="..\src-core\ai\AICommandHistory.h" />
     <ClInclude Include="..\AI\AICommandHistory.h" />
+    <ClInclude Include="..\AI\AIFlightRecorder.h" />
+    <ClInclude Include="..\src-ui-wx\ai\AIFlightRecorderDialog.h" />
     <ClInclude Include="..\src-ui-wx\ai\AIAudioStemExtractorDialog.h" />
     <ClInclude Include="..\src-ui-wx\ai\AIColorPaletteDialog.h" />
     <ClInclude Include="..\src-ui-wx\ai\AICustomPropDesignerDialog.h" />

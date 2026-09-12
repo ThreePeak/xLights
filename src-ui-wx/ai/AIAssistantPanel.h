@@ -38,6 +38,7 @@ private:
     void OnOpenVideoStudio(wxCommandEvent& evt);
     void OnOpenHardwareHub(wxCommandEvent& evt);
     void OnOpenDiagnosticsHub(wxCommandEvent& evt);
+    void OnOpenFlightRecorder(wxCommandEvent& evt);
 
     // Prompt Execution
     void OnExecutePrompt(wxCommandEvent& evt);

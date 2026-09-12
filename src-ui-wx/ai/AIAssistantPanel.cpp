@@ -12,6 +12,7 @@
 #include "src-ui-wx/ai/AIVideoSequenceEmulatorDialog.h"
 #include "src-ui-wx/ai/AIHardwareControllerHubDialog.h"
 #include "src-ui-wx/ai/AISequenceDiagnosticsHubDialog.h"
+#include "src-ui-wx/ai/AIFlightRecorderDialog.h"
 #include "src-ui-wx/xLightsMain.h"
 #include <wx/statbox.h>
 #include <wx/msgdlg.h>
@@ -25,6 +26,7 @@ enum {
     ID_PANEL_OPEN_VIDEO,
     ID_PANEL_OPEN_HW,
     ID_PANEL_OPEN_DIAG,
+    ID_PANEL_OPEN_RECORDER,
     ID_PANEL_EXEC_PROMPT,
     ID_PANEL_FIX_ALL
 };
@@ -35,6 +37,7 @@ BEGIN_EVENT_TABLE(AIAssistantPanel, wxPanel)
     EVT_BUTTON(ID_PANEL_OPEN_VIDEO, AIAssistantPanel::OnOpenVideoStudio)
     EVT_BUTTON(ID_PANEL_OPEN_HW, AIAssistantPanel::OnOpenHardwareHub)
     EVT_BUTTON(ID_PANEL_OPEN_DIAG, AIAssistantPanel::OnOpenDiagnosticsHub)
+    EVT_BUTTON(ID_PANEL_OPEN_RECORDER, AIAssistantPanel::OnOpenFlightRecorder)
     EVT_BUTTON(ID_PANEL_EXEC_PROMPT, AIAssistantPanel::OnExecutePrompt)
     EVT_BUTTON(ID_PANEL_FIX_ALL, AIAssistantPanel::OnFixAllClick)
 END_EVENT_TABLE()
@@ -86,7 +89,11 @@ void AIAssistantPanel::InitUI()
     hubBox->Add(btnAudio, 0, wxEXPAND | wxBOTTOM, 3);
     hubBox->Add(btnVideo, 0, wxEXPAND | wxBOTTOM, 3);
     hubBox->Add(btnHw, 0, wxEXPAND | wxBOTTOM, 3);
-    hubBox->Add(btnDiag, 0, wxEXPAND, 0);
+    hubBox->Add(btnDiag, 0, wxEXPAND | wxBOTTOM, 3);
+
+    wxButton* btnFlight = new wxButton(this, ID_PANEL_OPEN_RECORDER, wxT("⏺ Flight Recorder (PSR)"));
+    btnFlight->SetToolTip(wxT("Interactive Problem Steps Session Recorder & Diagnostic Bundle Generator"));
+    hubBox->Add(btnFlight, 0, wxEXPAND, 0);
 
     mainSizer->Add(hubBox, 0, wxEXPAND | wxALL, 6);
 
@@ -170,6 +177,12 @@ void AIAssistantPanel::OnOpenHardwareHub(wxCommandEvent& WXUNUSED(evt))
 void AIAssistantPanel::OnOpenDiagnosticsHub(wxCommandEvent& WXUNUSED(evt))
 {
     AISequenceDiagnosticsHubDialog dlg(this, m_frame);
+    dlg.ShowModal();
+}
+
+void AIAssistantPanel::OnOpenFlightRecorder(wxCommandEvent& WXUNUSED(evt))
+{
+    AIFlightRecorderDialog dlg(this);
     dlg.ShowModal();
 }
 

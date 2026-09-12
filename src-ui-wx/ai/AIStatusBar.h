@@ -25,9 +25,11 @@ private:
     void OnOpenSpotlight(wxCommandEvent& evt);
     void OnOpenVideoEmulator(wxCommandEvent& evt);
     void OnClickWarningPill(wxCommandEvent& evt);
+    void OnOpenFlightRecorder(wxCommandEvent& evt);
 
     wxButton* m_toggleBtn = nullptr;
     wxButton* m_warningPillBtn = nullptr;
+    wxButton* m_flightRecorderBtn = nullptr;
     wxCheckBox* m_alwaysVisibleCheck = nullptr;
     wxStaticText* m_modelLabel = nullptr;
     wxStaticText* m_scanLabel = nullptr;
